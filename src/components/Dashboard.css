@@ -1,0 +1,22 @@
+.ranking-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  margin-top: 8px;
+  border-top: 1px solid #dce4db;
+  color: #66767e;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ranking-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}

@@ -1,0 +1,907 @@
+{
+  "description": "Minecraft zh_cn language entries from locally installed asset indexes; original identifiers retained. No account or world data.",
+  "sources": [
+    {
+      "index": "1.12.json",
+      "asset": "minecraft/lang/zh_cn.lang",
+      "sha1": "3622414e677312c3ccd9c02cefd8e9d1d973a991"
+    },
+    {
+      "index": "1.12.json",
+      "asset": "realms/lang/zh_cn.lang",
+      "sha1": "9c36bdd1dbfcefedce66b238b91d8a3fd99d6bc5"
+    },
+    {
+      "index": "17.json",
+      "asset": "minecraft/lang/zh_cn.json",
+      "sha1": "76ff42a0d9f5c0b744b8a6134802e3c8fc5c31ce"
+    },
+    {
+      "index": "32.json",
+      "asset": "minecraft/lang/zh_cn.json",
+      "sha1": "bd03f20f0d3b5f0958f999d8e4c3e0824057b0cf"
+    }
+  ],
+  "mod_sources": [
+    {
+      "archive": "[1.21.1] SecurityCraft v1.10.2.1.jar",
+      "entries": 691,
+      "entry": "assets/securitycraft/lang/zh_cn.json"
+    },
+    {
+      "archive": "[应用机动] appliedcreate-1.21.1-1.1.7.jar",
+      "entries": 39,
+      "entry": "assets/appliedcreate/lang/zh_cn.json"
+    },
+    {
+      "archive": "actuallyadditions-1.3.26+mc1.21.1.jar",
+      "entries": 362,
+      "entry": "assets/actuallyadditions/lang/zh_cn.json"
+    },
+    {
+      "archive": "AdditionalEnchantedMiner-1.21.1-neoforge-21.1.157.jar",
+      "entries": 55,
+      "entry": "assets/quarryplus/lang/zh_cn.json"
+    },
+    {
+      "archive": "AdvancedAE-1.6.11-1.21.1.jar",
+      "entries": 68,
+      "entry": "assets/advanced_ae/lang/zh_cn.json"
+    },
+    {
+      "archive": "AdvancedPeripherals-1.21.1-0.7.62b.jar",
+      "entries": 49,
+      "entry": "assets/advancedperipherals/lang/zh_cn.json"
+    },
+    {
+      "archive": "AE2NetworkAnalyzer-1.21-2.1.5-neoforge.jar",
+      "entries": 1,
+      "entry": "assets/ae2netanalyser/lang/zh_cn.json"
+    },
+    {
+      "archive": "ae2wtlib-19.5.1.jar",
+      "entries": 8,
+      "entry": "assets/ae2wtlib/lang/zh_cn.json"
+    },
+    {
+      "archive": "aeinfinitybooster-neoforge-1.21.1-1.0.0.58.jar",
+      "entries": 2,
+      "entry": "assets/aeinfinitybooster/lang/zh_cn.json"
+    },
+    {
+      "archive": "aether-1.21.1-1.5.10-neoforge.jar",
+      "entries": 325,
+      "entry": "assets/aether/lang/zh_cn.json"
+    },
+    {
+      "archive": "allthecompressed-1.21.1-4.4.0.jar",
+      "entries": 1668,
+      "entry": "assets/allthecompressed/lang/zh_cn.json"
+    },
+    {
+      "archive": "allthemodium-3.0.1_mc_1.21.1.jar",
+      "entries": 198,
+      "entry": "assets/allthemodium/lang/zh_cn.json"
+    },
+    {
+      "archive": "alltheores-3.2.0_neoforge_1.21.1.jar",
+      "entries": 305,
+      "entry": "assets/alltheores/lang/zh_cn.json"
+    },
+    {
+      "archive": "allthetweaks-1.21.1-2.9.4.jar",
+      "entries": 16,
+      "entry": "assets/allthetweaks/lang/zh_cn.json"
+    },
+    {
+      "archive": "amendments-neoforge-1.21-2.1.7.jar",
+      "entries": 62,
+      "entry": "assets/amendments/lang/zh_cn.json"
+    },
+    {
+      "archive": "Apotheosis-1.21.1-8.6.1.jar",
+      "entries": 133,
+      "entry": "assets/apotheosis/lang/zh_cn.json"
+    },
+    {
+      "archive": "ApothicAttributes-1.21.1-2.10.1.jar",
+      "entries": 44,
+      "entry": "assets/apothic_attributes/lang/zh_cn.json"
+    },
+    {
+      "archive": "ApothicEnchanting-1.21.1-1.6.0.jar",
+      "entries": 53,
+      "entry": "assets/apothic_enchanting/lang/zh_cn.json"
+    },
+    {
+      "archive": "ApothicSpawners-1.21.1-1.4.0.jar",
+      "entries": 33,
+      "entry": "assets/apothic_spawners/lang/zh_cn.json"
+    },
+    {
+      "archive": "Applied-Mekanistics-1.6.3.jar",
+      "entries": 12,
+      "entry": "assets/appmek/lang/zh_cn.json"
+    },
+    {
+      "archive": "appliedenergistics2-19.2.17.jar",
+      "entries": 368,
+      "entry": "assets/ae2/lang/zh_cn.json"
+    },
+    {
+      "archive": "AppliedFlux-1.21-2.1.5-neoforge.jar",
+      "entries": 47,
+      "entry": "assets/appflux/lang/zh_cn.json"
+    },
+    {
+      "archive": "Aquaculture-1.21.1-2.7.21.jar",
+      "entries": 169,
+      "entry": "assets/aquaculture/lang/zh_cn.json"
+    },
+    {
+      "archive": "ars_additions-1.21.1-21.3.0.jar",
+      "entries": 64,
+      "entry": "assets/ars_additions/lang/zh_cn.json"
+    },
+    {
+      "archive": "ars_controle-1.21.1-1.6.15.jar",
+      "entries": 8,
+      "entry": "assets/ars_controle/lang/zh_cn.json"
+    },
+    {
+      "archive": "ars_creo-1.21.1-5.4.0.jar",
+      "entries": 1,
+      "entry": "assets/ars_creo/lang/zh_cn.json"
+    },
+    {
+      "archive": "ars_elemancy-1.21.1-1.18.3.jar",
+      "entries": 105,
+      "entry": "assets/ars_elemancy/lang/zh_cn.json"
+    },
+    {
+      "archive": "ars_elemental-1.21.1-0.7.10.1.jar",
+      "entries": 187,
+      "entry": "assets/ars_elemental/lang/zh_cn.json"
+    },
+    {
+      "archive": "ars_nouveau-1.21.1-5.13.0.jar",
+      "entries": 496,
+      "entry": "assets/ars_nouveau/lang/zh_cn.json"
+    },
+    {
+      "archive": "ars_ocultas-1.21.1-2.5.0.jar",
+      "entries": 1,
+      "entry": "assets/ars_ocultas/lang/zh_cn.json"
+    },
+    {
+      "archive": "ars_technica-1.21.1-2.7.6.jar",
+      "entries": 26,
+      "entry": "assets/ars_technica/lang/zh_cn.json"
+    },
+    {
+      "archive": "arseng-2.1.1-beta.jar",
+      "entries": 16,
+      "entry": "assets/arseng/lang/zh_cn.json"
+    },
+    {
+      "archive": "artifacts-neoforge-13.2.1.jar",
+      "entries": 50,
+      "entry": "assets/artifacts/lang/zh_cn.json"
+    },
+    {
+      "archive": "bellsandwhistles-0.4.7-1.21.1.jar",
+      "entries": 36,
+      "entry": "assets/bellsandwhistles/lang/zh_cn.json"
+    },
+    {
+      "archive": "botanypots-neoforge-1.21.1-21.1.44.jar",
+      "entries": 183,
+      "entry": "assets/botanypots/lang/zh_cn.json"
+    },
+    {
+      "archive": "buildinggadgets2-1.3.9.jar",
+      "entries": 9,
+      "entry": "assets/buildinggadgets2/lang/zh_cn.json"
+    },
+    {
+      "archive": "cc-tweaked-1.21.1-forge-1.113.1.jar",
+      "entries": 28,
+      "entry": "assets/computercraft/lang/zh_cn.json"
+    },
+    {
+      "archive": "cc-tweaked-1.21.1-forge-1.120.0.jar",
+      "entries": 1,
+      "entry": "assets/computercraft/lang/zh_cn.json"
+    },
+    {
+      "archive": "comforts-neoforge-9.0.5+1.21.1.jar",
+      "entries": 39,
+      "entry": "assets/comforts/lang/zh_cn.json"
+    },
+    {
+      "archive": "ConstructionSticks-1.21.1-1.4.1.jar",
+      "entries": 11,
+      "entry": "assets/constructionstick/lang/zh_cn.json"
+    },
+    {
+      "archive": "cookingforblockheads-neoforge-1.21.1-21.1.24.jar",
+      "entries": 146,
+      "entry": "assets/cookingforblockheads/lang/zh_cn.json"
+    },
+    {
+      "archive": "crafting_on_a_stick-1.21.0.6.jar",
+      "entries": 2,
+      "entry": "assets/crafting_on_a_stick/lang/zh_cn.json"
+    },
+    {
+      "archive": "create_aquatic_ambitions-1.21.1-2.0.4.jar",
+      "entries": 8,
+      "entry": "assets/create_aquatic_ambitions/lang/zh_cn.json"
+    },
+    {
+      "archive": "create_hypertube-0.6.0-NEOFORGE.jar",
+      "entries": 11,
+      "entry": "assets/create_hypertube/lang/zh_cn.json"
+    },
+    {
+      "archive": "create-1.21.1-6.0.10.jar",
+      "entries": 914,
+      "entry": "assets/create/lang/zh_cn.json"
+    },
+    {
+      "archive": "create-enchantment-industry-2.5.0.jar",
+      "entries": 45,
+      "entry": "assets/create_enchantment_industry/lang/zh_cn.json"
+    },
+    {
+      "archive": "createaddition-1.6.0.jar",
+      "entries": 143,
+      "entry": "assets/createaddition/lang/zh_cn.json"
+    },
+    {
+      "archive": "CreateDragonsPlus-1.11.3.jar",
+      "entries": 118,
+      "entry": "assets/create_dragons_plus/lang/zh_cn.json"
+    },
+    {
+      "archive": "CreeperOverhaul-neoforge-1.21.1-4.0.6.jar",
+      "entries": 29,
+      "entry": "assets/creeperoverhaul/lang/zh_cn.json"
+    },
+    {
+      "archive": "cyclopscore-1.21.1-neoforge-1.29.2.jar",
+      "entries": 1,
+      "entry": "assets/cyclopscore/lang/zh_cn.json"
+    },
+    {
+      "archive": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "entries": 204,
+      "entry": "assets/deeperdarker/lang/zh_cn.json"
+    },
+    {
+      "archive": "DimStorage-1.21.1-9.1.1.jar",
+      "entries": 6,
+      "entry": "assets/dimstorage/lang/zh_cn.json"
+    },
+    {
+      "archive": "Draconic-Evolution-1.21.1-3.1.4.632.jar",
+      "entries": 188,
+      "entry": "assets/draconicevolution/lang/zh_cn.json"
+    },
+    {
+      "archive": "dummmmmmy-neoforge-1.21-2.1.0.jar",
+      "entries": 2,
+      "entry": "assets/dummmmmmy/lang/zh_cn.json"
+    },
+    {
+      "archive": "dysoncubeproject-1.0.5.jar",
+      "entries": 7,
+      "entry": "assets/dysoncubeproject/lang/zh_cn.json"
+    },
+    {
+      "archive": "easy-villagers-neoforge-1.21.1-1.1.42.jar",
+      "entries": 10,
+      "entry": "assets/easy_villagers/lang/zh_cn.json"
+    },
+    {
+      "archive": "elevatorid-neoforge-1.21.1-1.11.4.jar",
+      "entries": 16,
+      "entry": "assets/elevatorid/lang/zh_cn.json"
+    },
+    {
+      "archive": "enderdrives-neoforge-1.21.1-1.4.4.jar",
+      "entries": 11,
+      "entry": "assets/enderdrives/lang/zh_cn.json"
+    },
+    {
+      "archive": "enderio-8.2.11-beta.jar",
+      "entries": 340,
+      "entry": "assets/enderio/lang/zh_cn.json"
+    },
+    {
+      "archive": "endermanoverhaul-neoforge-1.21.1-2.0.3.jar",
+      "entries": 67,
+      "entry": "assets/endermanoverhaul/lang/zh_cn.json"
+    },
+    {
+      "archive": "EnderStorage-1.21.1-2.13.0.191.jar",
+      "entries": 3,
+      "entry": "assets/enderstorage/lang/zh_cn.json"
+    },
+    {
+      "archive": "eternalstarlight-0.8.1+1.21.1+neoforge.jar",
+      "entries": 1216,
+      "entry": "assets/eternal_starlight/lang/zh_cn.json"
+    },
+    {
+      "archive": "evilcraft-1.21.1-neoforge-1.2.91-1002.jar",
+      "entries": 256,
+      "entry": "assets/evilcraft/lang/zh_cn.json"
+    },
+    {
+      "archive": "ExplorersCompass-1.21.1-3.4.0-neoforge.jar",
+      "entries": 1,
+      "entry": "assets/explorerscompass/lang/zh_cn.json"
+    },
+    {
+      "archive": "extended-industrialization-1.15.45-1.21.1.jar",
+      "entries": 106,
+      "entry": "assets/extended_industrialization/lang/zh_cn.json"
+    },
+    {
+      "archive": "extendedae_plus-1.5.5.jar",
+      "entries": 79,
+      "entry": "assets/extendedae_plus/lang/zh_cn.json"
+    },
+    {
+      "archive": "ExtendedAE-1.21-2.2.35-neoforge.jar",
+      "entries": 80,
+      "entry": "assets/extendedae/lang/zh_cn.json"
+    },
+    {
+      "archive": "ExtraDisks-1.21.1-4.0.15.jar",
+      "entries": 58,
+      "entry": "assets/extradisks/lang/zh_cn.json"
+    },
+    {
+      "archive": "ExtremeReactors2-1.21.1-2.4.28.jar",
+      "entries": 125,
+      "entry": "assets/bigreactors/lang/zh_cn.json"
+    },
+    {
+      "archive": "FarmersDelight-1.21.1-1.3.2.jar",
+      "entries": 237,
+      "entry": "assets/farmersdelight/lang/zh_cn.json"
+    },
+    {
+      "archive": "farmingforblockheads-neoforge-1.21.1-21.1.13.jar",
+      "entries": 11,
+      "entry": "assets/farmingforblockheads/lang/zh_cn.json"
+    },
+    {
+      "archive": "FluxNetworks-1.21.1-8.0.0.jar",
+      "entries": 11,
+      "entry": "assets/fluxnetworks/lang/zh_cn.json"
+    },
+    {
+      "archive": "forbidden_arcanus-2.6.1.jar",
+      "entries": 267,
+      "entry": "assets/forbidden_arcanus/lang/zh_cn.json"
+    },
+    {
+      "archive": "FramedBlocks-10.6.1.jar",
+      "entries": 86,
+      "entry": "assets/framedblocks/lang/zh_cn.json"
+    },
+    {
+      "archive": "ftb-library-neoforge-2101.1.34.jar",
+      "entries": 3,
+      "entry": "assets/ftblibrary/lang/zh_cn.json"
+    },
+    {
+      "archive": "ftb-quests-neoforge-2101.1.29.jar",
+      "entries": 59,
+      "entry": "assets/ftbquests/lang/zh_cn.json"
+    },
+    {
+      "archive": "ftb-ultimine-neoforge-2101.1.15.jar",
+      "entries": 2,
+      "entry": "assets/ftbultimine/lang/zh_cn.json"
+    },
+    {
+      "archive": "functionalstorage-1.21.1-1.5.8.jar",
+      "entries": 71,
+      "entry": "assets/functionalstorage/lang/zh_cn.json"
+    },
+    {
+      "archive": "GatewaysToEternity-1.21.1-5.1.0.jar",
+      "entries": 3,
+      "entry": "assets/gateways/lang/zh_cn.json"
+    },
+    {
+      "archive": "Glassential-renewed-1.21.1-3.4.5.jar",
+      "entries": 108,
+      "entry": "assets/glassential/lang/zh_cn.json"
+    },
+    {
+      "archive": "handcrafted-neoforge-1.21.1-4.0.3.jar",
+      "entries": 303,
+      "entry": "assets/handcrafted/lang/zh_cn.json"
+    },
+    {
+      "archive": "HostileNeuralNetworks-1.21.1-6.5.1.jar",
+      "entries": 10,
+      "entry": "assets/hostilenetworks/lang/zh_cn.json"
+    },
+    {
+      "archive": "iceandfire-2.0-beta.17.jar",
+      "entries": 1183,
+      "entry": "assets/iceandfire/lang/zh_cn.json"
+    },
+    {
+      "archive": "ImmersiveEngineering-1.21.1-12.4.2-194.jar",
+      "entries": 1192,
+      "entry": "assets/immersiveengineering/lang/zh_cn.json"
+    },
+    {
+      "archive": "industrialforegoing-1.21-3.6.39.jar",
+      "entries": 164,
+      "entry": "assets/industrialforegoing/lang/zh_cn.json"
+    },
+    {
+      "archive": "integrateddynamics-1.21.1-neoforge-1.33.4-1907.jar",
+      "entries": 68,
+      "entry": "assets/integrateddynamics/lang/zh_cn.json"
+    },
+    {
+      "archive": "integratedscripting-1.21.1-neoforge-1.0.24-416.jar",
+      "entries": 7,
+      "entry": "assets/integratedscripting/lang/zh_cn.json"
+    },
+    {
+      "archive": "IronJetpacks-1.21.1-8.0.11.jar",
+      "entries": 9,
+      "entry": "assets/ironjetpacks/lang/zh_cn.json"
+    },
+    {
+      "archive": "irons_jewelry-1.21.1-2.0.2.jar",
+      "entries": 13,
+      "entry": "assets/irons_jewelry/lang/zh_cn.json"
+    },
+    {
+      "archive": "irons_spellbooks-1.21.1-3.16.2.jar",
+      "entries": 396,
+      "entry": "assets/irons_spellbooks/lang/zh_cn.json"
+    },
+    {
+      "archive": "justdirethings-1.5.7.jar",
+      "entries": 206,
+      "entry": "assets/justdirethings/lang/zh_cn.json"
+    },
+    {
+      "archive": "L_Ender's Cataclysm 1.21.1-3.32.jar",
+      "entries": 472,
+      "entry": "assets/cataclysm/lang/zh_cn.json"
+    },
+    {
+      "archive": "laserio-1.9.11.jar",
+      "entries": 16,
+      "entry": "assets/laserio/lang/zh_cn.json"
+    },
+    {
+      "archive": "little-big-redstone-1.9.8-1.21.1.jar",
+      "entries": 84,
+      "entry": "assets/little_big_redstone/lang/zh_cn.json"
+    },
+    {
+      "archive": "livingthings-neoforge-1.21.1-2.3.0.jar",
+      "entries": 59,
+      "entry": "assets/livingthings/lang/zh_cn.json"
+    },
+    {
+      "archive": "lootr-neoforge-1.21.1-1.11.37.122.jar",
+      "entries": 12,
+      "entry": "assets/lootr/lang/zh_cn.json"
+    },
+    {
+      "archive": "mahoutsukai-1.21.1-v1.36.27.jar",
+      "entries": 148,
+      "entry": "assets/mahoutsukai/lang/zh_cn.json"
+    },
+    {
+      "archive": "mcw-bridges-3.1.2-mc1.21.1neoforge.jar",
+      "entries": 146,
+      "entry": "assets/mcwbridges/lang/zh_cn.json"
+    },
+    {
+      "archive": "mcw-doors-1.1.5-mc1.21.1neoforge.jar",
+      "entries": 261,
+      "entry": "assets/mcwdoors/lang/zh_cn.json"
+    },
+    {
+      "archive": "mcw-furniture-3.4.1-mc1.21.1neoforge.jar",
+      "entries": 602,
+      "entry": "assets/mcwfurnitures/lang/zh_cn.json"
+    },
+    {
+      "archive": "mcw-holidays-1.1.2-mc1.21.1neoforge.jar",
+      "entries": 334,
+      "entry": "assets/mcwholidays/lang/zh_cn.json"
+    },
+    {
+      "archive": "mcw-lights-1.1.5-mc1.21.1neoforge.jar",
+      "entries": 140,
+      "entry": "assets/mcwlights/lang/zh_cn.json"
+    },
+    {
+      "archive": "mcw-mcwfences-1.2.1-mc1.21.1neoforge.jar",
+      "entries": 180,
+      "entry": "assets/mcwfences/lang/zh_cn.json"
+    },
+    {
+      "archive": "mcw-mcwstairs-1.0.2-mc1.21.1neoforge.jar",
+      "entries": 224,
+      "entry": "assets/mcwstairs/lang/zh_cn.json"
+    },
+    {
+      "archive": "mcw-trapdoors-1.1.5-mc1.21.1neoforge.jar",
+      "entries": 199,
+      "entry": "assets/mcwtrpdoors/lang/zh_cn.json"
+    },
+    {
+      "archive": "megacells-4.11.0.jar",
+      "entries": 110,
+      "entry": "assets/megacells/lang/zh_cn.json"
+    },
+    {
+      "archive": "Mekanism-1.21.1-10.7.19.85.jar",
+      "entries": 370,
+      "entry": "assets/mekanism/lang/zh_cn.json"
+    },
+    {
+      "archive": "MekanismGenerators-1.21.1-10.7.19.85.jar",
+      "entries": 35,
+      "entry": "assets/mekanismgenerators/lang/zh_cn.json"
+    },
+    {
+      "archive": "MekanismTools-1.21.1-10.7.19.85.jar",
+      "entries": 168,
+      "entry": "assets/mekanismtools/lang/zh_cn.json"
+    },
+    {
+      "archive": "mekmm-1.21.1-1.3.3.jar",
+      "entries": 171,
+      "entry": "assets/mekmm/lang/zh_cn.json"
+    },
+    {
+      "archive": "merequester-neoforge-1.21.1-1.4.3.jar",
+      "entries": 2,
+      "entry": "assets/merequester/lang/zh_cn.json"
+    },
+    {
+      "archive": "mffs-5.4.44.jar",
+      "entries": 88,
+      "entry": "assets/mffs/lang/zh_cn.json"
+    },
+    {
+      "archive": "minecolonies-1.1.1367-1.21.1-snapshot.jar",
+      "entries": 452,
+      "entry": "assets/minecolonies/lang/zh_cn.json"
+    },
+    {
+      "archive": "mob_grinding_utils-1.1.10+mc1.21.1.jar",
+      "entries": 33,
+      "entry": "assets/mob_grinding_utils/lang/zh_cn.json"
+    },
+    {
+      "archive": "Modern-Dynamics-0.9.6.jar",
+      "entries": 8,
+      "entry": "assets/moderndynamics/lang/zh_cn.json"
+    },
+    {
+      "archive": "Modern-Industrialization-2.5.5.jar",
+      "entries": 921,
+      "entry": "assets/modern_industrialization/lang/zh_cn.json"
+    },
+    {
+      "archive": "modonomicon-1.21.1-neoforge-1.120.4.jar",
+      "entries": 1,
+      "entry": "assets/modonomicon/lang/zh_cn.json"
+    },
+    {
+      "archive": "modular-routers-13.2.7+mc1.21.1.jar",
+      "entries": 55,
+      "entry": "assets/modularrouters/lang/zh_cn.json"
+    },
+    {
+      "archive": "ModularBees-1.21.1-3.3-neoforge.jar",
+      "entries": 28,
+      "entry": "assets/modularbees/lang/zh_cn.json"
+    },
+    {
+      "archive": "moonlight-neoforge-1.21.1-3.3.0.jar",
+      "entries": 2,
+      "entry": "assets/moonlight/lang/zh_cn.json"
+    },
+    {
+      "archive": "morered-1.21.1-6.0.0.3.jar",
+      "entries": 20,
+      "entry": "assets/morered/lang/zh_cn.json"
+    },
+    {
+      "archive": "MysticalAgradditions-1.21.1-8.0.14.jar",
+      "entries": 53,
+      "entry": "assets/mysticalagradditions/lang/zh_cn.json"
+    },
+    {
+      "archive": "MysticalAgriculture-1.21.1-8.0.27.jar",
+      "entries": 245,
+      "entry": "assets/mysticalagriculture/lang/zh_cn.json"
+    },
+    {
+      "archive": "NaturesAura-41.9.jar",
+      "entries": 162,
+      "entry": "assets/naturesaura/lang/zh_cn.json"
+    },
+    {
+      "archive": "NaturesCompass-1.21.1-3.4.0-neoforge.jar",
+      "entries": 1,
+      "entry": "assets/naturescompass/lang/zh_cn.json"
+    },
+    {
+      "archive": "not_enough_glyphs-1.21.1-4.6.1.jar",
+      "entries": 14,
+      "entry": "assets/not_enough_glyphs/lang/zh_cn.json"
+    },
+    {
+      "archive": "occultism-1.21.1-neoforge-1.224.1.jar",
+      "entries": 1064,
+      "entry": "assets/occultism/lang/zh_cn.json"
+    },
+    {
+      "archive": "Oh-The-Biomes-Weve-Gone-NeoForge-2.6.0.jar",
+      "entries": 1064,
+      "entry": "assets/biomeswevegone/lang/zh_cn.json"
+    },
+    {
+      "archive": "oritech-neoforge-1.21.1-1.2.10.jar",
+      "entries": 337,
+      "entry": "assets/oritech/lang/zh_cn.json"
+    },
+    {
+      "archive": "Patchouli-1.21.1-93-NEOFORGE.jar",
+      "entries": 16,
+      "entry": "assets/patchouli/lang/zh_cn.json"
+    },
+    {
+      "archive": "pipez-neoforge-1.21.1-1.2.31.jar",
+      "entries": 12,
+      "entry": "assets/pipez/lang/zh_cn.json"
+    },
+    {
+      "archive": "pneumaticcraft-repressurized-8.2.23+mc1.21.1.jar",
+      "entries": 349,
+      "entry": "assets/pneumaticcraft/lang/zh_cn.json"
+    },
+    {
+      "archive": "potionsmaster-21.1.113-1.0.1.jar",
+      "entries": 183,
+      "entry": "assets/potionsmaster/lang/zh_cn.json"
+    },
+    {
+      "archive": "Powah-6.2.10.jar",
+      "entries": 148,
+      "entry": "assets/powah/lang/zh_cn.json"
+    },
+    {
+      "archive": "productivemetalworks-1.21.1-1.15.0.jar",
+      "entries": 203,
+      "entry": "assets/productivemetalworks/lang/zh_cn.json"
+    },
+    {
+      "archive": "pylons-1.21.1-5.4.2.jar",
+      "entries": 7,
+      "entry": "assets/pylons/lang/zh_cn.json"
+    },
+    {
+      "archive": "railcraft-reborn-1.21.1-1.2.10.jar",
+      "entries": 553,
+      "entry": "assets/railcraft/lang/zh_cn.json"
+    },
+    {
+      "archive": "rangedpumps-1.3.0.jar",
+      "entries": 8,
+      "entry": "assets/rangedpumps/lang/zh_cn.json"
+    },
+    {
+      "archive": "redstonepen-1.21-neoforge-1.11.42.jar",
+      "entries": 46,
+      "entry": "assets/redstonepen/lang/zh_cn.json"
+    },
+    {
+      "archive": "refined-types-1.21.1-0.3.2.jar",
+      "entries": 108,
+      "entry": "assets/refinedtypes/lang/zh_cn.json"
+    },
+    {
+      "archive": "refinedstorage-mekanism-integration-1.1.1.jar",
+      "entries": 18,
+      "entry": "assets/refinedstorage_mekanism_integration/lang/zh_cn.json"
+    },
+    {
+      "archive": "refinedstorage-neoforge-2.0.9.jar",
+      "entries": 158,
+      "entry": "assets/refinedstorage/lang/zh_cn.json"
+    },
+    {
+      "archive": "refinedstorage-quartz-arsenal-neoforge-1.0.8.jar",
+      "entries": 2,
+      "entry": "assets/refinedstorage_quartz_arsenal/lang/zh_cn.json"
+    },
+    {
+      "archive": "regions_unexplored-neoforge-1.21.1-0.5.9.jar",
+      "entries": 555,
+      "entry": "assets/regions_unexplored/lang/zh_cn.json"
+    },
+    {
+      "archive": "reliquary-1.21.1-2.0.77.1537.jar",
+      "entries": 209,
+      "entry": "assets/reliquary/lang/zh_cn.json"
+    },
+    {
+      "archive": "reliquified_artifacts-1.21.1-1.0.7.jar",
+      "entries": 1,
+      "entry": "assets/reliquified_artifacts/lang/zh_cn.json"
+    },
+    {
+      "archive": "restrictions-1.21-7.0.3.jar",
+      "entries": 3,
+      "entry": "assets/restrictions/lang/zh_cn.json"
+    },
+    {
+      "archive": "RootsClassic-1.21.1-1.5.7.jar",
+      "entries": 124,
+      "entry": "assets/rootsclassic/lang/zh_cn.json"
+    },
+    {
+      "archive": "sawmill-neoforge-1.21-1.7.7.jar",
+      "entries": 3,
+      "entry": "assets/sawmill/lang/zh_cn.json"
+    },
+    {
+      "archive": "silent-gear-1.21.1-neoforge-4.2.1.1.jar",
+      "entries": 292,
+      "entry": "assets/silentgear/lang/zh_cn.json"
+    },
+    {
+      "archive": "silent-lib-1.21.1-neoforge-10.6.0.jar",
+      "entries": 2,
+      "entry": "assets/silentlib/lang/zh_cn.json"
+    },
+    {
+      "archive": "simplylight-1.5.3+1.21.1-b4.jar",
+      "entries": 26,
+      "entry": "assets/simplylight/lang/zh_cn.json"
+    },
+    {
+      "archive": "solcarrot-1.21.1-1.16.6.jar",
+      "entries": 1,
+      "entry": "assets/solcarrot/lang/zh_cn.json"
+    },
+    {
+      "archive": "sophisticatedbackpacks-1.21.1-3.25.73.2020.jar",
+      "entries": 137,
+      "entry": "assets/sophisticatedbackpacks/lang/zh_cn.json"
+    },
+    {
+      "archive": "sophisticatedcore-1.21.1-1.4.80.2194.jar",
+      "entries": 11,
+      "entry": "assets/sophisticatedcore/lang/zh_cn.json"
+    },
+    {
+      "archive": "sophisticatedstorage-1.21.1-1.5.83.2017.jar",
+      "entries": 214,
+      "entry": "assets/sophisticatedstorage/lang/zh_cn.json"
+    },
+    {
+      "archive": "sophisticatedstorageinmotion-1.21.1-0.10.33.324.jar",
+      "entries": 7,
+      "entry": "assets/sophisticatedstorageinmotion/lang/zh_cn.json"
+    },
+    {
+      "archive": "starbunclemania-1.21.1-1.5.7.jar",
+      "entries": 32,
+      "entry": "assets/starbunclemania/lang/zh_cn.json"
+    },
+    {
+      "archive": "stevescarts-1.21-1.2.18-neoforge.jar",
+      "entries": 249,
+      "entry": "assets/stevescarts/lang/zh_cn.json"
+    },
+    {
+      "archive": "storagedelight-26.07.01a-1.21-neoforge.jar",
+      "entries": 133,
+      "entry": "assets/storagedelight/lang/zh_cn.json"
+    },
+    {
+      "archive": "Super Factory Manager (SFM)-MC1.21.1-4.34.0.jar",
+      "entries": 57,
+      "entry": "assets/sfm/lang/zh_cn.json"
+    },
+    {
+      "archive": "supplementaries-neoforge-1.21.1-3.8.5.jar",
+      "entries": 316,
+      "entry": "assets/supplementaries/lang/zh_cn.json"
+    },
+    {
+      "archive": "the_bumblezone-7.15.3+1.21.1-neoforge.jar",
+      "entries": 471,
+      "entry": "assets/the_bumblezone/lang/zh_cn.json"
+    },
+    {
+      "archive": "The_Undergarden-1.21.1-0.9.6.jar",
+      "entries": 329,
+      "entry": "assets/undergarden/lang/zh_cn.json"
+    },
+    {
+      "archive": "theurgy-1.21.1-neoforge-1.76.0.jar",
+      "entries": 1852,
+      "entry": "assets/theurgy/lang/zh_cn.json"
+    },
+    {
+      "archive": "tiab-neoforge-6.5.4.jar",
+      "entries": 3,
+      "entry": "assets/tiab/lang/zh_cn.json"
+    },
+    {
+      "archive": "tombstone-neoforge-1.21.1-9.5.3.jar",
+      "entries": 101,
+      "entry": "assets/tombstone/lang/zh_cn.json"
+    },
+    {
+      "archive": "ToolBelt-1.21.1-2.2.10.jar",
+      "entries": 2,
+      "entry": "assets/toolbelt/lang/zh_cn.json"
+    },
+    {
+      "archive": "torchmaster-neoforge-1.21.1-21.1.9.jar",
+      "entries": 9,
+      "entry": "assets/torchmaster/lang/zh_cn.json"
+    },
+    {
+      "archive": "transfer_labels-0.1.8.jar",
+      "entries": 5,
+      "entry": "assets/transfer_labels/lang/zh_cn.json"
+    },
+    {
+      "archive": "twilightforest-1.21.1-4.8.3345-universal.jar",
+      "entries": 1032,
+      "entry": "assets/twilightforest/lang/zh_cn.json"
+    },
+    {
+      "archive": "universalgrid-neoforge-1.21.1-0.3.2.jar",
+      "entries": 2,
+      "entry": "assets/universalgrid/lang/zh_cn.json"
+    },
+    {
+      "archive": "utilitarian-1.21.1-0.19.2.jar",
+      "entries": 60,
+      "entry": "assets/utilitarian/lang/zh_cn.json"
+    },
+    {
+      "archive": "variantsandventures-neoforge-1.0.26+mc1.21.1.jar",
+      "entries": 8,
+      "entry": "assets/variantsandventures/lang/zh_cn.json"
+    },
+    {
+      "archive": "waystones-neoforge-1.21.1-21.1.39.jar",
+      "entries": 55,
+      "entry": "assets/waystones/lang/zh_cn.json"
+    },
+    {
+      "archive": "WitherSkeletonTweaks-1.21.1-10.1.1.jar",
+      "entries": 2,
+      "entry": "assets/wstweaks/lang/zh_cn.json"
+    }
+  ]
+}

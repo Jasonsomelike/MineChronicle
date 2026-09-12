@@ -1,0 +1,17 @@
+CREATE TABLE launcher_installations (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE);
+CREATE TABLE game_roots (id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, payload TEXT NOT NULL);
+CREATE TABLE instances (id INTEGER PRIMARY KEY, launcher_id INTEGER REFERENCES launcher_installations(id), game_root_id INTEGER NOT NULL REFERENCES game_roots(id), name TEXT NOT NULL);
+CREATE TABLE worlds (id INTEGER PRIMARY KEY, game_root_id INTEGER NOT NULL REFERENCES game_roots(id), path TEXT NOT NULL UNIQUE, status TEXT NOT NULL CHECK(status IN ('Present','Degraded','Missing')), payload TEXT NOT NULL);
+CREATE TABLE instance_world_links (instance_id INTEGER NOT NULL REFERENCES instances(id), world_id INTEGER NOT NULL REFERENCES worlds(id), PRIMARY KEY(instance_id, world_id));
+CREATE TABLE players (uuid TEXT PRIMARY KEY, preferred_name TEXT, account_type TEXT NOT NULL DEFAULT 'Unknown' CHECK(account_type IN ('Online','Offline','Unknown')), name_source TEXT CHECK(name_source IN ('manual','usercache')));
+CREATE TABLE player_aliases (uuid TEXT NOT NULL REFERENCES players(uuid), name TEXT NOT NULL, source TEXT NOT NULL, PRIMARY KEY(uuid,name,source));
+CREATE TABLE world_players (world_id INTEGER NOT NULL REFERENCES worlds(id), player_uuid TEXT NOT NULL REFERENCES players(uuid), current_ticks INTEGER CHECK(current_ticks >= 0), current_stats TEXT, payload TEXT NOT NULL, PRIMARY KEY(world_id, player_uuid));
+CREATE TABLE stat_snapshots (id INTEGER PRIMARY KEY, world_id INTEGER NOT NULL REFERENCES worlds(id), player_uuid TEXT NOT NULL REFERENCES players(uuid), kind TEXT NOT NULL CHECK(kind IN ('initial_import','observation')), play_ticks INTEGER NOT NULL CHECK(play_ticks >= 0), stats TEXT NOT NULL, observed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
+CREATE UNIQUE INDEX one_initial_import ON stat_snapshots(world_id,player_uuid) WHERE kind='initial_import';
+CREATE TABLE tracked_deltas (id INTEGER PRIMARY KEY, world_id INTEGER NOT NULL REFERENCES worlds(id), player_uuid TEXT NOT NULL REFERENCES players(uuid), delta_ticks INTEGER NOT NULL CHECK(delta_ticks >= 0), observed_at TEXT NOT NULL);
+CREATE TABLE scan_runs (id INTEGER PRIMARY KEY, finished_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), issues TEXT NOT NULL);
+CREATE TABLE anomalies (id INTEGER PRIMARY KEY, scan_id INTEGER NOT NULL REFERENCES scan_runs(id), kind TEXT NOT NULL, path TEXT NOT NULL, message TEXT NOT NULL);
+CREATE TABLE clone_candidates (id INTEGER PRIMARY KEY, world_a INTEGER NOT NULL REFERENCES worlds(id), world_b INTEGER NOT NULL REFERENCES worlds(id), status TEXT NOT NULL DEFAULT 'pending', CHECK(world_a <> world_b), UNIQUE(world_a,world_b));
+CREATE TABLE world_lineages (world_id INTEGER PRIMARY KEY REFERENCES worlds(id), parent_world_id INTEGER REFERENCES worlds(id), CHECK(world_id <> parent_world_id));
+CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+PRAGMA user_version=1;

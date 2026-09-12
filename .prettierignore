@@ -1,0 +1,14 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/Cargo.lock
+src-tauri/tests/fixtures
+package-lock.json
+.dependencies-interrupted
+.package-lock-interrupted.json
+src-tauri/gen
+.local
+.playwright-cli
+output/playwright
+src-tauri/resources/stat-resources.json
+scripts/resources/stat-vanilla-entities.json

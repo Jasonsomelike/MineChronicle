@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.worktrees/
+src-tauri/target/
+*.log
+.DS_Store
+.env.local
+coverage/
+.dependencies-interrupted/
+.package-lock-interrupted.json
+src-tauri/gen/
+.cargo/config.toml
+.local/
+.playwright-cli/
+output/playwright/

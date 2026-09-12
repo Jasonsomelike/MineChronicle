@@ -1,0 +1,16 @@
+{
+  "DataVersion": 3953,
+  "stats": {
+    "minecraft:custom": { "minecraft:play_time": 216000, "minecraft:deaths": 4 },
+    "minecraft:mined": { "minecraft:stone": 128 },
+    "minecraft:crafted": { "minecraft:torch": 32 },
+    "minecraft:used": { "minecraft:diamond_pickaxe": 12 },
+    "minecraft:broken": { "minecraft:wooden_pickaxe": 1 },
+    "minecraft:picked_up": { "minecraft:dirt": 20 },
+    "minecraft:dropped": { "minecraft:dirt": 10 },
+    "minecraft:killed": { "minecraft:zombie": 7 },
+    "minecraft:killed_by": { "minecraft:skeleton": 2 },
+    "example:energy": { "example:generated": 12345, "example:details": { "unit": "FE" } }
+  },
+  "example:metadata": { "synthetic": true }
+}

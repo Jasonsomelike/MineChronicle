@@ -1,0 +1,83 @@
+{
+  "3": { "key": "minecraft:dirt", "label": "泥土", "sides": ["dirt"] },
+  "4": {
+    "key": "minecraft:cobblestone",
+    "label": "圆石",
+    "sides": ["cobblestone"]
+  },
+  "5": {
+    "key": "minecraft:oak_planks",
+    "label": "木板",
+    "sides": ["planks_oak"]
+  },
+  "12": { "key": "minecraft:sand", "label": "沙子", "sides": ["sand"] },
+  "13": { "key": "minecraft:gravel", "label": "砂砾", "sides": ["gravel"] },
+  "18": {
+    "key": "minecraft:oak_leaves",
+    "label": "树叶",
+    "sides": ["leaves_oak"],
+    "tint": 4764952
+  },
+  "24": {
+    "key": "minecraft:sandstone",
+    "label": "砂岩",
+    "sides": ["sandstone_normal", "sandstone_top", "sandstone_bottom"]
+  },
+  "31": {
+    "key": "minecraft:short_grass",
+    "label": "草丛",
+    "texture": "blocks/tallgrass",
+    "tint": 9551193
+  },
+  "50": {
+    "key": "minecraft:torch",
+    "label": "火把",
+    "texture": "blocks/torch_on"
+  },
+  "58": {
+    "key": "minecraft:crafting_table",
+    "label": "工作台",
+    "sides": [
+      "crafting_table_side",
+      "crafting_table_top",
+      "planks_oak",
+      "crafting_table_front"
+    ]
+  },
+  "81": {
+    "key": "minecraft:cactus",
+    "label": "仙人掌",
+    "sides": ["cactus_side", "cactus_top", "cactus_bottom"]
+  },
+  "161": {
+    "key": "minecraft:acacia_leaves",
+    "label": "金合欢／深色橡树树叶",
+    "sides": ["leaves_acacia"],
+    "tint": 4764952
+  },
+  "162": {
+    "key": "minecraft:acacia_log",
+    "label": "金合欢／深色橡木",
+    "sides": ["log_acacia", "log_acacia_top", "log_acacia_top"]
+  },
+  "270": {
+    "key": "minecraft:wooden_pickaxe",
+    "label": "木镐",
+    "texture": "items/wood_pickaxe"
+  },
+  "271": {
+    "key": "minecraft:wooden_axe",
+    "label": "木斧",
+    "texture": "items/wood_axe"
+  },
+  "280": {
+    "key": "minecraft:stick",
+    "label": "木棍",
+    "texture": "items/stick"
+  },
+  "397": {
+    "key": "minecraft:skeleton_skull",
+    "label": "生物头颅",
+    "texture": "items/skull_skeleton"
+  }
+}

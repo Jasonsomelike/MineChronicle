@@ -1,0 +1,52 @@
+{
+  "name": "minechronicle",
+  "private": true,
+  "version": "0.10.12",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "desktop:build": "tauri build --debug --no-bundle --features custom-protocol",
+    "desktop:package": "tauri build --bundles nsis --features custom-protocol",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "echarts": "6.1.0",
+    "lucide-react": "^1.41.0",
+    "playwright-core": "^1.63.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "overrides": {
+    "lightningcss": "1.32.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "2.11.4",
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@typescript-eslint/eslint-plugin": "8.64.0",
+    "@typescript-eslint/parser": "8.64.0",
+    "@vitejs/plugin-react": "6.0.2",
+    "@xmcl/model": "1.0.22",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "globals": "14.0.0",
+    "prettier": "2.8.8",
+    "sharp": "^0.35.4",
+    "tailwindcss": "^4.3.3",
+    "three": "0.142.0",
+    "typescript": "5.9.3",
+    "vite": "8.2.2",
+    "vitest": "3.2.7"
+  }
+}

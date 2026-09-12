@@ -1,0 +1,588 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  ArrowUpDown,
+  ChevronDown,
+  ListFilter,
+  Hand,
+  Pickaxe,
+  Hammer,
+  MousePointer2,
+  Unplug,
+  PackagePlus,
+  PackageMinus,
+  Swords,
+  Skull,
+  Ellipsis,
+} from 'lucide-react';
+import {
+  loadStatistics,
+  formatCount,
+  formatDistance,
+  formatStatistic,
+  statisticRawTitle,
+  statisticsGroups,
+} from '../lib/activity';
+import type {
+  ActivityScope,
+  StatisticsPage,
+  StatisticsSort,
+  StatisticsGroup,
+} from '../lib/activity';
+import type { ScanSummary } from '../lib/scan';
+import { formatTickTotal } from '../lib/duration';
+import ActivityFilters from './ActivityFilters';
+import StatIconPreview from './StatIconPreview';
+import type { IconSelection } from './StatIconPreview';
+import { discoverIcons, iconUrl } from '../lib/runtimeResources';
+import type { Resolution } from '../lib/runtimeResources';
+import { usePageActive } from './SessionPage';
+const groupIcons = {
+  all: ListFilter,
+  interaction: Hand,
+  mined: Pickaxe,
+  crafted: Hammer,
+  used: MousePointer2,
+  broken: Unplug,
+  picked_up: PackagePlus,
+  dropped: PackageMinus,
+  killed: Swords,
+  killed_by: Skull,
+  custom: BarChart3,
+  other: Ellipsis,
+};
+const metrics = [
+  ['play_ticks', '游玩时长'],
+  ['deaths', '死亡'],
+  ['jumps', '跳跃'],
+  ['mob_kills', '生物击杀'],
+  ['leave_game_count', '离开游戏'],
+  ['walk_cm', '步行距离'],
+  ['sprint_cm', '疾跑距离'],
+  ['fly_cm', '飞行距离'],
+];
+export default function Statistics({
+  report,
+  scope,
+  onScope,
+}: {
+  report: ScanSummary;
+  scope: ActivityScope;
+  onScope: (s: ActivityScope) => void;
+}) {
+  const pageActive = usePageActive();
+  const [mode, setMode] = useState('current'),
+    [query, setQuery] = useState(''),
+    [sort, setSort] = useState<StatisticsSort>('default'),
+    [group, setGroup] = useState<StatisticsGroup>('all'),
+    [preview, setPreview] = useState<IconSelection | null>(null),
+    [offset, setOffset] = useState(0),
+    [data, setData] = useState<StatisticsPage | null>(null),
+    [error, setError] = useState(''),
+    [loading, setLoading] = useState(true);
+  const categoryTabs = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setOffset(0);
+  }, [scope.uuids, scope.players_none]);
+  const [discovered, setDiscovered] = useState<Record<string, Resolution>>({});
+  useEffect(() => {
+    setDiscovered({});
+  }, [scope]);
+  const [resourceStatus, setResourceStatus] = useState('');
+  const [checkingResources, setCheckingResources] = useState(false);
+  const requestId = useRef(0);
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  async function checkResources() {
+    if (!data || checkingResources) return;
+    const snapshot = data;
+    const id = ++requestId.current;
+    setCheckingResources(true);
+    setResourceStatus('正在检查实例资源…');
+    await discoverIcons(snapshot.rows, true)
+      .then((result) => {
+        if (id !== requestId.current || snapshot !== dataRef.current) return;
+        setDiscovered((old) => ({ ...old, ...result }));
+        setResourceStatus(
+          `本页匹配 ${
+            Object.values(result).filter((r) => r.image).length
+          } 项本地资源图标`,
+        );
+      })
+      .catch(() => {
+        if (id === requestId.current)
+          setResourceStatus('本地资源检查失败，可重试');
+      })
+      .finally(() => {
+        if (id === requestId.current) setCheckingResources(false);
+      });
+  }
+  useEffect(() => {
+    // Invalidates results from an old page without initiating any resource work.
+    requestId.current++;
+    setCheckingResources(false);
+    setResourceStatus('');
+  }, [data]);
+  useEffect(() => {
+    if (!pageActive) setPreview(null);
+  }, [pageActive]);
+  const categoryTotal =
+    data?.categories.reduce((total, category) => total + category.count, 0) ??
+    0;
+  const loadedQuery = useRef('');
+  useEffect(() => {
+    if (!pageActive) return;
+    const signature = JSON.stringify({
+      scope,
+      mode,
+      query,
+      offset,
+      sort,
+      group,
+      scan: report.last_scan,
+    });
+    if (signature === loadedQuery.current) {
+      setLoading(false);
+      setError('');
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    setError('');
+    const timer = setTimeout(() => {
+      void loadStatistics({ ...scope, mode, query, offset, sort, group })
+        .then((d) => {
+          if (!active) return;
+          const lastOffset =
+            Math.max(0, Math.ceil(d.total / d.page_size) - 1) * d.page_size;
+          if (offset > lastOffset) setOffset(lastOffset);
+          else {
+            loadedQuery.current = signature;
+            setData(d);
+          }
+        })
+        .catch((e) => {
+          if (active) setError(String(e));
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    }, 150);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [scope, mode, query, offset, sort, group, report.last_scan, pageActive]);
+  return (
+    <section className="statistics" aria-label="更多统计">
+      <div className="library-heading">
+        <h2>
+          <BarChart3 size={18} />
+          更多统计
+        </h2>
+        <span>{data?.sources ?? 0} 份有效玩家统计</span>
+      </div>
+      <ActivityFilters
+        report={report}
+        scope={scope}
+        onChange={(s) => {
+          setOffset(0);
+          onScope(s);
+        }}
+      />
+      <div className="statistics-context">
+        <button
+          type="button"
+          className="secondary-button"
+          title="手动检查本页本地模型与贴图，不会重新扫描统计；文件变化最多30秒后生效"
+          disabled={loading || !data || checkingResources}
+          onClick={() => void checkResources()}
+        >
+          {checkingResources ? '正在检查游戏图标…' : '检查本页游戏图标'}
+        </button>
+        {resourceStatus && !checkingResources ? (
+          <span role="status">{resourceStatus}</span>
+        ) : null}
+        <div className="health-tabs" role="tablist" aria-label="统计口径">
+          {[
+            ['current', '最近存档读数'],
+            ['initial', '首次导入历史'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={mode === id}
+              onClick={() => {
+                setMode(id);
+                setOffset(0);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {data?.unavailable ? (
+          <span className="stat-unavailable">
+            {data.unavailable} 份来源暂不可读
+          </span>
+        ) : null}
+      </div>
+      {error ? (
+        <p role="alert" className="scan-error">
+          {error}
+        </p>
+      ) : null}
+      <details className="statistics-overview">
+        <summary>
+          <ChevronDown size={16} />
+          <span>统计概览</span>
+          <strong>
+            {data?.sources
+              ? formatTickTotal(data.counters.play_ticks ?? '0')
+              : '暂无数据'}
+          </strong>
+          <span className="stat-overview-caption">
+            {data?.sources ?? 0} 份统计
+          </span>
+        </summary>
+        <p className="scan-note">
+          {mode === 'current'
+            ? '不含已缺失世界和当前不可读来源。'
+            : '首次有效导入时的累计读数。'}
+          共享根目录只计算一次，复制世界尚未去重。
+        </p>
+        <div className="statistics-metrics">
+          {metrics.map(([key, label]) => (
+            <div key={key}>
+              <span>{label}</span>
+              <strong>
+                {loading || error
+                  ? '…'
+                  : !data?.sources
+                  ? '暂无数据'
+                  : key === 'play_ticks'
+                  ? formatTickTotal(data.counters[key] ?? '0')
+                  : key.endsWith('_cm')
+                  ? formatDistance(data.counters[key] ?? '0')
+                  : `${formatCount(data.counters[key] ?? '0')} 次`}
+              </strong>
+            </div>
+          ))}
+        </div>
+      </details>
+      <div
+        className="statistics-categories"
+        ref={categoryTabs}
+        role="tablist"
+        aria-label="统计类别"
+      >
+        {statisticsGroups.map(([id, label], index) => {
+          const Icon = groupIcons[id];
+          const count =
+            id === 'all'
+              ? categoryTotal
+              : data?.categories.find((category) => category.id === id)
+                  ?.count ?? 0;
+          return (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={group === id}
+              tabIndex={group === id ? 0 : -1}
+              key={id}
+              onClick={() => {
+                setGroup(id);
+                setOffset(0);
+              }}
+              onKeyDown={(event) => {
+                const direction =
+                  event.key === 'ArrowRight'
+                    ? 1
+                    : event.key === 'ArrowLeft'
+                    ? -1
+                    : 0;
+                if (!direction && event.key !== 'Home' && event.key !== 'End')
+                  return;
+                event.preventDefault();
+                const next =
+                  event.key === 'Home'
+                    ? 0
+                    : event.key === 'End'
+                    ? statisticsGroups.length - 1
+                    : (index + direction + statisticsGroups.length) %
+                      statisticsGroups.length;
+                setGroup(statisticsGroups[next][0]);
+                setOffset(0);
+                const tabs =
+                  categoryTabs.current?.querySelectorAll<HTMLButtonElement>(
+                    'button',
+                  );
+                tabs?.item(next).focus();
+              }}
+            >
+              <Icon size={15} />
+              <span>{label}</span>
+              <small title={`${count.toLocaleString('zh-CN')} 项`}>
+                {new Intl.NumberFormat('zh-CN', {
+                  notation: 'compact',
+                  maximumFractionDigits: 1,
+                }).format(count)}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+      <div className="library-toolbar statistics-toolbar">
+        <label>
+          <Search size={15} />
+          <input
+            aria-label="搜索统计分类或键"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOffset(0);
+            }}
+            placeholder="钻石矿石、跳跃或模组 ID"
+          />
+        </label>
+        <span className="stat-results-count" aria-live="polite">
+          {loading
+            ? '读取中…'
+            : `${data?.total.toLocaleString('zh-CN') ?? 0} 项`}
+        </span>
+      </div>
+      {!error && data ? (
+        <div
+          className={`statistics-table${loading ? ' is-loading' : ''}`}
+          aria-busy={loading}
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>分类 / 统计键</th>
+                <th
+                  aria-sort={
+                    sort === 'value_desc'
+                      ? 'descending'
+                      : sort === 'value_asc'
+                      ? 'ascending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    className="stat-sort-heading"
+                    title={
+                      sort === 'value_desc'
+                        ? '当前降序；切换为升序（按原始读数）'
+                        : sort === 'value_asc'
+                        ? '当前升序；恢复默认顺序'
+                        : '当前默认顺序；切换为降序（按原始读数）'
+                    }
+                    onClick={() => {
+                      setSort(
+                        sort === 'default'
+                          ? 'value_desc'
+                          : sort === 'value_desc'
+                          ? 'value_asc'
+                          : 'default',
+                      );
+                      setOffset(0);
+                    }}
+                  >
+                    读数{' '}
+                    {sort === 'value_desc' ? (
+                      <ArrowDownWideNarrow size={15} />
+                    ) : sort === 'value_asc' ? (
+                      <ArrowUpNarrowWide size={15} />
+                    ) : (
+                      <ArrowUpDown size={15} />
+                    )}
+                  </button>
+                </th>
+                <th>来源</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.rows.map((row) => {
+                const resource =
+                  row.resources?.find((r) => r.icon) ?? row.resources?.[0];
+                const local = discovered[`${row.category}:${row.key}`];
+                const icon = local?.image
+                  ? {
+                      image: local.image,
+                      size: 32,
+                      width: local.width,
+                      height: local.height,
+                      kind: local.kind ?? 'item',
+                      source: local.source,
+                    }
+                  : resource?.icon;
+                const isAir = row.key === 'minecraft:air';
+                return (
+                  <tr key={`${row.category}:${row.key}`}>
+                    <td>
+                      <div className="stat-identity">
+                        {icon ? (
+                          <button
+                            type="button"
+                            className="stat-icon"
+                            title={`查看${row.label ?? row.key}图标`}
+                            aria-label={`查看${row.label ?? row.key}图标`}
+                            onClick={() =>
+                              setPreview({ label: row.label ?? row.key, icon })
+                            }
+                          >
+                            <img
+                              className={`stat-sprite${
+                                icon.kind === 'item' ? ' pixel-texture' : ''
+                              }`}
+                              src={iconUrl(icon.image)}
+                              onLoad={(e) => {
+                                if (local?.image && !local.width) {
+                                  const {
+                                    naturalWidth: width,
+                                    naturalHeight: height,
+                                  } = e.currentTarget;
+                                  setDiscovered((old) => ({
+                                    ...old,
+                                    [`${row.category}:${row.key}`]: {
+                                      ...local,
+                                      width,
+                                      height,
+                                    },
+                                  }));
+                                }
+                              }}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = '/stat-fallback.svg';
+                              }}
+                              width={icon.width ?? icon.size}
+                              height={icon.height ?? icon.size}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </button>
+                        ) : (
+                          <span
+                            className="stat-icon stat-icon-missing"
+                            title={
+                              isAir
+                                ? '空气（无可见材质）'
+                                : `MC占位图标 · ${
+                                    local?.reason ?? '尚未找到可用游戏模型'
+                                  }`
+                            }
+                            aria-hidden="true"
+                          >
+                            <img
+                              src="/stat-fallback.svg"
+                              width={32}
+                              height={32}
+                              alt=""
+                            />
+                          </span>
+                        )}
+                        <div className="stat-description">
+                          <small title={row.category}>
+                            {row.category_label ?? row.category} ·{' '}
+                            {row.key.includes(':')
+                              ? row.key.split(':')[0]
+                              : 'Minecraft'}
+                          </small>
+                          <strong className="stat-label">
+                            {row.label ?? resource?.english ?? row.key}
+                          </strong>
+                          <code>{row.key}</code>
+                          {row.resources?.some(
+                            (r) => r.origin === 'reviewed',
+                          ) ? (
+                            <small className="stat-supplement">补充译名</small>
+                          ) : null}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      {row.value !== null ? (
+                        <span
+                          className="stat-reading"
+                          title={statisticRawTitle(row.value, row.unit)}
+                        >
+                          {formatStatistic(row.value, row.unit)}
+                        </span>
+                      ) : (
+                        <details>
+                          <summary>
+                            {row.category === 'extra' ? '原始值' : '非整数数据'}
+                          </summary>
+                          {row.samples.map((s, i) => (
+                            <pre key={i}>{s}</pre>
+                          ))}
+                        </details>
+                      )}
+                    </td>
+                    <td>
+                      <details className="stat-provenance">
+                        <summary>{row.sources} 份</summary>
+                        <div>{row.source_packs?.join('、') || '本地世界'}</div>
+                        {row.resources?.map((r, i) => (
+                          <div key={i}>
+                            {row.resources.length > 1 ? (
+                              <b>
+                                {r.label ?? r.english} · {r.packs.join('、')}
+                              </b>
+                            ) : null}
+                            <span>
+                              {r.translation_source ?? '未找到可用语言资源'}
+                            </span>
+                            {r.english && r.english !== r.label ? (
+                              <span>{r.english}</span>
+                            ) : null}
+                          </div>
+                        ))}
+                      </details>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {!data?.rows.length ? <p>没有匹配的统计。</p> : null}
+        </div>
+      ) : null}
+      {data && data.total > data.page_size ? (
+        <div className="pagination">
+          <button
+            title="上一页"
+            aria-label="上一页"
+            disabled={loading || offset === 0}
+            onClick={() => setOffset(Math.max(0, offset - data.page_size))}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <span>
+            {Math.floor(offset / data.page_size) + 1} /{' '}
+            {Math.ceil(data.total / data.page_size)}
+          </span>
+          <button
+            title="下一页"
+            aria-label="下一页"
+            disabled={loading || offset + data.page_size >= data.total}
+            onClick={() => setOffset(offset + data.page_size)}
+          >
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      ) : null}
+      {preview ? (
+        <StatIconPreview selection={preview} onClose={() => setPreview(null)} />
+      ) : null}
+    </section>
+  );
+}
