@@ -2,9 +2,9 @@
 pub mod activity;
 pub mod health;
 pub mod read_models;
+pub mod sessions;
 pub mod storage;
 pub mod tracking;
-pub mod sessions;
 use read_models::{PlayerSummary, RootSummary, ScanSummary, WorldSummary};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::{

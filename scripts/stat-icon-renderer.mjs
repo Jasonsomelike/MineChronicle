@@ -214,6 +214,22 @@ async function render(job) {
 }
 export async function renderRuntime(job) {
   try {
+    if (job.kind === 'frame' && job.frameHeight && job.layers?.[0]) {
+      const source = await image(job.layers[0]);
+      const height = Math.max(1, Math.min(job.frameHeight, source.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = source.width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      context.imageSmoothingEnabled = false;
+      context.drawImage(source, 0, 0, source.width, height, 0, 0, canvas.width, canvas.height);
+      return {
+        image: canvas.toDataURL('image/png'),
+        width: canvas.width,
+        height: canvas.height,
+        kind: 'item',
+      };
+    }
     if (job.layers && !job.entityModel && !job.entityParts) {
       const layers = await Promise.all(job.layers.map(image));
       const canvas = document.createElement('canvas');

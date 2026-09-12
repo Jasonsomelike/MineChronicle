@@ -1,15 +1,16 @@
 pub mod commands;
 pub mod database;
+mod desktop;
 pub mod domain;
 pub mod launcher;
 pub mod minecraft;
 pub mod scanner;
 pub mod tracker;
-mod desktop;
 
 pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
         .manage(commands::ScanControl::default())
+        .manage(minecraft::runtime_resources::IconCacheDir::default())
         .invoke_handler(tauri::generate_handler![
             commands::phase_status,
             commands::scan_game_roots,
@@ -37,19 +38,25 @@ pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
             commands::statistics,
             commands::startup_status,
             commands::set_startup_enabled,
-            minecraft::runtime_resources::resolve_stat_icons
+            minecraft::runtime_resources::resolve_stat_icons,
+            minecraft::runtime_resources::store_stat_icon
         ])
 }
 
 pub fn run() -> tauri::Result<()> {
     use tauri::Manager;
     #[cfg(windows)]
-    let Some(_instance) = desktop::single_instance()? else { return Ok(()); };
+    let Some(_instance) = desktop::single_instance()?
+    else {
+        return Ok(());
+    };
     configure(tauri::Builder::default())
         .setup(|app| {
             desktop::install(app)?;
             let directory = app.path().app_data_dir()?;
             std::fs::create_dir_all(&directory)?;
+            app.state::<minecraft::runtime_resources::IconCacheDir>()
+                .set(Some(directory.join("stat-icon-cache")));
             let path = database::storage::archive_path(&directory)
                 .map_err(|e| std::io::Error::other(e.to_string()))?;
             database::Repository::open(&path).map_err(|e| std::io::Error::other(e.to_string()))?;
@@ -65,10 +72,10 @@ pub fn run() -> tauri::Result<()> {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 // Hide only after successful tray initialization in setup.
-                if window.app_handle().tray_by_id("minechronicle").is_some() {
-                    if window.hide().is_ok() {
-                        api.prevent_close();
-                    }
+                if window.app_handle().tray_by_id("minechronicle").is_some()
+                    && window.hide().is_ok()
+                {
+                    api.prevent_close();
                 }
             }
         })

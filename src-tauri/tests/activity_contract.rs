@@ -45,7 +45,7 @@ fn combinations_union_deduplicate_and_preserve_none() -> TestResult {
     if worlds.is_empty() {
         // Imported history is deliberately excluded from the timeline.
         worlds = GameRootScanner::default()
-            .scan(&[root.clone()], |_| true)
+            .scan(std::slice::from_ref(&root), |_| true)
             .roots
             .iter()
             .flat_map(|r| {

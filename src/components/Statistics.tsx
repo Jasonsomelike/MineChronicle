@@ -129,6 +129,29 @@ export default function Statistics({
     setResourceStatus('');
   }, [data]);
   useEffect(() => {
+    if (!pageActive || !data) return;
+    const missing = data.rows.filter(
+      (row) =>
+        row.key !== 'minecraft:air' &&
+        !row.resources?.some((resource) => resource.icon),
+    );
+    if (!missing.length) return;
+    const id = ++requestId.current;
+    setResourceStatus('正在从本机实例补齐图标…');
+    void discoverIcons(missing, false)
+      .then((result) => {
+        if (id !== requestId.current || !result) return;
+        const found = Object.values(result).filter((entry) => entry.image).length;
+        if (!found) return;
+        setDiscovered((old) => ({ ...old, ...result }));
+        setResourceStatus(`已自动匹配 ${found} 项本地资源图标`);
+      })
+      .catch(() => {
+        if (id === requestId.current)
+          setResourceStatus('本地资源自动补齐失败，可手动检查');
+      });
+  }, [data, pageActive]);
+  useEffect(() => {
     if (!pageActive) setPreview(null);
   }, [pageActive]);
   const categoryTotal =

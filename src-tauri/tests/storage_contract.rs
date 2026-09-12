@@ -12,7 +12,11 @@ fn moves_archive_without_losing_aliases_and_keeps_source_backup() -> Result {
     Repository::open(&source)?.set_alias("00000000-0000-4000-8000-000000000001", "Builder")?;
     let mut repo = Repository::open(&source)?;
     repo.set_setting("self_player_identity", "Builder")?;
-    repo.observe_instances(&[minechronicle_lib::launcher::running::ActiveInstance { game_root: temp.path().join("game"), name: "Persistent instance".into(), pids: vec![123] }])?;
+    repo.observe_instances(&[minechronicle_lib::launcher::running::ActiveInstance {
+        game_root: temp.path().join("game"),
+        name: "Persistent instance".into(),
+        pids: vec![123],
+    }])?;
     repo.observe_instances(&[])?;
     drop(repo);
     let before = std::fs::read(&source)?;
@@ -20,7 +24,10 @@ fn moves_archive_without_losing_aliases_and_keeps_source_backup() -> Result {
     assert_eq!(migrate_archive(&app, &target)?, target);
     assert_eq!(archive_path(&app)?, target);
     let repo = Repository::open(&target)?;
-    assert_eq!(repo.setting("self_player_identity")?.as_deref(), Some("Builder"));
+    assert_eq!(
+        repo.setting("self_player_identity")?.as_deref(),
+        Some("Builder")
+    );
     assert_eq!(repo.observed_sessions()?.len(), 1);
     assert_eq!(repo.observed_sessions()?[0].status, "closed");
     drop(repo);

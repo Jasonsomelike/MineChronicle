@@ -4,11 +4,17 @@ use crate::{
 };
 use tauri::State;
 #[tauri::command]
-pub async fn observed_sessions(database: State<'_, DatabaseState>) -> Result<Vec<crate::database::sessions::ObservedSession>, String> {
+pub async fn observed_sessions(
+    database: State<'_, DatabaseState>,
+) -> Result<Vec<crate::database::sessions::ObservedSession>, String> {
     let path = database.path.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        Repository::open(&path).and_then(|r| r.observed_sessions()).map_err(|e| e.to_string())
-    }).await.map_err(|e| e.to_string())?
+        Repository::open(&path)
+            .and_then(|r| r.observed_sessions())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 pub fn tracking_status(tracker: State<'_, Tracker>) -> TrackerStatus {

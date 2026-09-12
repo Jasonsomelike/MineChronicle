@@ -11,6 +11,22 @@ use std::{
     time::{Duration, Instant, UNIX_EPOCH},
 };
 
+const CACHE_KEY_LEN: usize = 64;
+
+#[derive(Clone, Default)]
+pub struct IconCacheDir(pub std::sync::Arc<Mutex<Option<PathBuf>>>);
+
+impl IconCacheDir {
+    pub fn set(&self, path: Option<PathBuf>) {
+        if let Ok(mut slot) = self.0.lock() {
+            *slot = path;
+        }
+    }
+    pub fn get(&self) -> Option<PathBuf> {
+        self.0.lock().ok().and_then(|slot| slot.clone())
+    }
+}
+
 const MAX_ASSET: u64 = 8 * 1024 * 1024;
 #[derive(Clone)]
 struct Asset {
@@ -45,6 +61,121 @@ fn missing(reason: impl Into<String>) -> Resolution {
         reason: reason.into(),
         job: None,
     }
+}
+
+fn cache_key(root: &str, signature: &str, category: &str, key: &str) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(root.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(signature.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(category.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(key.as_bytes());
+    hasher.finalize().to_hex().to_string()
+}
+
+fn is_cache_key(key: &str) -> bool {
+    key.len() == CACHE_KEY_LEN && key.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn cache_files(dir: &Path, key: &str) -> Option<(PathBuf, PathBuf)> {
+    if !is_cache_key(key) {
+        return None;
+    }
+    Some((
+        dir.join(format!("{key}.png")),
+        dir.join(format!("{key}.json")),
+    ))
+}
+
+fn png_is_valid(bytes: &[u8]) -> bool {
+    bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+}
+
+fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.len() < 24 || !png_is_valid(bytes) {
+        return None;
+    }
+    let width = u32::from_be_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
+    let height = u32::from_be_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
+    if width == 0 || height == 0 {
+        return None;
+    }
+    Some((width, height))
+}
+
+fn read_icon_cache(dir: &Path, key: &str) -> Option<Resolution> {
+    let (png_path, meta_path) = cache_files(dir, key)?;
+    let bytes = fs::read(png_path).ok()?;
+    if !png_is_valid(&bytes) {
+        return None;
+    }
+    let meta: Value = serde_json::from_slice(&fs::read(meta_path).ok()?).ok()?;
+    let source = meta
+        .get("source")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    Some(Resolution {
+        image: Some(format!("data:image/png;base64,{}", STANDARD.encode(bytes))),
+        source,
+        reason: "本地缓存图标".into(),
+        job: None,
+    })
+}
+
+fn write_icon_cache(
+    dir: &Path,
+    key: &str,
+    png: &[u8],
+    size: (u32, u32),
+    kind: &str,
+    source: &str,
+    reason: &str,
+) -> bool {
+    let (width, height) = size;
+    let Some((png_path, meta_path)) = cache_files(dir, key) else {
+        return false;
+    };
+    if png_size(png).is_none() || width == 0 || height == 0 || width > 2048 || height > 2048 {
+        return false;
+    }
+    if fs::create_dir_all(dir).is_err() {
+        return false;
+    }
+    if fs::write(&png_path, png).is_err() {
+        return false;
+    }
+    let meta = serde_json::json!({
+        "source": source,
+        "reason": reason,
+        "width": width,
+        "height": height,
+        "kind": kind,
+    });
+    match serde_json::to_vec(&meta) {
+        Ok(json) => fs::write(&meta_path, json).is_ok(),
+        Err(_) => {
+            let _ = fs::remove_file(&png_path);
+            false
+        }
+    }
+}
+
+fn data_url_png(image: &str) -> Option<Vec<u8>> {
+    let body = image.strip_prefix("data:image/png;base64,")?;
+    STANDARD.decode(body).ok()
+}
+
+fn attach_job_meta(mut resolution: Resolution, key: &str, root: &str) -> Resolution {
+    if let Some(job) = resolution.job.as_mut() {
+        if let Some(object) = job.as_object_mut() {
+            object.insert("cacheKey".into(), Value::String(key.into()));
+            object.insert("root".into(), Value::String(root.into()));
+        }
+    }
+    resolution
 }
 
 fn children(path: &Path) -> Vec<PathBuf> {
@@ -334,11 +465,89 @@ fn texture_data(index: &Index, reference: &str) -> Option<String> {
         return None;
     }
     let (bytes, _) = read(index, &path)?;
-    if !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+    if !png_is_valid(&bytes) {
         return None;
     }
     Some(format!("data:image/png;base64,{}", STANDARD.encode(bytes)))
 }
+
+fn animation_frame_height(index: &Index, png_path: &str, width: u32, height: u32) -> u32 {
+    let default = if height >= width && height.is_multiple_of(width) {
+        width
+    } else {
+        height.max(1)
+    };
+    let Some(meta) = json(index, &format!("{png_path}.mcmeta")) else {
+        return default;
+    };
+    let Some(anim) = meta.get("animation") else {
+        return default;
+    };
+    if let Some(frame_height) = anim.get("frame_height").and_then(Value::as_u64) {
+        if frame_height > 0 && frame_height <= u64::from(height) {
+            return frame_height as u32;
+        }
+    }
+    default
+}
+
+fn animated_texture_job(index: &Index, png_path: &str) -> Option<Resolution> {
+    let (bytes, source) = read(index, png_path)?;
+    let (width, height) = png_size(&bytes)?;
+    let frame_height = animation_frame_height(index, png_path, width, height);
+    if frame_height == 0 || frame_height > height {
+        return None;
+    }
+    Some(Resolution {
+        image: None,
+        source,
+        reason: "自动提取动画材质首帧".into(),
+        job: Some(serde_json::json!({
+            "kind": "frame",
+            "layers": [format!("data:image/png;base64,{}", STANDARD.encode(bytes))],
+            "frameHeight": frame_height,
+        })),
+    })
+}
+
+fn pick_entity_path<'a>(paths: &[&'a String], key_name: &str) -> Option<&'a String> {
+    if paths.is_empty() {
+        return None;
+    }
+    let preferred: Vec<&String> = paths
+        .iter()
+        .copied()
+        .filter(|p| p.contains(&format!("/geo/entity/{key_name}")))
+        .collect();
+    let preferred = if preferred.is_empty() {
+        paths
+            .iter()
+            .copied()
+            .filter(|p| {
+                p.contains(key_name)
+                    && !p.contains("overlay")
+                    && !p.contains("/layer")
+                    && !p.ends_with("_spawn.geo.json")
+            })
+            .collect()
+    } else {
+        preferred
+    };
+    if preferred.len() == 1 {
+        return preferred.into_iter().next();
+    }
+    let mut sorted = if preferred.is_empty() {
+        paths.to_vec()
+    } else {
+        preferred
+    };
+    sorted.sort();
+    if sorted.len() > 1 {
+        return None;
+    }
+    sorted.into_iter().next()
+}
+
 fn entity(index: &Index, key: &str) -> Resolution {
     let Some((ns, name)) = key.split_once(':') else {
         return missing("非法生物标识");
@@ -359,10 +568,17 @@ fn entity(index: &Index, key: &str) -> Resolution {
                 && p.ends_with(&format!("/{name}.png"))
         })
         .collect();
-    if geometries.len() != 1 || skins.len() != 1 {
+    let Some(geometry_path) = pick_entity_path(&geometries, name) else {
         return missing("生物几何与皮肤不能唯一配对；需要Java渲染器绑定或专用适配器");
-    }
-    let Some(geometry) = json(index, geometries[0]) else {
+    };
+    let skin_path = match pick_entity_path(&skins, name) {
+        Some(path) => path,
+        None if skins.len() == 1 => skins[0],
+        None => {
+            return missing("生物几何与皮肤不能唯一配对；需要Java渲染器绑定或专用适配器");
+        }
+    };
+    let Some(geometry) = json(index, geometry_path) else {
         return missing("生物几何JSON不可读");
     };
     let Some(models) = geometry.get("minecraft:geometry").and_then(Value::as_array) else {
@@ -384,7 +600,7 @@ fn entity(index: &Index, key: &str) -> Resolution {
     {
         return missing("生物几何复杂度超限");
     }
-    let Some((bytes, source)) = read(index, skins[0]) else {
+    let Some((bytes, source)) = read(index, skin_path) else {
         return missing("生物皮肤不可读");
     };
     let width = model
@@ -395,12 +611,12 @@ fn entity(index: &Index, key: &str) -> Resolution {
         .pointer("/description/texture_height")
         .and_then(Value::as_u64)
         .unwrap_or(0);
-    if width == 0 || height == 0 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+    if width == 0 || height == 0 || !png_is_valid(&bytes) {
         return missing("生物材质尺寸或PNG无效");
     }
     Resolution {
         image: None,
-        source: format!("{source} · {}", geometries[0]),
+        source: format!("{source} · {geometry_path}"),
         reason: "自动配对同标识生物几何和原始皮肤（静态姿态）".into(),
         job: Some(
             serde_json::json!({"entityModel":{"format":"bedrock","textureWidth":width,"textureHeight":height,"bones":bones},"layers":[format!("data:image/png;base64,{}", STANDARD.encode(bytes))]}),
@@ -422,10 +638,19 @@ fn resolve(index: &Index, key: &str, category: &str) -> Resolution {
             return missing("新版复合物品定义需要专用适配器");
         }
     }
-    let path = match asset_path(&id, "models", "json") {
+    let mut path = match asset_path(&id, "models", "json") {
         Some(p) => p,
         None => return missing("非法资源标识"),
     };
+    if !index.assets.contains_key(&path) {
+        let block_id = format!("{ns}:block/{name}");
+        if let Some(block_path) =
+            asset_path(&block_id, "models", "json").filter(|p| index.assets.contains_key(p))
+        {
+            id = block_id;
+            path = block_path;
+        }
+    }
     let texture = if index.assets.contains_key(&path) {
         let value = match model(index, &id, &mut Vec::new()) {
             Ok(v) => v,
@@ -515,12 +740,15 @@ fn resolve(index: &Index, key: &str, category: &str) -> Resolution {
         return missing("非法材质标识");
     };
     if index.assets.contains_key(&format!("{path}.mcmeta")) {
-        return missing("动画材质需要帧提取，保留已有图标");
+        if let Some(resolution) = animated_texture_job(index, &path) {
+            return resolution;
+        }
+        return missing("动画材质无法提取首帧，保留已有图标");
     }
     let Some((bytes, source)) = read(index, &path) else {
         return missing("未找到同标识物品材质；可能由Java动态生成");
     };
-    if !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+    if !png_is_valid(&bytes) {
         return missing("材质不是有效PNG");
     }
     Resolution {
@@ -530,8 +758,79 @@ fn resolve(index: &Index, key: &str, category: &str) -> Resolution {
         job: None,
     }
 }
+
+fn store_resolution_image(dir: &Path, key: &str, answer: &Resolution) {
+    let (Some(image), None) = (&answer.image, &answer.job) else {
+        return;
+    };
+    let Some(bytes) = data_url_png(image) else {
+        return;
+    };
+    let Some((width, height)) = png_size(&bytes) else {
+        return;
+    };
+    write_icon_cache(
+        dir,
+        key,
+        &bytes,
+        (width, height),
+        "item",
+        &answer.source,
+        &answer.reason,
+    );
+}
+
+#[derive(Deserialize)]
+pub struct StoreIconRequest {
+    pub cache_key: String,
+    pub png: String,
+    pub width: u32,
+    pub height: u32,
+    pub kind: String,
+    pub source: String,
+    pub reason: String,
+}
+
+#[tauri::command]
+pub async fn store_stat_icon(
+    cache_state: tauri::State<'_, IconCacheDir>,
+    request: StoreIconRequest,
+) -> Result<bool, String> {
+    let Some(dir) = cache_state.get() else {
+        return Ok(false);
+    };
+    let Some(bytes) = data_url_png(&request.png).or_else(|| STANDARD.decode(&request.png).ok())
+    else {
+        return Err("图标不是有效的PNG base64".into());
+    };
+    if bytes.len() as u64 > 2 * 1024 * 1024 {
+        return Err("图标过大".into());
+    }
+    let Some((width, height)) = png_size(&bytes) else {
+        return Err("图标不是有效PNG".into());
+    };
+    if request.width != width || request.height != height {
+        return Err("图标尺寸与像素不一致".into());
+    }
+    let kind = if request.kind.is_empty() {
+        "item".to_string()
+    } else {
+        request.kind
+    };
+    Ok(write_icon_cache(
+        &dir,
+        &request.cache_key,
+        &bytes,
+        (width, height),
+        &kind,
+        &request.source,
+        &request.reason,
+    ))
+}
+
 #[tauri::command]
 pub async fn resolve_stat_icons(
+    cache_state: tauri::State<'_, IconCacheDir>,
     requests: Vec<Request>,
 ) -> Result<BTreeMap<String, Resolution>, String> {
     if requests.len() > 100
@@ -541,6 +840,7 @@ pub async fn resolve_stat_icons(
     {
         return Err("资源请求超过上限".into());
     }
+    let cache_dir = cache_state.get();
     tauri::async_runtime::spawn_blocking(move || {
         let mut cache = CACHE
             .get_or_init(Default::default)
@@ -590,11 +890,23 @@ pub async fn resolve_stat_icons(
                 {
                     continue;
                 }
+                let key_hash = cache_key(&root, &index.signature, &category, &key);
+                if let Some(dir) = cache_dir.as_ref() {
+                    if let Some(hit) = read_icon_cache(dir, &key_hash) {
+                        index.answers.insert(identity.clone(), hit.clone());
+                        result.insert(identity, hit);
+                        continue;
+                    }
+                }
                 let answer = index
                     .answers
                     .get(&identity)
                     .cloned()
                     .unwrap_or_else(|| resolve(index, &key, &category));
+                let answer = attach_job_meta(answer, &key_hash, &root);
+                if let Some(dir) = cache_dir.as_ref() {
+                    store_resolution_image(dir, &key_hash, &answer);
+                }
                 if index.answers.len() >= 100 {
                     index.answers.clear();
                 }
@@ -722,5 +1034,131 @@ mod tests {
             .image
             .is_none());
         assert!(asset_path("test:../../secret", "textures", "png").is_none());
+    }
+
+    fn minimal_png(width: u32, height: u32) -> Vec<u8> {
+        let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+        bytes.extend_from_slice(&13u32.to_be_bytes());
+        bytes.extend_from_slice(b"IHDR");
+        bytes.extend_from_slice(&width.to_be_bytes());
+        bytes.extend_from_slice(&height.to_be_bytes());
+        bytes.extend_from_slice(&[8, 6, 0, 0, 0]);
+        bytes.extend_from_slice(&0u32.to_be_bytes());
+        bytes
+    }
+
+    #[test]
+    fn icon_cache_roundtrip_and_invalidations() {
+        let dir = tempfile::tempdir().unwrap();
+        let key = cache_key("/root", "sig", "minecraft:used", "example:test");
+        assert!(is_cache_key(&key));
+        let png = minimal_png(16, 16);
+        assert!(write_icon_cache(
+            dir.path(),
+            &key,
+            &png,
+            (16, 16),
+            "item",
+            "jar · path",
+            "自动发现"
+        ));
+        let hit = read_icon_cache(dir.path(), &key).unwrap();
+        assert!(hit
+            .image
+            .as_deref()
+            .unwrap()
+            .starts_with("data:image/png;base64,"));
+        assert_eq!(hit.reason, "本地缓存图标");
+        assert!(!write_icon_cache(
+            dir.path(),
+            "not-a-key",
+            &png,
+            (16, 16),
+            "item",
+            "s",
+            "r"
+        ));
+        assert!(!write_icon_cache(
+            dir.path(),
+            &key,
+            b"nope",
+            (16, 16),
+            "item",
+            "s",
+            "r"
+        ));
+        let other = cache_key("/root", "sig2", "minecraft:used", "example:test");
+        assert_ne!(key, other);
+        assert!(read_icon_cache(dir.path(), &other).is_none());
+    }
+
+    #[test]
+    fn animated_texture_produces_frame_job() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("mc-anim");
+        fs::create_dir_all(dir.join("kubejs/assets/example/textures/item")).unwrap();
+        fs::write(
+            dir.join("kubejs/assets/example/textures/item/spin.png"),
+            minimal_png(16, 48),
+        )
+        .unwrap();
+        fs::write(
+            dir.join("kubejs/assets/example/textures/item/spin.png.mcmeta"),
+            r#"{"animation":{"frame_height":16}}"#,
+        )
+        .unwrap();
+        let index = indexed(&dir, None);
+        let answer = resolve(&index, "example:spin", "minecraft:used");
+        let job = answer.job.expect("animated job");
+        assert_eq!(job.get("kind").and_then(Value::as_str), Some("frame"));
+        assert_eq!(job.get("frameHeight").and_then(Value::as_u64), Some(16));
+    }
+
+    #[test]
+    fn block_model_is_used_when_item_model_is_missing() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("mc-block");
+        fs::create_dir_all(dir.join("kubejs/assets/example/models/block")).unwrap();
+        fs::create_dir_all(dir.join("kubejs/assets/example/textures/block")).unwrap();
+        fs::write(
+            dir.join("kubejs/assets/example/models/block/ore.json"),
+            r##"{"elements":[{"from":[0,0,0],"to":[16,16,16],"faces":{"north":{"texture":"#all","uv":[0,0,16,16]}}}],"textures":{"all":"example:block/ore"}}"##,
+        )
+        .unwrap();
+        fs::write(
+            dir.join("kubejs/assets/example/textures/block/ore.png"),
+            minimal_png(16, 16),
+        )
+        .unwrap();
+        let index = indexed(&dir, None);
+        let answer = resolve(&index, "example:ore", "minecraft:mined");
+        assert!(answer.image.is_some() || answer.job.is_some());
+        assert!(!answer.reason.contains("未找到同标识物品材质"));
+    }
+
+    #[test]
+    fn entity_prefers_geo_entity_path() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("mc-entity");
+        fs::create_dir_all(dir.join("kubejs/assets/example/geo")).unwrap();
+        fs::create_dir_all(dir.join("kubejs/assets/example/geo/entity")).unwrap();
+        fs::create_dir_all(dir.join("kubejs/assets/example/textures/entity")).unwrap();
+        let geometry = r#"{"minecraft:geometry":[{"description":{"identifier":"geometry.foo","texture_width":64,"texture_height":32},"bones":[{"name":"body","cubes":[{"origin":[-4,0,-4],"size":[8,8,8],"uv":[0,0]}]}]}]}"#;
+        fs::write(dir.join("kubejs/assets/example/geo/foo.geo.json"), geometry).unwrap();
+        fs::write(
+            dir.join("kubejs/assets/example/geo/entity/foo.geo.json"),
+            geometry,
+        )
+        .unwrap();
+        fs::write(
+            dir.join("kubejs/assets/example/textures/entity/foo.png"),
+            minimal_png(64, 32),
+        )
+        .unwrap();
+        let index = indexed(&dir, None);
+        let answer = resolve(&index, "example:foo", "minecraft:killed");
+        let job = answer.job.expect("entity job");
+        assert!(answer.source.contains("geo/entity/foo.geo.json"));
+        assert!(job.get("entityModel").is_some());
     }
 }

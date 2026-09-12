@@ -60,7 +60,11 @@ fn observation_intervals_preserve_boundaries_and_distinguish_interruption(
     assert_eq!(rows[0].status, "interrupted");
     assert_eq!(rows.len(), 3, "all history survives reopening");
     repo.interrupt_observed_sessions()?;
-    assert_eq!(repo.observed_sessions()?.len(), 3, "startup does not delete history");
+    assert_eq!(
+        repo.observed_sessions()?.len(),
+        3,
+        "startup does not delete history"
+    );
     assert!(
         rows[0].ended_at.is_none(),
         "observer shutdown is not game exit"
