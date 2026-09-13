@@ -287,10 +287,13 @@ export async function renderEntity(job, renderer) {
     );
     camera.position.set(0, 0, Math.max(100, extent.z * 2));
     const scene = new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const light = new THREE.DirectionalLight(0xffffff, 0.6);
-    light.position.set(-3, 7, 5);
-    scene.add(light, display);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.35));
+    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    key.position.set(-3, 7, 5);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.55);
+    fill.position.set(4, 2, -3);
+    scene.add(fill, display);
     renderer.render(scene, camera);
     return renderer.domElement.toDataURL('image/png').split(',')[1];
   } finally {
