@@ -244,6 +244,61 @@ export function createEntityObject(model, material) {
   return object;
 }
 
+/** If a skin is mostly transparent, repack the opaque bbox so UV samples stay visible. */
+async function densifySkinTexture(source) {
+  try {
+    const img = source.image;
+    if (!img || typeof document === 'undefined') return source;
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let minX = width,
+      minY = height,
+      maxX = -1,
+      maxY = -1,
+      opaque = 0;
+    for (let y = 0; y < height; y += 1)
+      for (let x = 0; x < width; x += 1)
+        if (data[(y * width + x) * 4 + 3] > 8) {
+          opaque += 1;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+    const coverage = opaque / (width * height || 1);
+    if (maxX < 0 || coverage === 0) {
+      // Fully transparent skin — keep geometry visible with a neutral fill.
+      const solid = document.createElement('canvas');
+      solid.width = 16;
+      solid.height = 16;
+      const sctx = solid.getContext('2d');
+      sctx.fillStyle = '#9aa0a8';
+      sctx.fillRect(0, 0, 16, 16);
+      const solidTex = new THREE.CanvasTexture(solid);
+      solidTex.needsUpdate = true;
+      return solidTex;
+    }
+    if (coverage > 0.35) return source;
+    const cropW = Math.max(1, maxX - minX + 1);
+    const cropH = Math.max(1, maxY - minY + 1);
+    const out = document.createElement('canvas');
+    out.width = Math.max(16, cropW);
+    out.height = Math.max(16, cropH);
+    const octx = out.getContext('2d');
+    octx.imageSmoothingEnabled = false;
+    octx.drawImage(canvas, minX, minY, cropW, cropH, 0, 0, out.width, out.height);
+    const next = new THREE.CanvasTexture(out);
+    next.needsUpdate = true;
+    return next;
+  } catch {
+    return source;
+  }
+}
+
 export async function renderEntity(job, renderer) {
   const textures = [],
     materials = [];
@@ -252,24 +307,28 @@ export async function renderEntity(job, renderer) {
     for (const part of job.entityParts ?? [
       { entityModel: job.entityModel, layer: 0 },
     ]) {
-      const texture = await new THREE.TextureLoader().loadAsync(
+      const raw = await new THREE.TextureLoader().loadAsync(
         job.layers[part.layer].startsWith('data:')
           ? job.layers[part.layer]
           : `/.local/stat-frames/${job.layers[part.layer]}`,
       );
+      // Entity skins that are mostly transparent make UV boxes vanish.
+      // Crop the opaque region and use that as the sampling texture.
+      const texture = await densifySkinTexture(raw);
       texture.magFilter = THREE.NearestFilter;
       texture.minFilter = THREE.NearestFilter;
       texture.generateMipmaps = false;
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.encoding = THREE.sRGBEncoding;
       texture.flipY = false;
       textures.push(texture);
       const material = new THREE.MeshLambertMaterial({
         map: texture,
         side: THREE.DoubleSide,
-        alphaTest: 1 / 255,
-        transparent: true,
+        // Densified skins are opaque; skip discard so tiny UVs still draw.
+        alphaTest: 0,
+        transparent: false,
         depthWrite: part.depthWrite ?? true,
       });
       materials.push(material);
