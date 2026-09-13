@@ -131,7 +131,15 @@ export default function Statistics({
     setResourceStatus('正在扫描本机实例并解析图标…');
     setDetailsOpen(true);
     setDetailsMode('full');
-    await discoverIcons(snapshot.rows, { refreshKnown: true, cacheOnly: false })
+    // Only inspect rows that still lack an icon (catalog or already discovered).
+    const needIcons = snapshot.rows.filter((row) => {
+      if (row.key === 'minecraft:air') return false;
+      const id = `${row.category}:${row.key}`;
+      if (discovered[id]?.image) return false;
+      return !row.resources?.some((resource) => resource.icon);
+    });
+    const targetRows = needIcons.length ? needIcons : snapshot.rows;
+    await discoverIcons(targetRows, { refreshKnown: true, cacheOnly: false })
       .then((result) => {
         if (id !== requestId.current || snapshot !== dataRef.current) return;
         setDiscovered((old) => ({ ...old, ...result.icons }));

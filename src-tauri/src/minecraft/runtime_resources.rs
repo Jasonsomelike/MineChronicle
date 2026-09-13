@@ -1087,10 +1087,11 @@ fn java_model_resolution(index: &Index, aliases: &[String], skin: &str) -> Optio
     // Prefer texture path embedded in the model/render classes.
     let mut class_b64 = serde_json::Map::new();
     let mut hinted_skin: Option<String> = None;
+    let hint_name = aliases.first().map(String::as_str).unwrap_or("");
     for (name, bytes) in &classes {
         class_b64.insert(name.clone(), Value::String(STANDARD.encode(bytes)));
         if hinted_skin.is_none() {
-            if let Some(path) = class_texture_hint(bytes) {
+            if let Some(path) = class_texture_hint(bytes, hint_name) {
                 // path like textures/entity/spider/spider.png → asset key
                 let asset = format!("assets/{}", path.trim_start_matches('/'));
                 // namespace from class package is unknown; try current skin's ns prefix
@@ -1131,10 +1132,11 @@ fn java_model_resolution(index: &Index, aliases: &[String], skin: &str) -> Optio
     })
 }
 
-fn class_texture_hint(bytes: &[u8]) -> Option<String> {
-    // Scan constant-pool-ish ASCII for textures/entity/...png
+fn class_texture_hint(bytes: &[u8], name: &str) -> Option<String> {
+    // Scan constant-pool-ish ASCII for textures/entity/...png and prefer
+    // paths that match the entity name (avoid overlay/short generic hits).
     let text = String::from_utf8_lossy(bytes);
-    let mut best: Option<String> = None;
+    let mut best: Option<(i32, String)> = None;
     let mut rest = text.as_ref();
     while let Some(pos) = rest.find("textures/entity/") {
         let tail = &rest[pos..];
@@ -1142,15 +1144,15 @@ fn class_texture_hint(bytes: &[u8]) -> Option<String> {
             .find(|c: char| !(c.is_ascii_alphanumeric() || "/._-".contains(c)))
             .unwrap_or(tail.len().min(180));
         let candidate = &tail[..end];
-        if candidate.ends_with(".png")
-            && !candidate.contains("overlay")
-            && best.as_ref().is_none_or(|b| candidate.len() < b.len())
-        {
-            best = Some(candidate.to_string());
+        if candidate.ends_with(".png") && !candidate.contains("overlay") {
+            let score = score_skin_path(candidate, name);
+            if score >= 8 && best.as_ref().is_none_or(|(s, _)| score > *s) {
+                best = Some((score, candidate.to_string()));
+            }
         }
         rest = &rest[pos + 8..];
     }
-    best
+    best.map(|(_, p)| p)
 }
 
 fn score_skin_path(path: &str, name: &str) -> i32 {
