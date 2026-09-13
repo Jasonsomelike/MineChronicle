@@ -172,11 +172,31 @@ fn java_model_resolution(index: &Index, aliases: &[String], skin: &str) -> Optio
     if !classes.contains_key(&class_name) {
         return None;
     }
+    // Prefer texture path embedded in the model/render classes.
     let mut class_b64 = serde_json::Map::new();
+    let mut hinted_skin: Option<String> = None;
     for (name, bytes) in &classes {
         class_b64.insert(name.clone(), Value::String(STANDARD.encode(bytes)));
+        if hinted_skin.is_none() {
+            if let Some(path) = class_texture_hint(bytes) {
+                // path like textures/entity/spider/spider.png → asset key
+                let asset = format!("assets/{}", path.trim_start_matches('/'));
+                // namespace from class package is unknown; try current skin's ns prefix
+                if let Some(ns_root) = skin.split("/assets/").nth(1) {
+                    let ns = ns_root.split('/').next().unwrap_or("minecraft");
+                    let candidate = format!("assets/{ns}/{path}");
+                    if index.assets.contains_key(&candidate) {
+                        hinted_skin = Some(candidate);
+                    }
+                }
+                if hinted_skin.is_none() {
+                    let _ = asset;
+                }
+            }
+        }
     }
-    let (bytes, source) = read(index, skin)?;
+    let skin_path = hinted_skin.unwrap_or_else(|| skin.to_string());
+    let (bytes, source) = read(index, &skin_path)?;
     if !png_is_valid(&bytes) {
         return None;
     }
@@ -198,4 +218,98 @@ fn java_model_resolution(index: &Index, aliases: &[String], skin: &str) -> Optio
         })),
     })
 }
+
+fn class_texture_hint(bytes: &[u8]) -> Option<String> {
+    // Scan constant-pool-ish ASCII for textures/entity/...png
+    let text = String::from_utf8_lossy(bytes);
+    let mut best: Option<String> = None;
+    let mut rest = text.as_ref();
+    while let Some(pos) = rest.find("textures/entity/") {
+        let tail = &rest[pos..];
+        let end = tail
+            .find(|c: char| !(c.is_ascii_alphanumeric() || "/._-".contains(c)))
+            .unwrap_or(tail.len().min(180));
+        let candidate = &tail[..end];
+        if candidate.ends_with(".png") && !candidate.contains("overlay") {
+            if best.as_ref().is_none_or(|b| candidate.len() < b.len()) {
+                best = Some(candidate.to_string());
+            }
+        }
+        rest = &rest[pos + 8..];
+    }
+    best
+}
+
+fn score_skin_path(path: &str, name: &str) -> i32 {
+    let p = path.to_ascii_lowercase().replace('\\', "/");
+    let n = name.to_ascii_lowercase();
+    let mut score = 0i32;
+    let tokens: Vec<&str> = n.split(['_', '-']).filter(|t| t.len() >= 3).collect();
+    for token in &tokens {
+        if p.contains(&format!("/{token}/")) {
+            score += 20;
+        } else if p.contains(&format!("/{token}")) {
+            score += 8;
+        } else if p.contains(*token) {
+            score += 2;
+        }
+    }
+    // Cross-family penalties (e.g. silverfish/poison.png for a spider).
+    if n.contains("spider") && p.contains("silverfish") {
+        score -= 80;
+    }
+    if n.contains("spider") && p.contains("/spider/") {
+        score += 25;
+    }
+    if n.contains("zombie") && p.contains("/skeleton/") {
+        score -= 40;
+    }
+    if n.contains("bear") && p.contains("/wolf/") {
+        score -= 30;
+    }
+    score
+}
+
+fn pick_best_skin(index: &Index, ns: &str, aliases: &[String], name: &str) -> Option<String> {
+    let prefix = format!("assets/{ns}/textures/entity/");
+    let mut best: Option<(i32, String)> = None;
+    for path in index.assets.keys() {
+        if !path.starts_with(&prefix) || !path.ends_with(".png") || skip_entity_asset(path) {
+            continue;
+        }
+        let file = path.rsplit('/').next().unwrap_or("");
+        let base = file.trim_end_matches(".png").to_ascii_lowercase().replace('_', "");
+        let matched = aliases.iter().any(|a| {
+            let a = a.to_ascii_lowercase().replace('_', "");
+            !a.is_empty() && (base == a || base.contains(&a))
+        });
+        if !matched {
+            continue;
+        }
+        let score = score_skin_path(path, name);
+        if score < 0 {
+            continue;
+        }
+        if best.as_ref().is_none_or(|(s, _)| score > *s) {
+            best = Some((score, path.clone()));
+        }
+    }
+    best.map(|(_, p)| p)
+}
+
+fn vanilla_family_texture(name: &str) -> Option<&'static str> {
+    let n = name.to_ascii_lowercase();
+    if n.contains("spider") {
+        return Some("assets/minecraft/textures/entity/spider/spider.png");
+    }
+    if n.contains("zombie") {
+        return Some("assets/minecraft/textures/entity/zombie/zombie.png");
+    }
+    if n.contains("skeleton") {
+        return Some("assets/minecraft/textures/entity/skeleton/skeleton.png");
+    }
+    None
+}
+
+
 
