@@ -626,18 +626,28 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
         if (!resolveClass) throw new Error(`Missing inherited entity geometry: ${ownerFull}`);
         const parentBytes = resolveClass(ownerFull);
         if (!parentBytes) throw new Error(`Missing inherited entity geometry: ${ownerFull}`);
-        const parent = parseJavaModelFromClass(parentBytes, resolveClass, depth + 1);
-        const inherited = new Map(
-          parent.bones.map((bone) => [bone.name, { ...bone, fields: {}, uv: [0, 0] }]),
-        );
-        for (const bone of parent.bones) {
-          const raw = inherited.get(bone.name);
-          raw.parent = bone.parent ? inherited.get(bone.parent) : undefined;
-          self.fields[bone.field ?? bone.name] = raw;
-          bones.push(raw);
+        let parent = null;
+        try {
+          parent = parseJavaModelFromClass(parentBytes, resolveClass, depth + 1);
+        } catch {
+          parent = null;
         }
-        self.fields.texWidth = parent.textureWidth;
-        self.fields.texHeight = parent.textureHeight;
+        if (parent) {
+          const inherited = new Map(
+            parent.bones.map((bone) => [
+              bone.name,
+              { ...bone, fields: {}, uv: [0, 0] },
+            ]),
+          );
+          for (const bone of parent.bones) {
+            const raw = inherited.get(bone.name);
+            raw.parent = bone.parent ? inherited.get(bone.parent) : undefined;
+            self.fields[bone.field ?? bone.name] = raw;
+            bones.push(raw);
+          }
+          self.fields.texWidth = parent.textureWidth;
+          self.fields.texHeight = parent.textureHeight;
+        }
       } else if (
         name === 'toRadians' ||
         (ownerFull.endsWith('.Maths') && name === 'rad')
