@@ -1571,6 +1571,14 @@ button.stat-icon:hover {
   max-height: 280px;
   overflow: auto;
 }
+.stat-detail-banner {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #6b5a2e;
+  background: #f7f1e4;
+  border-bottom: 1px solid #e5d9b8;
+}
 .stat-detail-chips {
   display: flex;
   flex-wrap: wrap;

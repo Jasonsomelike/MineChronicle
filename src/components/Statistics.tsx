@@ -115,6 +115,11 @@ export default function Statistics({
   }, [discovered]);
   const [resourceStatus, setResourceStatus] = useState('');
   const [checkingResources, setCheckingResources] = useState(false);
+  const [detailsMode, setDetailsMode] = useState<'none' | 'cache' | 'full'>(
+    'none',
+  );
+  const detailsModeRef = useRef(detailsMode);
+  detailsModeRef.current = detailsMode;
   const requestId = useRef(0);
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -123,8 +128,9 @@ export default function Statistics({
     const snapshot = data;
     const id = ++requestId.current;
     setCheckingResources(true);
-    setResourceStatus('正在检查实例资源…');
+    setResourceStatus('正在扫描本机实例并解析图标…');
     setDetailsOpen(true);
+    setDetailsMode('full');
     await discoverIcons(snapshot.rows, { refreshKnown: true, cacheOnly: false })
       .then((result) => {
         if (id !== requestId.current || snapshot !== dataRef.current) return;
@@ -138,7 +144,7 @@ export default function Statistics({
           (d) => !d.source && d.reason.includes('来源实例'),
         ).length;
         setResourceStatus(
-          `共 ${result.details.length} 项 · 成功 ${ok} · 未找到 ${result.summary.missing} · 错误 ${result.summary.error}` +
+          `完整检查：共 ${result.details.length} 项 · 成功 ${ok} · 未找到 ${result.summary.missing} · 错误 ${result.summary.error}` +
             (noRoots ? ` · 无来源根目录 ${noRoots}` : ''),
         );
         setDetailsOpen(true);
@@ -155,6 +161,8 @@ export default function Statistics({
     requestId.current++;
     setCheckingResources(false);
     setResourceStatus('');
+    setDetailsMode('none');
+    setResourceDetails([]);
   }, [data]);
   useEffect(() => {
     if (!pageActive || !data) return;
@@ -164,19 +172,29 @@ export default function Statistics({
         !row.resources?.some((resource) => resource.icon),
     );
     if (!missing.length) {
-      setResourceDetails([]);
+      if (detailsModeRef.current !== 'full') {
+        setResourceDetails([]);
+        setDetailsMode('none');
+      }
       return;
     }
     const id = ++requestId.current;
     void discoverIcons(missing, { cacheOnly: true })
       .then((result) => {
         if (id !== requestId.current || !result) return;
-        setResourceDetails(result.details);
         const hits = Object.values(result.icons).filter((entry) => entry.image)
           .length;
-        if (!hits) return;
-        setDiscovered((old) => ({ ...old, ...result.icons }));
-        setResourceStatus(`已应用 ${hits} 项本机缓存图标`);
+        if (hits) {
+          setDiscovered((old) => ({ ...old, ...result.icons }));
+        }
+        if (detailsModeRef.current === 'full') return;
+        setResourceDetails(result.details);
+        setDetailsMode('cache');
+        setResourceStatus(
+          hits
+            ? `已应用 ${hits} 项本机缓存图标；其余需点「检查本页游戏图标」`
+            : '本机缓存无命中；点「检查本页游戏图标」扫描 mods',
+        );
       })
       .catch(() => {
         /* cache-only is silent on failure */
@@ -309,6 +327,12 @@ export default function Statistics({
       </div>
       {detailsOpen && resourceDetails.length > 0 ? (
         <div className="stat-icon-details" role="region" aria-label="图标补齐明细">
+          {detailsMode === 'cache' ? (
+            <p className="stat-detail-banner">
+              下列结果来自<strong>缓存查询</strong>
+              （未扫描 mods）。若仍缺图，请点击「检查本页游戏图标」做完整检查。
+            </p>
+          ) : null}
           <div className="stat-detail-chips" aria-label="结果汇总">
             <span className="stat-detail-badge status-cached">
               缓存 {resourceDetails.filter((d) => d.status === 'cached').length}
