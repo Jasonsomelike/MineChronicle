@@ -511,15 +511,15 @@ fn animated_texture_job(index: &Index, png_path: &str) -> Option<Resolution> {
 }
 
 fn pick_entity_path<'a>(paths: &[&'a String], key_name: &str) -> Option<&'a String> {
-    if paths.is_empty() {
-        return None;
+    if paths.len() == 1 {
+        return Some(paths[0]);
     }
     let preferred: Vec<&String> = paths
         .iter()
         .copied()
         .filter(|p| p.contains(&format!("/geo/entity/{key_name}")))
         .collect();
-    let preferred = if preferred.is_empty() {
+    let candidates = if preferred.is_empty() {
         paths
             .iter()
             .copied()
@@ -529,23 +529,14 @@ fn pick_entity_path<'a>(paths: &[&'a String], key_name: &str) -> Option<&'a Stri
                     && !p.contains("/layer")
                     && !p.ends_with("_spawn.geo.json")
             })
-            .collect()
+            .collect::<Vec<_>>()
     } else {
         preferred
     };
-    if preferred.len() == 1 {
-        return preferred.into_iter().next();
+    if candidates.len() == 1 {
+        return Some(candidates[0]);
     }
-    let mut sorted = if preferred.is_empty() {
-        paths.to_vec()
-    } else {
-        preferred
-    };
-    sorted.sort();
-    if sorted.len() > 1 {
-        return None;
-    }
-    sorted.into_iter().next()
+    None
 }
 
 fn entity(index: &Index, key: &str) -> Resolution {

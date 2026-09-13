@@ -1,14 +1,25 @@
 ---
 feature: runtime-stat-icons
-status: in-progress
+status: delivered
 updated: 2026-09-08
 branch: feature/runtime-stat-icons
-commits: 
+commits: b9d8a4c..d6a2021
 ---
 
 # 运行时统计图标自动补齐
 
 ## Report
+
+**What was built** — 强化运行时「更多统计」图标自动补齐：Rust 侧解析动画材质首帧 job、`models/block` 兜底、优先 `geo/entity` 的实体配对；按 root 签名的 blake3 磁盘缓存（`{app_data}/stat-icon-cache`）与 `store_stat_icon` 命令；前端懒加载自动补齐、frame canvas 裁剪、渲染结果回写缓存，以及尊重 `prefers-reduced-motion` 的图标入场 CSS 动效。未引入 GSAP，three.js 沿用既有模型离屏渲染。
+
+**Verification** — `cargo test --jobs 1` 全绿；`cargo clippy --lib -D warnings` 通过；`npm run typecheck` / `lint` / `test`（74）通过。`cargo clippy --all-targets` 对既有测试的 `unwrap_used` 失败，记为 PRE-EXISTING。独立审查无 critical 项；已修 status 粘住与实体路径死逻辑。
+
+**Journey log** —
+- 空仓先做初始提交再开特性分支；`git worktree add` 被环境拦截，改在 `feature/runtime-stat-icons` 分支上完成。
+- `AppHandle` 在 generic `configure<R>` 下无法作 CommandArg，改为 `IconCacheDir` managed state。
+- 动画首帧不做 Rust PNG 裁剪（无 image 依赖），由前端 canvas 完成。
+- 模型 `elements` 内引用的动画材质仍保持 missing，仅平坦纹理路径升级为 frame job。
+- GSAP 未引入：列表动效用 CSS 足够，减少离线包体与审计面。
 
 ## [S1] Problem
 
@@ -70,7 +81,7 @@ MineChronicle「更多统计」的图标目录是按开发档案预生成的。�
 
 ## Tasks
 
-- [ ] T1: Rust 扩展解析——动画首帧 job、block 模型兜底、实体几何/皮肤优选 — acceptance: 单元测试覆盖三类路径且通过 (covers: S2)
-- [ ] T2: Rust 持久缓存——cacheKey、读缓存、`store_stat_icon` 命令与注册 — acceptance: 单元测试：写入后读缓存返回图，非法 key/PNG 拒绝 (covers: S2; depends: T1)
-- [ ] T3: 前端 frame 裁剪、渲染回写缓存、统计页自动懒加载与图标入场动效 — acceptance: typecheck/lint/前端测试通过 (covers: S2; depends: T2)
-- [ ] T4: 全量验证 — acceptance: cargo fmt/clippy/test 与 npm typecheck/lint/test 通过，失败项有记录 (covers: S2; depends: T1, T2, T3)
+- [x] T1: Rust 扩展解析——动画首帧 job、block 模型兜底、实体几何/皮肤优选 — acceptance: 单元测试覆盖三类路径且通过 (covers: S2)
+- [x] T2: Rust 持久缓存——cacheKey、读缓存、`store_stat_icon` 命令与注册 — acceptance: 单元测试：写入后读缓存返回图，非法 key/PNG 拒绝 (covers: S2; depends: T1)
+- [x] T3: 前端 frame 裁剪、渲染回写缓存、统计页自动懒加载与图标入场动效 — acceptance: typecheck/lint/前端测试通过 (covers: S2; depends: T2)
+- [x] T4: 全量验证 — acceptance: cargo fmt/clippy/test 与 npm typecheck/lint/test 通过，失败项有记录 (covers: S2; depends: T1, T2, T3)

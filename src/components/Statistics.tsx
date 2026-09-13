@@ -142,7 +142,10 @@ export default function Statistics({
       .then((result) => {
         if (id !== requestId.current || !result) return;
         const found = Object.values(result).filter((entry) => entry.image).length;
-        if (!found) return;
+        if (!found) {
+          setResourceStatus('本页暂无新的本机资源图标');
+          return;
+        }
         setDiscovered((old) => ({ ...old, ...result }));
         setResourceStatus(`已自动匹配 ${found} 项本地资源图标`);
       })
