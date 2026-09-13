@@ -216,8 +216,16 @@ export function createEntityObject(model, material) {
       java ? 'ZYX' : 'XYZ',
     );
     if (!bone.hidden)
-      for (const cube of bone.cubes ?? [])
+      for (const raw of bone.cubes ?? []) {
+        // Thin Java wings/plates collapse to invisible panels — keep a min edge.
+        const cube = {
+          ...raw,
+          size: (raw.size ?? [1, 1, 1]).map((n) =>
+            Number.isFinite(n) && Math.abs(n) < 0.45 ? Math.sign(n || 1) * 0.45 : n,
+          ),
+        };
         group.add(new THREE.Mesh(cubeGeometry(cube, bone, model), material));
+      }
     bones.set(bone.name, group);
   }
   for (const bone of model.bones) {
@@ -276,7 +284,8 @@ export async function renderEntity(job, renderer) {
     if (!Number.isFinite(extent.length()) || extent.length() === 0)
       throw new Error('Entity has no visible geometry');
     display.position.sub(bounds.getCenter(new THREE.Vector3()));
-    const half = Math.max(extent.x, extent.y) * 0.56;
+    // Frame using the dominant horizontal axis so thin insects don't fill the view.
+    const half = Math.max(extent.x, extent.y, extent.z * 0.35) * 0.52;
     const camera = new THREE.OrthographicCamera(
       -half,
       half,
