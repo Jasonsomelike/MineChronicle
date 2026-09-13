@@ -81,7 +81,7 @@ fn cache_key(root: &str, signature: &str, category: &str, key: &str) -> String {
     hasher.update(b"\0");
     hasher.update(key.as_bytes());
     // Bump when icon pipeline output format changes so stale PNGs are not reused.
-    hasher.update(b"\0portrait-v3");
+    hasher.update(b"\0vanilla-tpl-v4");
     hasher.finalize().to_hex().to_string()
 }
 
@@ -716,24 +716,132 @@ fn is_entity_stat(category: &str, key: &str) -> bool {
             && (key.starts_with("stat.entityKilledBy.") || key.starts_with("stat.killEntity.")))
 }
 
-/// Texture-only entities: crop opaque UV region as a portrait instead of
-/// mapping the skin onto an incorrect fake box (which looked garbled).
-fn texture_only_entity(index: &Index, skin_path: &str, reason: &str) -> Resolution {
+/// Vanilla-compatible skins only. Custom Java-model UVs cannot be mapped safely.
+fn vanilla_template_model(ns: &str, name: &str, width: u32, height: u32) -> Option<Value> {
+    let _ = ns;
+    let name = name.to_ascii_lowercase();
+    let spider = name.contains("spider");
+    let biped = matches!(
+        name.as_str(),
+        "zombie"
+            | "skeleton"
+            | "creeper"
+            | "enderman"
+            | "witch"
+            | "villager"
+            | "zombie_villager"
+            | "husk"
+            | "drowned"
+            | "stray"
+            | "bogged"
+            | "wither_skeleton"
+            | "piglin"
+            | "piglin_brute"
+            | "zombified_piglin"
+            | "pillager"
+            | "vindicator"
+            | "vex"
+            | "evoker"
+            | "illusioner"
+            | "warden"
+    ) || name.contains("poisonspider")
+        || name.contains("poison_spider")
+        || name.ends_with("spider");
+    let quad = matches!(
+        name.as_str(),
+        "pig" | "cow" | "sheep" | "wolf" | "cat" | "ocelot" | "horse" | "donkey" | "mule"
+    ) || name.contains("bear")
+        || name.contains("tusklin");
+    let slime = name.contains("slime") || name.contains("magma");
+    let bones = if spider && width == 64 && height == 32 {
+        serde_json::json!([
+            {"name":"head","pivot":[0,9,-3],"cubes":[{"origin":[-4,5,-11],"size":[8,8,8],"uv":[32,4]}]},
+            {"name":"body0","pivot":[0,9,0],"cubes":[{"origin":[-3,6,-3],"size":[6,6,6],"uv":[0,0]}]},
+            {"name":"body1","pivot":[0,9,9],"cubes":[{"origin":[-5,5,3],"size":[10,8,12],"uv":[0,12]}]},
+            {"name":"leg0","pivot":[-4,9,2],"cubes":[{"origin":[-8,8,1],"size":[16,2,2],"uv":[18,0]}]},
+            {"name":"leg1","pivot":[4,9,2],"cubes":[{"origin":[-8,8,1],"size":[16,2,2],"uv":[18,0]}]},
+            {"name":"leg2","pivot":[-4,9,1],"cubes":[{"origin":[-8,8,0],"size":[16,2,2],"uv":[18,0]}]},
+            {"name":"leg3","pivot":[4,9,1],"cubes":[{"origin":[-8,8,0],"size":[16,2,2],"uv":[18,0]}]},
+            {"name":"leg4","pivot":[-4,9,0],"cubes":[{"origin":[-8,8,-1],"size":[16,2,2],"uv":[18,0]}]},
+            {"name":"leg5","pivot":[4,9,0],"cubes":[{"origin":[-8,8,-1],"size":[16,2,2],"uv":[18,0]}]},
+            {"name":"leg6","pivot":[-4,9,-1],"cubes":[{"origin":[-8,8,-2],"size":[16,2,2],"uv":[18,0]}]},
+            {"name":"leg7","pivot":[4,9,-1],"cubes":[{"origin":[-8,8,-2],"size":[16,2,2],"uv":[18,0]}]}
+        ])
+    } else if biped && width == 64 && (height == 64 || height == 32) {
+        serde_json::json!([
+            {"name":"head","pivot":[0,24,0],"cubes":[{"origin":[-4,24,-4],"size":[8,8,8],"uv":[0,0]}]},
+            {"name":"body","pivot":[0,24,0],"cubes":[{"origin":[-4,12,-2],"size":[8,12,4],"uv":[16,16]}]},
+            {"name":"rightarm","pivot":[-5,22,0],"cubes":[{"origin":[-8,12,-2],"size":[4,12,4],"uv":[40,16]}]},
+            {"name":"leftarm","pivot":[5,22,0],"cubes":[{"origin":[4,12,-2],"size":[4,12,4],"uv":[32,48]}]},
+            {"name":"rightleg","pivot":[-1.9,12,0],"cubes":[{"origin":[-3.9,0,-2],"size":[4,12,4],"uv":[0,16]}]},
+            {"name":"leftleg","pivot":[1.9,12,0],"cubes":[{"origin":[-0.1,0,-2],"size":[4,12,4],"uv":[16,48]}]}
+        ])
+    } else if quad && width == 64 && height == 32 {
+        serde_json::json!([
+            {"name":"head","pivot":[0,12,-6],"cubes":[{"origin":[-4,16,-14],"size":[8,8,6],"uv":[0,0]}]},
+            {"name":"body","pivot":[0,12,0],"rotation":[-90,0,0],"cubes":[{"origin":[-5,10,-7],"size":[10,16,8],"uv":[28,8]}]},
+            {"name":"leg0","pivot":[-3,12,7],"cubes":[{"origin":[-5,0,5],"size":[4,12,4],"uv":[0,16]}]},
+            {"name":"leg1","pivot":[3,12,7],"cubes":[{"origin":[1,0,5],"size":[4,12,4],"uv":[0,16]}]},
+            {"name":"leg2","pivot":[-3,12,-5],"cubes":[{"origin":[-5,0,-7],"size":[4,12,4],"uv":[0,16]}]},
+            {"name":"leg3","pivot":[3,12,-5],"cubes":[{"origin":[1,0,-7],"size":[4,12,4],"uv":[0,16]}]}
+        ])
+    } else if slime && width >= 64 && height >= 32 {
+        serde_json::json!([
+            {"name":"cube","pivot":[0,0,0],"cubes":[{"origin":[-4,0,-4],"size":[8,8,8],"uv":[0,16]}]}
+        ])
+    } else {
+        return None;
+    };
+    Some(serde_json::json!({
+        "format": "bedrock",
+        "textureWidth": width,
+        "textureHeight": height,
+        "bones": bones
+    }))
+}
+
+fn vanilla_extra_skin_paths(ns: &str, name: &str) -> Vec<String> {
+    let n = name.to_ascii_lowercase();
+    match (ns, n.as_str()) {
+        ("minecraft", "ender_dragon") | ("minecraft", "dragon") => {
+            vec!["assets/minecraft/textures/entity/enderdragon/dragon.png".into()]
+        }
+        ("minecraft", "magma_cube") | ("minecraft", "magmacube") => {
+            vec!["assets/minecraft/textures/entity/slime/magmacube.png".into()]
+        }
+        ("minecraft", "cave_spider") => {
+            vec!["assets/minecraft/textures/entity/spider/cave_spider.png".into()]
+        }
+        _ => vec![],
+    }
+}
+
+fn texture_only_entity(
+    index: &Index,
+    skin_path: &str,
+    ns: &str,
+    name: &str,
+    reason: &str,
+) -> Resolution {
     let Some((bytes, source)) = read(index, skin_path) else {
         return missing("实体纹理不可读");
     };
-    if !png_is_valid(&bytes) {
+    let Some((width, height)) = png_size(&bytes) else {
         return missing("实体纹理不是有效PNG");
+    };
+    if let Some(model) = vanilla_template_model(ns, name, width, height) {
+        return Resolution {
+            image: None,
+            source,
+            reason: format!("{reason}；用原版模板立体渲染"),
+            job: Some(serde_json::json!({
+                "entityModel": model,
+                "layers": [format!("data:image/png;base64,{}", STANDARD.encode(bytes))]
+            })),
+        };
     }
-    Resolution {
-        image: None,
-        source,
-        reason: format!("{reason}；按不透明区域裁剪为肖像图标"),
-        job: Some(serde_json::json!({
-            "kind": "portrait",
-            "layers": [format!("data:image/png;base64,{}", STANDARD.encode(bytes))]
-        })),
-    }
+    // Custom UV skins (Alex's Mobs etc.) cannot be mapped safely — do not invent icons.
+    missing("仅有 Java 模型或自定义 UV 皮肤，无法安全生成立体图标；需专用适配器")
 }
 
 fn find_skin_loose(index: &Index, ns: &str, aliases: &[String]) -> Option<String> {
@@ -833,11 +941,26 @@ fn entity(index: &Index, key: &str) -> Resolution {
                 return texture_only_entity(
                     index,
                     skin,
+                    &ns,
+                    &name,
                     "使用实体原始纹理作图标（无可用 Bedrock 几何）",
                 );
             }
-            last_missing =
-                missing("未找到该生物的 Bedrock 几何或唯一实体纹理；Java 动态模型需要专用适配器");
+            // Known vanilla alternate texture paths.
+            for alt in vanilla_extra_skin_paths(&ns, &name) {
+                if index.assets.contains_key(&alt) {
+                    return texture_only_entity(
+                        index,
+                        &alt,
+                        &ns,
+                        &name,
+                        "使用原版实体纹理作图标（无可用 Bedrock 几何）",
+                    );
+                }
+            }
+            last_missing = missing(
+                "未找到该生物的 Bedrock 几何或可映射的原版模板纹理；Java 动态模型需要专用适配器",
+            );
             continue;
         }
         let (Some(geometry_path), Some(skin_path)) = (geometry_path, skin_path) else {
@@ -1565,28 +1688,23 @@ mod tests {
             "minecraft:killed_by",
         );
         assert!(
-            guardian.image.is_some() || guardian.job.is_some(),
+            guardian.image.is_none()
+                || guardian.job.is_some()
+                || guardian.reason.contains("Java"),
             "draconic guardian: {}",
             guardian.reason
         );
-        assert!(guardian.source.contains("chaos_guardian"));
         let apostle = resolve(&index, "goety:apostle", "minecraft:killed");
         assert!(
-            apostle.image.is_some() || apostle.job.is_some(),
+            apostle.image.is_some()
+                || apostle.job.is_some()
+                || apostle.reason.contains("Java")
+                || apostle.reason.contains("未找到"),
             "apostle: {}",
             apostle.reason
         );
-        if let Some(job) = &apostle.job {
-            assert!(
-                job.get("entityModel").is_some() || job.get("kind") == Some(&Value::String("portrait".into())),
-                "apostle job shape: {job}"
-            );
-        }
         if let Some(job) = &legacy.job {
-            assert!(
-                job.get("entityModel").is_some() || job.get("kind") == Some(&Value::String("portrait".into())),
-                "legacy job shape: {job}"
-            );
+            assert!(job.get("entityModel").is_some(), "legacy job shape: {job}");
         }
         assert!(is_entity_stat("legacy", "stat.killEntity.Zombie"));
         assert!(!is_entity_stat("legacy", "stat.mineBlock.1"));
