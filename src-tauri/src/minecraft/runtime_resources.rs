@@ -844,49 +844,6 @@ fn texture_only_entity(
     missing("仅有 Java 模型或自定义 UV 皮肤，无法安全生成立体图标；需专用适配器")
 }
 
-fn find_skin_loose(index: &Index, ns: &str, aliases: &[String]) -> Option<String> {
-    let prefix = format!("assets/{ns}/textures/entity/");
-    let mut hits: Vec<&String> = index
-        .assets
-        .keys()
-        .filter(|p| {
-            if !p.starts_with(&prefix) || !p.ends_with(".png") || skip_entity_asset(p) {
-                return false;
-            }
-            let file = p.rsplit('/').next().unwrap_or("");
-            let base = file
-                .trim_end_matches(".png")
-                .to_ascii_lowercase()
-                .replace('_', "");
-            aliases.iter().any(|a| {
-                let a = a.to_ascii_lowercase().replace('_', "");
-                !a.is_empty() && (base == a || base.contains(&a))
-            })
-        })
-        .collect();
-    hits.sort();
-    hits.dedup();
-    if hits.len() == 1 {
-        return Some(hits[0].clone());
-    }
-    for alias in aliases {
-        let exact: Vec<&String> = hits
-            .iter()
-            .copied()
-            .filter(|p| {
-                let file = p.rsplit('/').next().unwrap_or("");
-                let base = file.trim_end_matches(".png").to_ascii_lowercase();
-                let a = alias.to_ascii_lowercase();
-                base == a || base == a.replace('_', "")
-            })
-            .collect();
-        if exact.len() == 1 {
-            return Some(exact[0].clone());
-        }
-    }
-    None
-}
-
 fn pascal_case(name: &str) -> String {
     name.split(['_', '-', ' '])
         .filter(|p| !p.is_empty())
@@ -1266,14 +1223,12 @@ fn entity(index: &Index, key: &str) -> Resolution {
             .collect();
         let geometry_path =
             pick_entity_path(&geometries, &name).or_else(|| geometries.first().copied());
-        let skin_path = pick_best_skin(index, &ns, &aliases, &name)
-            .or_else(|| {
-                pick_entity_path(&skins, &name)
-                    .or_else(|| skins.first().copied())
-                    .cloned()
-            })
-            .or_else(|| find_skin_folder_sample(index, &ns, &aliases))
-            .or_else(|| find_skin_loose(index, &ns, &aliases));
+        let skin_path = pick_best_skin(index, &ns, &aliases, &name).or_else(|| {
+            pick_entity_path(&skins, &name)
+                .or_else(|| skins.first().copied())
+                .cloned()
+                .or_else(|| find_skin_folder_sample(index, &ns, &aliases))
+        });
         if geometry_path.is_none() {
             if let Some(skin) = skin_path.as_deref() {
                 if let Some(resolution) = java_model_resolution(index, &aliases, skin) {
