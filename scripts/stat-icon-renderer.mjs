@@ -216,6 +216,31 @@ async function render(job) {
 }
 export async function renderRuntime(job) {
   try {
+    if (job.javaModel?.className && job.javaModel.classes) {
+      const { parseJavaModelFromClass } = await import('./java-entity-runtime.mjs');
+      const decode = (b64) => {
+        const bin = atob(b64);
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+        return out;
+      };
+      const classes = {};
+      for (const [name, b64] of Object.entries(job.javaModel.classes))
+        classes[name] = decode(b64);
+      const model = parseJavaModelFromClass(
+        classes[job.javaModel.className],
+        (n) => classes[n] ?? null,
+      );
+      job.entityModel = {
+        format: 'java',
+        textureWidth: job.textureWidth || model.textureWidth,
+        textureHeight: job.textureHeight || model.textureHeight,
+        bones: model.bones,
+      };
+      if (job.renderSize && job.renderSize !== SIZE) {
+        renderer.setSize(job.renderSize, job.renderSize, false);
+      }
+    }
     if (job.kind === 'frame' && job.frameHeight && job.layers?.[0]) {
       const source = await image(job.layers[0]);
       const height = Math.max(1, Math.min(job.frameHeight, source.height));
@@ -281,18 +306,20 @@ export async function renderRuntime(job) {
       };
     }
     const renderedImage = `data:image/png;base64,${await render(job)}`;
-    const pixels = new Uint8Array(SIZE * SIZE * 4);
+    const outSize = renderer.domElement.width || SIZE;
+    const pixels = new Uint8Array(outSize * outSize * 4);
     const gl = renderer.getContext();
-    gl.readPixels(0, 0, SIZE, SIZE, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.readPixels(0, 0, outSize, outSize, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     if (!pixels.some((value, index) => index % 4 === 3 && value > 0))
       throw new Error('Model has no visible pixels');
     return {
       image: renderedImage,
-      width: SIZE,
-      height: SIZE,
+      width: outSize,
+      height: outSize,
       kind: 'model',
     };
   } finally {
+    if (renderer.domElement.width !== SIZE) renderer.setSize(SIZE, SIZE, false);
     for (const material of Object.values(factory.cachedMaterial)) {
       material.map?.dispose();
       material.dispose();
