@@ -170,8 +170,22 @@ function cubeGeometry(cube, bone, model) {
 }
 
 export function createEntityObject(model, material) {
-  const definitions = new Map(model.bones.map((bone) => [bone.name, bone]));
-  for (const bone of model.bones) {
+  // Drop tiny decorative bones (spines/teeth) so icon silhouettes stay readable.
+  const decorative = /^(Spine|TailSpine|Tooth|JawHook|HeadInner)/i;
+  const bonesSource = model.bones.filter((bone) => {
+    if (!decorative.test(bone.name)) return true;
+    const volume = (bone.cubes ?? []).reduce(
+      (sum, cube) =>
+        sum +
+        Math.abs((cube.size?.[0] ?? 0) * (cube.size?.[1] ?? 0) * (cube.size?.[2] ?? 0)),
+      0,
+    );
+    return volume > 8;
+  });
+  const model2 = { ...model, bones: bonesSource };
+  const modelRef = model2;
+  const definitions = new Map(modelRef.bones.map((bone) => [bone.name, bone]));
+  for (const bone of modelRef.bones) {
     const seen = new Set([bone.name]);
     let parent = bone.parent;
     while (parent) {
@@ -196,13 +210,13 @@ export function createEntityObject(model, material) {
           throw new Error(`Invalid entity cube ${bone.name}`);
   }
   const object = new THREE.Group();
-  const java = model.format === 'java';
+  const java = modelRef.format === 'java';
   const bones = new Map();
   if (java) {
     object.scale.y = -1;
     object.position.y = 24;
   }
-  for (const bone of model.bones) {
+  for (const bone of modelRef.bones) {
     if (bones.has(bone.name))
       throw new Error(`Duplicate entity bone ${bone.name}`);
     const group = new THREE.Group();
@@ -225,11 +239,11 @@ export function createEntityObject(model, material) {
             Number.isFinite(n) && n === 0 ? 0.45 : n,
           ),
         };
-        group.add(new THREE.Mesh(cubeGeometry(cube, bone, model), material));
+        group.add(new THREE.Mesh(cubeGeometry(cube, bone, modelRef), material));
       }
     bones.set(bone.name, group);
   }
-  for (const bone of model.bones) {
+  for (const bone of modelRef.bones) {
     const group = bones.get(bone.name);
     const parent = bone.parent ? bones.get(bone.parent) : object;
     if (!parent || parent === group)
@@ -237,7 +251,7 @@ export function createEntityObject(model, material) {
     if (!java && bone.parent)
       group.position.sub(
         vector(
-          model.bones.find((candidate) => candidate.name === bone.parent).pivot,
+          modelRef.bones.find((candidate) => candidate.name === bone.parent).pivot,
         ),
       );
     parent.add(group);
