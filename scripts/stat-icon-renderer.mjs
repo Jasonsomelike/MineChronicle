@@ -3,13 +3,15 @@ import { BlockModelFactory } from '@xmcl/model';
 import { renderObj } from './stat-icon-obj.mjs';
 import { renderEntity } from './stat-entity-renderer.mjs';
 
-const SIZE = 256;
+const SIZE = 512;
 const renderer = new THREE.WebGLRenderer({
   alpha: true,
-  antialias: false,
+  antialias: true,
   preserveDrawingBuffer: true,
+  powerPreference: 'high-performance',
 });
-renderer.setSize(SIZE, SIZE);
+renderer.setPixelRatio(Math.min(2, globalThis.devicePixelRatio || 1));
+renderer.setSize(SIZE, SIZE, false);
 renderer.setClearColor(0, 0);
 renderer.outputEncoding = THREE.sRGBEncoding;
 const batchMode = location.pathname.endsWith('/stat-icon-renderer.html');
@@ -229,6 +231,38 @@ export async function renderRuntime(job) {
         height: canvas.height,
         kind: 'item',
       };
+    }
+    if (job.kind === 'portrait' && job.layers?.[0]) {
+      const source = await image(job.layers[0]);
+      const c = document.createElement('canvas');
+      c.width = source.width;
+      c.height = source.height;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(source, 0, 0);
+      const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height);
+      let minX = width, minY = height, maxX = -1, maxY = -1;
+      for (let y = 0; y < height; y += 1)
+        for (let x = 0; x < width; x += 1)
+          if (data[(y * width + x) * 4 + 3] > 8) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+          }
+      if (maxX < 0) { minX = 0; minY = 0; maxX = width - 1; maxY = height - 1; }
+      const pad = Math.max(1, Math.floor(Math.max(maxX - minX, maxY - minY) * 0.08));
+      minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+      maxX = Math.min(width - 1, maxX + pad); maxY = Math.min(height - 1, maxY + pad);
+      const side = Math.max(maxX - minX + 1, maxY - minY + 1);
+      const outSize = SIZE;
+      const out = document.createElement('canvas');
+      out.width = outSize; out.height = outSize;
+      const octx = out.getContext('2d');
+      octx.imageSmoothingEnabled = false;
+      const ox = minX - Math.floor((side - (maxX - minX + 1)) / 2);
+      const oy = minY - Math.floor((side - (maxY - minY + 1)) / 2);
+      octx.drawImage(c, ox, oy, side, side, 0, 0, outSize, outSize);
+      return { image: out.toDataURL('image/png'), width: outSize, height: outSize, kind: 'item' };
     }
     if (job.layers && !job.entityModel && !job.entityParts) {
       const layers = await Promise.all(job.layers.map(image));
