@@ -244,7 +244,11 @@ export function createEntityObject(model, material) {
   return object;
 }
 
-/** If a skin is mostly transparent, repack the opaque bbox so UV samples stay visible. */
+/**
+ * Entity skins are often mostly transparent with UVs in fixed atlas coords.
+ * Cropping would break those UVs — instead fill holes with the average opaque
+ * color so every texel stays addressable and visible.
+ */
 async function densifySkinTexture(source) {
   try {
     const img = source.image;
@@ -255,43 +259,34 @@ async function densifySkinTexture(source) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(img, 0, 0);
     const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let minX = width,
-      minY = height,
-      maxX = -1,
-      maxY = -1,
-      opaque = 0;
-    for (let y = 0; y < height; y += 1)
-      for (let x = 0; x < width; x += 1)
-        if (data[(y * width + x) * 4 + 3] > 8) {
-          opaque += 1;
-          if (x < minX) minX = x;
-          if (y < minY) minY = y;
-          if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
-        }
-    const coverage = opaque / (width * height || 1);
-    if (maxX < 0 || coverage === 0) {
-      // Fully transparent skin — keep geometry visible with a neutral fill.
-      const solid = document.createElement('canvas');
-      solid.width = 16;
-      solid.height = 16;
-      const sctx = solid.getContext('2d');
-      sctx.fillStyle = '#9aa0a8';
-      sctx.fillRect(0, 0, 16, 16);
-      const solidTex = new THREE.CanvasTexture(solid);
-      solidTex.needsUpdate = true;
-      return solidTex;
+    let opaque = 0;
+    let r = 0,
+      g = 0,
+      b = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 8) {
+        opaque += 1;
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+      }
     }
-    if (coverage > 0.35) return source;
-    const cropW = Math.max(1, maxX - minX + 1);
-    const cropH = Math.max(1, maxY - minY + 1);
-    const out = document.createElement('canvas');
-    out.width = Math.max(16, cropW);
-    out.height = Math.max(16, cropH);
-    const octx = out.getContext('2d');
-    octx.imageSmoothingEnabled = false;
-    octx.drawImage(canvas, minX, minY, cropW, cropH, 0, 0, out.width, out.height);
-    const next = new THREE.CanvasTexture(out);
+    const coverage = opaque / (width * height || 1);
+    if (coverage > 0.5) return source;
+    const fill =
+      opaque > 0
+        ? [r / opaque, g / opaque, b / opaque]
+        : [154, 160, 168];
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] <= 8) {
+        data[i] = fill[0];
+        data[i + 1] = fill[1];
+        data[i + 2] = fill[2];
+        data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(new ImageData(data, width, height), 0, 0);
+    const next = new THREE.CanvasTexture(canvas);
     next.needsUpdate = true;
     return next;
   } catch {
