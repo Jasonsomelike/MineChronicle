@@ -1539,6 +1539,17 @@ button.stat-icon:hover {
   font-size: 12px;
   color: #9a5e28;
 }
+.stat-icon-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 0 4px;
+}
+.stat-icon-status {
+  font-size: 12px;
+  color: #5c6b65;
+}
 .link-button {
   background: transparent;
   border: 0;

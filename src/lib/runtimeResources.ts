@@ -167,6 +167,9 @@ export async function discoverIcons(
       (refreshKnown || !r.resources.some((resource) => resource.icon)),
   );
   if (!pending.length) return empty;
+  const noRootRows = pending.filter(
+    (r) => !(r.resource_roots ?? []).length,
+  ).length;
   const result = await invoke<Record<string, Resolution>>(
     'resolve_stat_icons',
     {
@@ -180,6 +183,13 @@ export async function discoverIcons(
       },
     },
   );
+  if (noRootRows) {
+    for (const entry of Object.values(result)) {
+      if (!entry.image && !entry.job && entry.reason.includes('来源实例')) {
+        entry.reason = `${entry.reason}（本页有 ${noRootRows} 行未绑定实例根目录）`;
+      }
+    }
+  }
   const labels = new Map(
     pending.map((r) => [`${r.category}:${r.key}`, r.label ?? r.key]),
   );

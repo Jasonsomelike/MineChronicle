@@ -124,7 +124,7 @@ export default function Statistics({
     const id = ++requestId.current;
     setCheckingResources(true);
     setResourceStatus('正在检查实例资源…');
-    setDetailsOpen(false);
+    setDetailsOpen(true);
     await discoverIcons(snapshot.rows, { refreshKnown: true, cacheOnly: false })
       .then((result) => {
         if (id !== requestId.current || snapshot !== dataRef.current) return;
@@ -134,9 +134,14 @@ export default function Statistics({
           result.summary.cached +
           result.summary.resolved +
           result.summary.rendered;
+        const noRoots = result.details.filter(
+          (d) => !d.source && d.reason.includes('来源实例'),
+        ).length;
         setResourceStatus(
-          `共 ${result.details.length} 项 · 成功 ${ok} · 未找到 ${result.summary.missing} · 错误 ${result.summary.error}`,
+          `共 ${result.details.length} 项 · 成功 ${ok} · 未找到 ${result.summary.missing} · 错误 ${result.summary.error}` +
+            (noRoots ? ` · 无来源根目录 ${noRoots}` : ''),
         );
+        setDetailsOpen(true);
       })
       .catch(() => {
         if (id === requestId.current)
@@ -150,7 +155,6 @@ export default function Statistics({
     requestId.current++;
     setCheckingResources(false);
     setResourceStatus('');
-    setResourceDetails([]);
   }, [data]);
   useEffect(() => {
     if (!pageActive || !data) return;
@@ -159,11 +163,15 @@ export default function Statistics({
         row.key !== 'minecraft:air' &&
         !row.resources?.some((resource) => resource.icon),
     );
-    if (!missing.length) return;
+    if (!missing.length) {
+      setResourceDetails([]);
+      return;
+    }
     const id = ++requestId.current;
     void discoverIcons(missing, { cacheOnly: true })
       .then((result) => {
         if (id !== requestId.current || !result) return;
+        setResourceDetails(result.details);
         const hits = Object.values(result.icons).filter((entry) => entry.image)
           .length;
         if (!hits) return;
@@ -241,7 +249,7 @@ export default function Statistics({
           onScope(s);
         }}
       />
-      <div className="statistics-context">
+      <div className="stat-icon-toolbar">
         <button
           type="button"
           className="secondary-button"
@@ -251,19 +259,30 @@ export default function Statistics({
         >
           {checkingResources ? '正在检查游戏图标…' : '检查本页游戏图标'}
         </button>
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={resourceDetails.length === 0}
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen((open) => !open)}
+        >
+          {detailsOpen
+            ? '收起明细'
+            : resourceDetails.length
+              ? `查看明细（${resourceDetails.length}）`
+              : '查看明细'}
+        </button>
         {resourceStatus && !checkingResources ? (
-          <span role="status">{resourceStatus}</span>
+          <span role="status" className="stat-icon-status">
+            {resourceStatus}
+          </span>
+        ) : checkingResources ? (
+          <span role="status" className="stat-icon-status">
+            正在检查游戏图标…
+          </span>
         ) : null}
-        {resourceDetails.length > 0 ? (
-          <button
-            type="button"
-            className="link-button"
-            aria-expanded={detailsOpen}
-            onClick={() => setDetailsOpen((open) => !open)}
-          >
-            {detailsOpen ? '收起明细' : `展开明细（${resourceDetails.length}）`}
-          </button>
-        ) : null}
+      </div>
+      <div className="statistics-context">
         <div className="health-tabs" role="tablist" aria-label="统计口径">
           {[
             ['current', '最近存档读数'],
