@@ -965,12 +965,30 @@ fn find_java_model_class(index: &Index, aliases: &[String]) -> Option<(PathBuf, 
             })
             .cloned()
             .collect();
-        if hits.len() != 1 {
-            continue;
+        // Prefer exact Model{Pascal} / {Pascal}Model over longer aliases.
+        let mut ranked: Vec<(u8, String)> = hits
+            .into_iter()
+            .map(|h| {
+                let file = h.rsplit('/').next().unwrap_or("").to_string();
+                let rank = pascals
+                    .iter()
+                    .map(|p| {
+                        if file == format!("Model{p}.class") || file == format!("{p}Model.class") {
+                            0u8
+                        } else {
+                            1
+                        }
+                    })
+                    .min()
+                    .unwrap_or(2);
+                (rank, h)
+            })
+            .collect();
+        ranked.sort();
+        if let Some((_, entry)) = ranked.first() {
+            let class_name = entry.trim_end_matches(".class").replace('/', ".");
+            return Some((container, class_name));
         }
-        let entry = hits[0].clone();
-        let class_name = entry.trim_end_matches(".class").replace('/', ".");
-        return Some((container, class_name));
     }
     None
 }
