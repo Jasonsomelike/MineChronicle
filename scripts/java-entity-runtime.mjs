@@ -795,7 +795,6 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
       continue;
     } else throw new Error(`Unsupported model instruction ${op}`);
   }
-    console.error('END complete', complete, 'bones', bones.length, 'cubes', bones.map((b) => b.cubes.length));
   if (!complete || !bones.some((bone) => bone.cubes.length))
     throw new Error('No complete entity geometry complete=' + complete + ' bones=' + bones.length + ' cubes=' + bones.map((b) => b.cubes.length).join(','));
   const fieldName = (bone) =>

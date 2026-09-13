@@ -85,7 +85,7 @@ fn cache_key(root: &str, signature: &str, category: &str, key: &str) -> String {
     hasher.update(b"\0");
     hasher.update(key.as_bytes());
     // Bump when icon pipeline output format changes so stale PNGs are not reused.
-    hasher.update(b"\0skin-score-v6");
+    hasher.update(b"\0spider-java-v8");
     hasher.finalize().to_hex().to_string()
 }
 
@@ -768,18 +768,12 @@ fn vanilla_template_model(ns: &str, name: &str, width: u32, height: u32) -> Opti
         || name.contains("tusklin");
     let slime = name.contains("slime") || name.contains("magma");
     let bones = if spider && width == 64 && height == 32 {
+        // Java ModelSpider layout, converted to absolute origins with pivot 0
+        // (matches the renderer's proven single-box convention).
         serde_json::json!([
-            {"name":"head","pivot":[0,9,-3],"cubes":[{"origin":[-4,5,-11],"size":[8,8,8],"uv":[32,4]}]},
-            {"name":"body0","pivot":[0,9,0],"cubes":[{"origin":[-3,6,-3],"size":[6,6,6],"uv":[0,0]}]},
-            {"name":"body1","pivot":[0,9,9],"cubes":[{"origin":[-5,5,3],"size":[10,8,12],"uv":[0,12]}]},
-            {"name":"leg0","pivot":[-4,9,2],"cubes":[{"origin":[-8,8,1],"size":[16,2,2],"uv":[18,0]}]},
-            {"name":"leg1","pivot":[4,9,2],"cubes":[{"origin":[-8,8,1],"size":[16,2,2],"uv":[18,0]}]},
-            {"name":"leg2","pivot":[-4,9,1],"cubes":[{"origin":[-8,8,0],"size":[16,2,2],"uv":[18,0]}]},
-            {"name":"leg3","pivot":[4,9,1],"cubes":[{"origin":[-8,8,0],"size":[16,2,2],"uv":[18,0]}]},
-            {"name":"leg4","pivot":[-4,9,0],"cubes":[{"origin":[-8,8,-1],"size":[16,2,2],"uv":[18,0]}]},
-            {"name":"leg5","pivot":[4,9,0],"cubes":[{"origin":[-8,8,-1],"size":[16,2,2],"uv":[18,0]}]},
-            {"name":"leg6","pivot":[-4,9,-1],"cubes":[{"origin":[-8,8,-2],"size":[16,2,2],"uv":[18,0]}]},
-            {"name":"leg7","pivot":[4,9,-1],"cubes":[{"origin":[-8,8,-2],"size":[16,2,2],"uv":[18,0]}]}
+            {"name":"head","pivot":[0,0,0],"cubes":[{"origin":[-4,11,-11],"size":[8,8,8],"uv":[32,4]}]},
+            {"name":"body","pivot":[0,0,0],"cubes":[{"origin":[-3,9,-3],"size":[6,6,6],"uv":[0,0]}]},
+            {"name":"rear","pivot":[0,0,0],"cubes":[{"origin":[-5,5,3],"size":[10,8,12],"uv":[0,12]}]}
         ])
     } else if biped && width == 64 && (height == 64 || height == 32) {
         serde_json::json!([
@@ -807,7 +801,8 @@ fn vanilla_template_model(ns: &str, name: &str, width: u32, height: u32) -> Opti
         return None;
     };
     Some(serde_json::json!({
-        "format": "bedrock",
+        // Java convention matches the renderer path used by extracted Java models.
+        "format": "java",
         "textureWidth": width,
         "textureHeight": height,
         "bones": bones
