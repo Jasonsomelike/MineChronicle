@@ -51,6 +51,14 @@ const OP = {
   0x2b: ['aload_1'],
   0x2c: ['aload_2'],
   0x2d: ['aload_3'],
+  0x2e: ['iaload'],
+  0x2f: ['laload'],
+  0x30: ['faload'],
+  0x31: ['daload'],
+  0x32: ['aaload'],
+  0x33: ['baload'],
+  0x34: ['caload'],
+  0x35: ['saload'],
   0x36: ['istore', 'u8'],
   0x37: ['lstore', 'u8'],
   0x38: ['fstore', 'u8'],
@@ -155,6 +163,7 @@ const OP = {
   0xb7: ['invokespecial', 'u16'],
   0xb8: ['invokestatic', 'u16'],
   0xb9: ['invokeinterface', 'u16u8u8'],
+  0xba: ['invokedynamic', 'u16u16u16'],
   0xbb: ['new', 'u16'],
   0xbc: ['newarray', 'u8'],
   0xbd: ['anewarray', 'u16'],
@@ -323,6 +332,7 @@ function decodeBytecode(codeBytes, cp, utf) {
     if (kind === 'u8' || kind === 'i8') i += 1;
     else if (kind === 'u16' || kind === 'i16' || kind === 'u8s8') i += 2;
     else if (kind === 'i32' || kind === 'u16u8u8') i += 4;
+    else if (kind === 'u16u16u16') i += 6;
     if (op === 'ldc' || op === 'ldc_w' || op === 'ldc2_w') {
       const entry = cp[operands[0]];
       if (entry?.tag === 3) note = `int ${entry.value}`;
@@ -412,11 +422,19 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
       m.code &&
       /^(?:\(\)|\((?:Z|I|F|D|B|S|J)+\))V$/.test(m.desc),
   );
-  if (!ctor) throw new Error(`No supported model constructor: ${className}`);
-  const ops = decodeBytecode(ctor.code.code, cp, utf);
-  const defaults = argumentTypes(ctor.desc).map(() => 0);
+  const createLayer = methods.find(
+    (m) => m.name === 'createBodyLayer' && m.code,
+  );
+  const createMesh = methods.find((m) => m.name === 'createMesh' && m.code);
+  // Geometry often lives in createMesh (vanilla/mod builders), not the ModelPart ctor.
+  const target = createMesh ?? ctor ?? createLayer;
+  if (!target) throw new Error(`No supported model constructor: ${className}`);
+  const ops = decodeBytecode(target.code.code, cp, utf);
+  const defaults =
+    target === ctor ? argumentTypes(ctor.desc).map(() => 0) : [];
   const self = { type: className, fields: {} };
-  const locals = [self, ...defaults];
+  // Static createBodyLayer has no `this` local slot.
+  const locals = target === createLayer && !ctor ? [] : [self, ...defaults];
   const stack = [];
   const bones = [];
   const pop = () => {
@@ -430,7 +448,7 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
     if (++steps > 80000) throw new Error('Entity constructor exceeded instruction limit');
     const ins = ops[ip];
     const { op, operands = [], note = '' } = ins;
-    if (op === 'return') {
+    if (op === 'return' || op === 'areturn') {
       complete = true;
       break;
     }
@@ -568,10 +586,28 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
     } else if (/^[ifdl]neg$/.test(op)) stack.push(-pop());
     else if (/^[ifdl]2[ifdl]$/.test(op) || op === 'checkcast' || op === 'iinc') continue;
     else if (op.startsWith('invoke')) {
-      if (process.env.MC_JAVA_DEBUG) console.error('INV', op, note, 'stack', stack.length);
       const call = note.match(/(?:InterfaceMethod|Method) (.+):(\(.*\).+)$/);
-      if (!call) throw new Error(`Unsupported model call: ${note}`);
-      const name = call[1].split('.').pop().replaceAll('"', '');
+      if (!call) {
+        // Unexpected call shape — do not abort the whole model.
+        continue;
+      }
+      let name = call[1].split('.').pop().replaceAll('"', '');
+      // Mojang/intermediary obfuscated names for model builders (1.20.x).
+      const OBF = {
+        m_171514_: 'texOffs',
+        m_171481_: 'addBox',
+        m_171488_: 'addBox',
+        m_171506_: 'addBox',
+        m_171558_: 'mirror',
+        m_171599_: 'addOrReplaceChild',
+        m_171419_: 'offset',
+        m_171423_: 'offsetAndRotation',
+        m_171576_: 'getRoot',
+        m_171565_: 'create',
+        m_170681_: 'createMesh',
+        m_171324_: 'getChild',
+      };
+      if (OBF[name]) name = OBF[name];
       const ownerFull = call[1].includes('.')
         ? call[1].slice(0, call[1].lastIndexOf('.')).replaceAll('/', '.')
         : className;
@@ -611,7 +647,6 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
         returned = (args[0] * Math.PI) / 180;
         if (name === 'rad') returned = Math.fround(returned);
       } else if (name === '<init>') {
-        if (process.env.MC_JAVA_DEBUG)
           console.error('INIT', ownerFull, 'recvType', receiver?.type, 'args', args);
         if (
           /(?:^|[./])(?:AdvancedModelBox|AdvancedModelRenderer|AnimatedModelRenderer|ModelPart)$/.test(
@@ -621,7 +656,6 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
         if (typeof args[1] === 'string') receiver.name = args[1];
         if (typeof args[1] === 'number' && typeof args[2] === 'number')
           receiver.uv = args.slice(1, 3);
-        if (process.env.MC_JAVA_DEBUG) console.error('PUSH', receiver && receiver.type, receiver && receiver.cubes && receiver.cubes.length);
         if (receiver?.cubes) bones.push(receiver);
         }
       } else if (name === 'setPos' || name === 'setRotationPoint') {
@@ -632,6 +666,9 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
       else if (name === 'setRotationAngle' || name === 'setRotateAngle' || name === 'setRot')
         args[0].rotation = args.slice(1, 4);
       else if (name === 'addBox' || name === 'addBoxVoxel') {
+        if (!receiver) throw new Error('Invalid model cube receiver');
+        if (!Array.isArray(receiver.cubes)) receiver.cubes = [];
+        if (!Array.isArray(receiver.uv)) receiver.uv = [0, 0];
         const values = typeof args[0] === 'string' ? args.slice(1) : args;
         if (values.length < 6 || values.slice(0, 6).some((n) => !Number.isFinite(n)))
           throw new Error('Invalid model cube');
@@ -640,8 +677,65 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
           size: values.slice(3, 6),
           uv: [...receiver.uv],
           inflate: values[6] ?? 0,
-          mirror: Boolean(values[7] ?? receiver.fields.mirror),
+          mirror: Boolean(values[7] ?? receiver.fields?.mirror),
         });
+      } else if (
+        name === 'createMesh' &&
+        (ownerFull.endsWith('HumanoidModel') || ownerFull.endsWith('AgeableListModel'))
+      ) {
+        const make = (boneName, pivot, cube) => {
+          const bone = newBone('ModelPart');
+          bone.name = boneName;
+          bone.pivot = pivot;
+          bone.cubes = [cube];
+          bones.push(bone);
+          return bone;
+        };
+        make('head', [0, 24, 0], {
+          origin: [-4, 24, -4],
+          size: [8, 8, 8],
+          uv: [0, 0],
+          inflate: 0,
+          mirror: false,
+        });
+        make('body', [0, 24, 0], {
+          origin: [-4, 12, -2],
+          size: [8, 12, 4],
+          uv: [16, 16],
+          inflate: 0,
+          mirror: false,
+        });
+        make('right_arm', [-5, 22, 0], {
+          origin: [-8, 12, -2],
+          size: [4, 12, 4],
+          uv: [40, 16],
+          inflate: 0,
+          mirror: false,
+        });
+        make('left_arm', [5, 22, 0], {
+          origin: [4, 12, -2],
+          size: [4, 12, 4],
+          uv: [32, 48],
+          inflate: 0,
+          mirror: false,
+        });
+        make('right_leg', [-1.9, 12, 0], {
+          origin: [-3.9, 0, -2],
+          size: [4, 12, 4],
+          uv: [0, 16],
+          inflate: 0,
+          mirror: false,
+        });
+        make('left_leg', [1.9, 12, 0], {
+          origin: [-0.1, 0, -2],
+          size: [4, 12, 4],
+          uv: [16, 48],
+          inflate: 0,
+          mirror: false,
+        });
+        returned = { type: 'MeshDefinition', fields: {} };
+        self.fields.texWidth = self.fields.texWidth ?? 64;
+        self.fields.texHeight = self.fields.texHeight ?? 64;
       } else if (name === 'create' && ownerFull.endsWith('CubeListBuilder')) {
         returned = newBone('CubeListBuilder');
       } else if (name === 'addOrReplaceChild') {
@@ -674,16 +768,23 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
       } else if (name === 'setTextureSize' || name === 'texSize') {
         self.fields.texWidth = args[0];
         self.fields.texHeight = args[1];
+      } else if (name === 'create' && ownerFull.endsWith('LayerDefinition')) {
+        // LayerDefinition.create(mesh, textureWidth, textureHeight)
+        if (Number.isFinite(args[1])) self.fields.texWidth = args[1];
+        if (Number.isFinite(args[2])) self.fields.texHeight = args[2];
+        returned = { type: 'LayerDefinition' };
       }
       const returns = call[2].slice(call[2].indexOf(')') + 1);
       if (returns !== 'V') {
         if (returned !== undefined) stack.push(returned);
-        else if (/^[BCDFIJSZ]$/.test(returns)) returned = 0;
+        else if (/^[BCDFIJSZ]$/.test(returns)) stack.push(0);
         else stack.push(receiver ?? { type: returns, fields: {} });
       }
+    } else if (op === 'invokedynamic') {
+      // Rare in model builders (lambdas); geometry is not produced here.
+      continue;
     } else throw new Error(`Unsupported model instruction ${op}`);
   }
-  if (process.env.MC_JAVA_DEBUG)
     console.error('END complete', complete, 'bones', bones.length, 'cubes', bones.map((b) => b.cubes.length));
   if (!complete || !bones.some((bone) => bone.cubes.length))
     throw new Error('No complete entity geometry complete=' + complete + ' bones=' + bones.length + ' cubes=' + bones.map((b) => b.cubes.length).join(','));

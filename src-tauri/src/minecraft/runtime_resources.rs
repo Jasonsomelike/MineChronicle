@@ -966,16 +966,31 @@ fn model_class_entries(index: &Index, container: &Path) -> Vec<String> {
     names
 }
 
-fn find_java_model_class(index: &Index, aliases: &[String]) -> Option<(PathBuf, String)> {
+fn find_java_model_class(index: &Index, ns: &str, aliases: &[String]) -> Option<(PathBuf, String)> {
     let pascals: Vec<String> = aliases.iter().map(|a| pascal_case(a)).collect();
     let mut containers: Vec<PathBuf> = index.assets.values().map(|a| a.container.clone()).collect();
     containers.sort();
     containers.dedup();
+    // Prefer jars that actually ship this namespace's assets.
+    let ns_prefix = format!("assets/{ns}/");
+    let mut preferred: Vec<PathBuf> = Vec::new();
+    let mut rest: Vec<PathBuf> = Vec::new();
     for container in containers {
         if container.extension().is_none_or(|e| e != "jar") {
             continue;
         }
-        let names = model_class_entries(index, &container);
+        let has_ns = index
+            .assets
+            .iter()
+            .any(|(path, asset)| path.starts_with(&ns_prefix) && asset.container == container);
+        if has_ns {
+            preferred.push(container);
+        } else {
+            rest.push(container);
+        }
+    }
+    for container in preferred.iter().chain(rest.iter()) {
+        let names = model_class_entries(index, container);
         let hits: Vec<String> = names
             .iter()
             .filter(|n| {
@@ -1013,7 +1028,7 @@ fn find_java_model_class(index: &Index, aliases: &[String]) -> Option<(PathBuf, 
         ranked.sort();
         if let Some((_, entry)) = ranked.first() {
             let class_name = entry.trim_end_matches(".class").replace('/', ".");
-            return Some((container, class_name));
+            return Some((container.clone(), class_name));
         }
     }
     None
@@ -1059,7 +1074,12 @@ fn collect_java_class_map(
     map
 }
 
-fn java_model_resolution(index: &Index, aliases: &[String], skin: &str) -> Option<Resolution> {
+fn java_model_resolution(
+    index: &Index,
+    ns: &str,
+    aliases: &[String],
+    skin: &str,
+) -> Option<Resolution> {
     // Cap expensive bytecode work per generation to keep the UI responsive.
     const MAX_JAVA_ATTEMPTS: usize = 12;
     if index
@@ -1069,9 +1089,18 @@ fn java_model_resolution(index: &Index, aliases: &[String], skin: &str) -> Optio
     {
         return None;
     }
-    let (jar, class_name) = find_java_model_class(index, aliases)?;
+    let (jar, class_name) = find_java_model_class(index, ns, aliases)?;
     let mut classes = collect_java_class_map(&jar, &class_name, index);
     if !classes.contains_key(&class_name) {
+        return None;
+    }
+    // GeckoLib models keep geometry in .geo.json, not constructors — skip.
+    if classes.values().any(|bytes| {
+        class_super_name(bytes)
+            .map(|s| s.to_ascii_lowercase().contains("geckolib"))
+            .unwrap_or(false)
+            || String::from_utf8_lossy(bytes).contains("software/bernie/geckolib")
+    }) {
         return None;
     }
     // Keep IPC payloads bounded.
@@ -1307,13 +1336,13 @@ fn entity(index: &Index, key: &str) -> Resolution {
         });
         if geometry_path.is_none() {
             if let Some(skin) = skin_path.as_deref() {
-                if let Some(resolution) = java_model_resolution(index, &aliases, skin) {
+                if let Some(resolution) = java_model_resolution(index, &ns, &aliases, skin) {
                     return resolution;
                 }
             }
             if let Some(vanilla) = vanilla_family_texture(&name) {
                 if index.assets.contains_key(vanilla) {
-                    if let Some(resolution) = java_model_resolution(index, &aliases, vanilla) {
+                    if let Some(resolution) = java_model_resolution(index, &ns, &aliases, vanilla) {
                         return resolution;
                     }
                     let template = texture_only_entity(
