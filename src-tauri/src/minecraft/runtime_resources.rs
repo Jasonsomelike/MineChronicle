@@ -75,17 +75,16 @@ fn missing(reason: impl Into<String>) -> Resolution {
     }
 }
 
-fn cache_key(root: &str, signature: &str, category: &str, key: &str) -> String {
+/// Stable across restarts: do NOT mix resource_signature (mtimes) into the key.
+/// Pipeline format version lives in the suffix; invalidate by bumping it.
+fn cache_key(root: &str, _signature: &str, category: &str, key: &str) -> String {
     let mut hasher = blake3::Hasher::new();
     hasher.update(root.as_bytes());
-    hasher.update(b"\0");
-    hasher.update(signature.as_bytes());
     hasher.update(b"\0");
     hasher.update(category.as_bytes());
     hasher.update(b"\0");
     hasher.update(key.as_bytes());
-    // Bump when icon pipeline output format changes so stale PNGs are not reused.
-    hasher.update(b"\0spider-legs-v10");
+    hasher.update(b"\0stable-v11");
     hasher.finalize().to_hex().to_string()
 }
 
@@ -1990,8 +1989,13 @@ mod tests {
             "s",
             "r"
         ));
-        let other = cache_key("/root", "sig2", "minecraft:used", "example:test");
+        // Signature is intentionally excluded so restarts keep hitting the same key.
+        let same = cache_key("/root", "sig2", "minecraft:used", "example:test");
+        assert_eq!(key, same);
+        let other = cache_key("/root", "sig", "minecraft:killed", "example:test");
         assert_ne!(key, other);
+        let other_root = cache_key("/other", "sig", "minecraft:used", "example:test");
+        assert_ne!(key, other_root);
         assert!(read_icon_cache(dir.path(), &other).is_none());
     }
 
