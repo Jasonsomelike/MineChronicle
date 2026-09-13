@@ -21,8 +21,8 @@ export default [
     languageOptions: { globals: globals.node },
   },
   {
-    files: ['scripts/stat-icon-renderer.mjs'],
-    languageOptions: { globals: globals.browser },
+    files: ['scripts/stat-icon-renderer.mjs', 'scripts/probe-gsap-stat-icons.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     files: ['**/*.{ts,tsx}'],
