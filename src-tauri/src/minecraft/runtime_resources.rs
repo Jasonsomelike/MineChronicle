@@ -80,6 +80,8 @@ fn cache_key(root: &str, signature: &str, category: &str, key: &str) -> String {
     hasher.update(category.as_bytes());
     hasher.update(b"\0");
     hasher.update(key.as_bytes());
+    // Bump when icon pipeline output format changes so stale PNGs are not reused.
+    hasher.update(b"\0box-v2");
     hasher.finalize().to_hex().to_string()
 }
 
@@ -585,6 +587,35 @@ fn entity_name_aliases(ns: &str, name: &str) -> Vec<String> {
     {
         names.push("chaos_guardian".into());
     }
+    match (ns, name) {
+        ("minecraft", "ender_dragon") => {
+            names.push("enderdragon".into());
+            names.push("dragon".into());
+        }
+        ("minecraft", "magma_cube") => {
+            names.push("magmacube".into());
+            names.push("magma".into());
+        }
+        ("minecraft", "cave_spider") => {
+            names.push("cavespider".into());
+        }
+        ("iceandfire", "fire_dragon") => {
+            names.push("dragon_fire".into());
+            names.push("firedragon".into());
+        }
+        ("iceandfire", "ice_dragon") => {
+            names.push("dragon_ice".into());
+            names.push("icedragon".into());
+        }
+        ("iceandfire", "deathworm") => {
+            names.push("death_worm".into());
+        }
+        _ if name.eq_ignore_ascii_case("PoisonSpider") => {
+            names.push("poisonspider".into());
+            names.push("poison_spider".into());
+        }
+        _ => {}
+    }
     names.dedup();
     names
 }
@@ -625,19 +656,93 @@ fn is_entity_stat(category: &str, key: &str) -> bool {
             && (key.starts_with("stat.entityKilledBy.") || key.starts_with("stat.killEntity.")))
 }
 
+/// Synthesize a simple two-box mob so texture-only entities still render in 3D
+/// instead of dumping the raw UV unwrap as the icon.
+fn representative_box_model(width: u32, height: u32) -> Value {
+    let tall = height as f32 >= width as f32 * 1.2;
+    let bones = if tall {
+        serde_json::json!([
+            {
+                "name": "head",
+                "pivot": [0, 12, 0],
+                "cubes": [{ "origin": [-4, 12, -4], "size": [8, 8, 8], "uv": [0, 0] }]
+            },
+            {
+                "name": "body",
+                "pivot": [0, 12, 0],
+                "cubes": [{ "origin": [-4, 0, -2], "size": [8, 12, 4], "uv": [16, 16] }]
+            }
+        ])
+    } else {
+        serde_json::json!([
+            {
+                "name": "head",
+                "pivot": [0, 10, -4],
+                "cubes": [{ "origin": [-4, 6, -8], "size": [8, 8, 8], "uv": [0, 0] }]
+            },
+            {
+                "name": "body",
+                "pivot": [0, 10, 0],
+                "cubes": [{ "origin": [-4, 2, -3], "size": [8, 8, 6], "uv": [28, 8] }]
+            }
+        ])
+    };
+    serde_json::json!({
+        "format": "bedrock",
+        "textureWidth": width.max(1),
+        "textureHeight": height.max(1),
+        "bones": bones
+    })
+}
+
 fn texture_only_entity(index: &Index, skin_path: &str, reason: &str) -> Resolution {
     let Some((bytes, source)) = read(index, skin_path) else {
         return missing("实体纹理不可读");
     };
-    if !png_is_valid(&bytes) {
+    let Some((width, height)) = png_size(&bytes) else {
         return missing("实体纹理不是有效PNG");
-    }
+    };
+    let model = representative_box_model(width, height);
     Resolution {
-        image: Some(format!("data:image/png;base64,{}", STANDARD.encode(bytes))),
+        image: None,
         source,
-        reason: reason.into(),
-        job: None,
+        reason: format!("{reason}；以代表性盒模型立体渲染"),
+        job: Some(serde_json::json!({
+            "entityModel": model,
+            "layers": [format!("data:image/png;base64,{}", STANDARD.encode(bytes))]
+        })),
     }
+}
+
+fn find_skin_loose(index: &Index, ns: &str, aliases: &[String]) -> Option<String> {
+    let prefix = format!("assets/{ns}/textures/entity/");
+    let mut hits: Vec<&String> = index
+        .assets
+        .keys()
+        .filter(|p| {
+            if !p.starts_with(&prefix) || !p.ends_with(".png") {
+                return false;
+            }
+            let file = p.rsplit('/').next().unwrap_or("");
+            let base = file.trim_end_matches(".png").to_ascii_lowercase();
+            aliases.iter().any(|a| {
+                let a = a.to_ascii_lowercase();
+                base == a
+                    || base.ends_with(&format!("_{a}"))
+                    || base.starts_with(&format!("{a}_"))
+                    || base.contains(&a)
+            }) && !base.contains("overlay")
+                && !base.contains("layer")
+                && !base.ends_with("_spawn")
+                && !base.ends_with("_egg")
+        })
+        .collect();
+    hits.sort();
+    hits.dedup();
+    if hits.len() == 1 {
+        return Some(hits[0].clone());
+    }
+    None
 }
 
 fn entity(index: &Index, key: &str) -> Resolution {
@@ -673,9 +778,12 @@ fn entity(index: &Index, key: &str) -> Resolution {
             .collect();
         let geometry_path =
             pick_entity_path(&geometries, &name).or_else(|| geometries.first().copied());
-        let skin_path = pick_entity_path(&skins, &name).or_else(|| skins.first().copied());
+        let skin_path = pick_entity_path(&skins, &name)
+            .or_else(|| skins.first().copied())
+            .cloned()
+            .or_else(|| find_skin_loose(index, &ns, &aliases));
         if geometry_path.is_none() {
-            if let Some(skin) = skin_path {
+            if let Some(skin) = skin_path.as_deref() {
                 return texture_only_entity(
                     index,
                     skin,
@@ -717,7 +825,7 @@ fn entity(index: &Index, key: &str) -> Resolution {
             last_missing = missing("生物几何复杂度超限");
             continue;
         }
-        let Some((bytes, source)) = read(index, skin_path) else {
+        let Some((bytes, source)) = read(index, &skin_path) else {
             last_missing = missing("生物皮肤不可读");
             continue;
         };
@@ -1401,7 +1509,7 @@ mod tests {
             "legacy",
         );
         assert!(
-            legacy.image.is_some(),
+            legacy.image.is_some() || legacy.job.is_some(),
             "legacy poison spider: {}",
             legacy.reason
         );
@@ -1411,13 +1519,23 @@ mod tests {
             "minecraft:killed_by",
         );
         assert!(
-            guardian.image.is_some(),
+            guardian.image.is_some() || guardian.job.is_some(),
             "draconic guardian: {}",
             guardian.reason
         );
         assert!(guardian.source.contains("chaos_guardian"));
         let apostle = resolve(&index, "goety:apostle", "minecraft:killed");
-        assert!(apostle.image.is_some(), "apostle: {}", apostle.reason);
+        assert!(
+            apostle.image.is_some() || apostle.job.is_some(),
+            "apostle: {}",
+            apostle.reason
+        );
+        if let Some(job) = &apostle.job {
+            assert!(job.get("entityModel").is_some());
+        }
+        if let Some(job) = &legacy.job {
+            assert!(job.get("entityModel").is_some());
+        }
         assert!(is_entity_stat("legacy", "stat.killEntity.Zombie"));
         assert!(!is_entity_stat("legacy", "stat.mineBlock.1"));
         assert_eq!(snake_case("PoisonSpider"), "poison_spider");
