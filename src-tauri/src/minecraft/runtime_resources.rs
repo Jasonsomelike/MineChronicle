@@ -613,16 +613,24 @@ fn entity_name_aliases(ns: &str, name: &str) -> Vec<String> {
         ("iceandfire", "fire_dragon") | ("iceandfire", "firedragon") => {
             names.push("firedragon".into());
             names.push("dragon_fire".into());
+            // Shared dragon body model in the mod.
+            names.push("DragonBase".into());
         }
         ("iceandfire", "ice_dragon") | ("iceandfire", "icedragon") => {
             names.push("icedragon".into());
             names.push("dragon_ice".into());
+            names.push("DragonBase".into());
         }
         ("iceandfire", "lightning_dragon") => {
             names.push("lightningdragon".into());
+            names.push("DragonBase".into());
         }
         ("iceandfire", "deathworm") => {
             names.push("death_worm".into());
+            names.push("DeathWorm".into());
+        }
+        ("iceandfire", "sea_serpent") => {
+            names.push("SeaSerpent".into());
         }
         ("cataclysm", "ignis") => {
             names.push("ignis_idle_0".into());

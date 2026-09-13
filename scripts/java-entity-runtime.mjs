@@ -657,9 +657,9 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
         returned = (args[0] * Math.PI) / 180;
         if (name === 'rad') returned = Math.fround(returned);
       } else if (name === '<init>') {
-          console.error('INIT', ownerFull, 'recvType', receiver?.type, 'args', args);
+          
         if (
-          /(?:^|[./])(?:AdvancedModelBox|AdvancedModelRenderer|AnimatedModelRenderer|ModelPart)$/.test(
+          /(?:^|[./])(?:AdvancedModelBox|AdvancedModelRenderer|HideableModelRenderer|AnimatedModelRenderer|ModelPart)$/.test(
             receiver?.type ?? '',
           )
         ) {
