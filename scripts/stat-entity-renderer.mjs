@@ -217,11 +217,12 @@ export function createEntityObject(model, material) {
     );
     if (!bone.hidden)
       for (const raw of bone.cubes ?? []) {
-        // Thin Java wings/plates collapse to invisible panels — keep a min edge.
+        // Only true zero-thickness plates (wings/fins). Spider legs are 2 units
+        // thick and must not be inflated into giant planes.
         const cube = {
           ...raw,
           size: (raw.size ?? [1, 1, 1]).map((n) =>
-            Number.isFinite(n) && Math.abs(n) < 0.45 ? Math.sign(n || 1) * 0.45 : n,
+            Number.isFinite(n) && n === 0 ? 0.45 : n,
           ),
         };
         group.add(new THREE.Mesh(cubeGeometry(cube, bone, model), material));

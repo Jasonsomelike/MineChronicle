@@ -851,7 +851,7 @@ fn vanilla_extra_skin_paths(ns: &str, name: &str) -> Vec<String> {
             ]
         }
         ("iceandfire", "ghost") => {
-            vec!["assets/iceandfire/textures/entity/ghost/ghost.png".into()]
+            vec!["assets/iceandfire/textures/models/ghost/ghost_white.png".into()]
         }
         _ => vec![],
     }

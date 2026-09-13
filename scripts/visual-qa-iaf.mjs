@@ -64,7 +64,7 @@ const specs = [
   {
     id: 'ghost',
     className: 'com.github.alexthe666.iceandfire.client.model.ModelGhost',
-    tex: 'assets/iceandfire/textures/models/cyclops/cyclops_0.png',
+    tex: 'assets/iceandfire/textures/models/ghost/ghost_white.png',
   },
 ];
 
