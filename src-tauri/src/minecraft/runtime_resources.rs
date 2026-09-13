@@ -830,13 +830,21 @@ fn texture_only_entity(
         return missing("实体纹理不是有效PNG");
     };
     if let Some(model) = vanilla_template_model(ns, name, width, height) {
+        let n = name.to_ascii_lowercase();
+        // Spiders read better from a low side-front angle.
+        let rotation = if n.contains("spider") {
+            serde_json::json!([8, 200, 0])
+        } else {
+            serde_json::json!([15, 155, 0])
+        };
         return Resolution {
             image: None,
             source,
             reason: format!("{reason}；用原版模板立体渲染"),
             job: Some(serde_json::json!({
                 "entityModel": model,
-                "layers": [format!("data:image/png;base64,{}", STANDARD.encode(bytes))]
+                "layers": [format!("data:image/png;base64,{}", STANDARD.encode(bytes))],
+                "rotation": rotation,
             })),
         };
     }
@@ -942,15 +950,18 @@ fn find_java_model_class(index: &Index, aliases: &[String]) -> Option<(PathBuf, 
         let hits: Vec<String> = names
             .iter()
             .filter(|n| {
-                n.ends_with(".class")
-                    && n.contains("/model/")
-                    && !n.contains('$')
-                    && !n.contains("Layer")
-                    && !n.contains("Armor")
-                    && pascals.iter().any(|p| {
-                        let want = format!("Model{p}");
-                        n.ends_with(&format!("{want}.class"))
-                    })
+                if !n.ends_with(".class") || n.contains('$') {
+                    return false;
+                }
+                let file = n.rsplit('/').next().unwrap_or("");
+                if file.contains("Layer") || file.contains("Armor") {
+                    return false;
+                }
+                pascals.iter().any(|p| {
+                    file == format!("Model{p}.class")
+                        || file == format!("{p}Model.class")
+                        || file == format!("Model{p}EntityModel.class")
+                })
             })
             .cloned()
             .collect();
@@ -1965,6 +1976,19 @@ mod tests {
             "poison spider: {}",
             answer.reason
         );
+    }
+
+    #[test]
+    fn java_model_class_name_patterns_include_suffix_model() {
+        assert_eq!(pascal_case("ferrouslime"), "Ferrouslime");
+        assert_eq!(pascal_case("crimson_mosquito"), "CrimsonMosquito");
+        // Both ModelX and XModel file names must be discoverable.
+        let file = "FerrouslimeModel.class";
+        let p = pascal_case("ferrouslime");
+        assert!(file == format!("Model{p}.class") || file == format!("{p}Model.class"));
+        let file2 = "ModelCrimsonMosquito.class";
+        let p2 = pascal_case("crimson_mosquito");
+        assert!(file2 == format!("Model{p2}.class") || file2 == format!("{p2}Model.class"));
     }
 
     #[test]
