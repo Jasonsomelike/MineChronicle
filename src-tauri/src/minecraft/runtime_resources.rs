@@ -841,6 +841,18 @@ fn vanilla_extra_skin_paths(ns: &str, name: &str) -> Vec<String> {
         ("minecraft", "cave_spider") => {
             vec!["assets/minecraft/textures/entity/spider/cave_spider.png".into()]
         }
+        ("iceandfire", "cyclops") => {
+            vec!["assets/iceandfire/textures/models/cyclops/cyclops_0.png".into()]
+        }
+        ("iceandfire", "deathworm") => {
+            vec![
+                "assets/iceandfire/textures/models/deathworm/deathworm_white.png".into(),
+                "assets/iceandfire/textures/models/deathworm/deathworm_red.png".into(),
+            ]
+        }
+        ("iceandfire", "ghost") => {
+            vec!["assets/iceandfire/textures/entity/ghost/ghost.png".into()]
+        }
         _ => vec![],
     }
 }
