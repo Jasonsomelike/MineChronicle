@@ -9,6 +9,24 @@ export interface Resolution {
   height?: number;
   kind?: string;
 }
+export type DiscoverStatus =
+  | 'cached'
+  | 'resolved'
+  | 'rendered'
+  | 'missing'
+  | 'error';
+export interface DiscoverDetail {
+  id: string;
+  label: string;
+  status: DiscoverStatus;
+  source: string;
+  reason: string;
+}
+export interface DiscoverResult {
+  icons: Record<string, Resolution>;
+  details: DiscoverDetail[];
+  summary: { cached: number; resolved: number; missing: number; error: number };
+}
 type RenderJob = {
   kind?: string;
   layers?: string[];
@@ -20,7 +38,27 @@ type RenderJob = {
   textures?: unknown;
   display?: unknown;
 };
+export interface DiscoverOptions {
+  refreshKnown?: boolean;
+  cacheOnly?: boolean;
+}
 let renderQueue = Promise.resolve();
+function classify(entry: Resolution, label: string, id: string): DiscoverDetail {
+  const hasImage = Boolean(entry.image);
+  const fromCache = entry.reason === '本地缓存图标';
+  let status: DiscoverStatus = 'missing';
+  if (hasImage) status = fromCache ? 'cached' : 'resolved';
+  else if (entry.job) status = 'rendered';
+  else if (entry.reason.includes('失败') || entry.reason.includes('错误'))
+    status = 'error';
+  return {
+    id,
+    label,
+    status,
+    source: entry.source ?? '',
+    reason: entry.reason ?? '',
+  };
+}
 async function cropFirstFrame(dataUrl: string, frameHeight: number) {
   const image = new Image();
   image.src = dataUrl;
@@ -32,7 +70,17 @@ async function cropFirstFrame(dataUrl: string, frameHeight: number) {
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas unavailable');
   context.imageSmoothingEnabled = false;
-  context.drawImage(image, 0, 0, image.naturalWidth, height, 0, 0, canvas.width, canvas.height);
+  context.drawImage(
+    image,
+    0,
+    0,
+    image.naturalWidth,
+    height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
   return {
     image: canvas.toDataURL('image/png'),
     width: canvas.width,
@@ -61,58 +109,96 @@ async function persistRenderedIcon(
     // Cache write is best-effort; the rendered icon still displays.
   }
 }
+function summarize(details: DiscoverDetail[]) {
+  const summary = { cached: 0, resolved: 0, missing: 0, error: 0 };
+  for (const detail of details) {
+    if (detail.status === 'cached') summary.cached += 1;
+    else if (
+      detail.status === 'resolved' ||
+      detail.status === 'rendered'
+    )
+      summary.resolved += 1;
+    else if (detail.status === 'error') summary.error += 1;
+    else summary.missing += 1;
+  }
+  return summary;
+}
 export async function discoverIcons(
   rows: StatisticsPage['rows'],
-  refreshKnown = false,
-) {
-  if (!isTauri()) return {};
+  options: DiscoverOptions = {},
+): Promise<DiscoverResult> {
+  const empty: DiscoverResult = {
+    icons: {},
+    details: [],
+    summary: { cached: 0, resolved: 0, missing: 0, error: 0 },
+  };
+  if (!isTauri()) return empty;
+  const refreshKnown = options.refreshKnown ?? false;
+  const cacheOnly = options.cacheOnly ?? false;
   const pending = rows.filter(
     (r) =>
       r.key !== 'minecraft:air' &&
       (refreshKnown || !r.resources.some((resource) => resource.icon)),
   );
-  if (!pending.length) return {};
+  if (!pending.length) return empty;
   const result = await invoke<Record<string, Resolution>>(
     'resolve_stat_icons',
     {
-      requests: pending.map((r) => ({
-        key: r.key,
-        category: r.category,
-        roots: r.resource_roots ?? [],
-      })),
+      args: {
+        requests: pending.map((r) => ({
+          key: r.key,
+          category: r.category,
+          roots: r.resource_roots ?? [],
+        })),
+        cacheOnly,
+      },
     },
   );
-  // One lazily-loaded WebGL context, serial work, no animation loop.
-  const work = renderQueue.then(async () => {
-    for (const entry of Object.values(result))
-      if (entry.job) {
-        const job = entry.job as RenderJob;
-        try {
-          if (job.kind === 'frame' && job.layers?.[0] && job.frameHeight) {
-            Object.assign(entry, await cropFirstFrame(job.layers[0], job.frameHeight));
-          } else {
-            const { renderRuntime } = await import(
-              '../../scripts/stat-icon-renderer.mjs'
-            );
-            Object.assign(entry, await renderRuntime(job));
+  const labels = new Map(
+    pending.map((r) => [`${r.category}:${r.key}`, r.label ?? r.key]),
+  );
+  if (!cacheOnly) {
+    const work = renderQueue.then(async () => {
+      for (const entry of Object.values(result))
+        if (entry.job) {
+          const job = entry.job as RenderJob;
+          try {
+            if (job.kind === 'frame' && job.layers?.[0] && job.frameHeight) {
+              Object.assign(
+                entry,
+                await cropFirstFrame(job.layers[0], job.frameHeight),
+              );
+            } else {
+              const { renderRuntime } = await import(
+                '../../scripts/stat-icon-renderer.mjs'
+              );
+              Object.assign(entry, await renderRuntime(job));
+            }
+            if (entry.image && entry.width && entry.height) {
+              await persistRenderedIcon(job, {
+                image: entry.image,
+                width: entry.width,
+                height: entry.height,
+                kind: entry.kind,
+              });
+            }
+          } catch {
+            entry.reason = '已找到模型，但本地渲染失败；保留已有图标';
           }
-          if (entry.image && entry.width && entry.height) {
-            await persistRenderedIcon(job, {
-              image: entry.image,
-              width: entry.width,
-              height: entry.height,
-              kind: entry.kind,
-            });
-          }
-        } catch {
-          entry.reason = '已找到模型，但本地渲染失败；保留已有图标';
+          delete entry.job;
         }
-        delete entry.job;
-      }
-  });
-  renderQueue = work.catch(() => {});
-  await work;
-  return result;
+    });
+    renderQueue = work.catch(() => {});
+    await work;
+  }
+  const details = Object.entries(result).map(([id, entry]) =>
+    classify(entry, labels.get(id) ?? id, id),
+  );
+  return {
+    icons: result,
+    details,
+    summary: summarize(details),
+  };
 }
 export function iconUrl(image: string) {
   return image.startsWith('data:image/png;base64,')

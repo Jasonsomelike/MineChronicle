@@ -1539,6 +1539,84 @@ button.stat-icon:hover {
   font-size: 12px;
   color: #9a5e28;
 }
+.link-button {
+  background: transparent;
+  border: 0;
+  color: #347f6d;
+  font-size: 12px;
+  padding: 4px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link-button:hover {
+  color: #265f50;
+}
+.stat-icon-details {
+  margin: 8px 0 12px;
+  border: 1px solid #dce4e1;
+  border-radius: 6px;
+  background: #f7faf8;
+  max-height: 280px;
+  overflow: auto;
+}
+.stat-icon-details table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.stat-icon-details th,
+.stat-icon-details td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid #e5ece9;
+  vertical-align: top;
+}
+.stat-icon-details th {
+  position: sticky;
+  top: 0;
+  background: #eef5f2;
+  color: #5c6b65;
+  font-weight: 600;
+}
+.stat-icon-details code {
+  display: block;
+  font-size: 11px;
+  color: #68736b;
+  margin-top: 2px;
+}
+.stat-detail-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid transparent;
+}
+.stat-detail-badge.status-cached {
+  background: #e8f3ee;
+  color: #265f50;
+  border-color: #b7d7cb;
+}
+.stat-detail-badge.status-resolved,
+.stat-detail-badge.status-rendered {
+  background: #e8f0fa;
+  color: #2a4f78;
+  border-color: #b7cce4;
+}
+.stat-detail-badge.status-missing {
+  background: #f3f1ec;
+  color: #6d6558;
+  border-color: #d5cec2;
+}
+.stat-detail-badge.status-error {
+  background: #faecec;
+  color: #8a3030;
+  border-color: #e0b7b7;
+}
+.stat-detail-reason {
+  color: #5c6b65;
+  margin-top: 2px;
+}
 .statistics-overview {
   border-bottom: 1px solid #dce4e1;
   margin-bottom: 16px;

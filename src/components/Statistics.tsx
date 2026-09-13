@@ -40,7 +40,7 @@ import ActivityFilters from './ActivityFilters';
 import StatIconPreview from './StatIconPreview';
 import type { IconSelection } from './StatIconPreview';
 import { discoverIcons, iconUrl } from '../lib/runtimeResources';
-import type { Resolution } from '../lib/runtimeResources';
+import type { Resolution, DiscoverDetail } from '../lib/runtimeResources';
 import {
   animateDiscoveredStatIcons,
   newlyDiscoveredIds,
@@ -95,16 +95,19 @@ export default function Statistics({
   }, [scope.uuids, scope.players_none]);
   const [discovered, setDiscovered] = useState<Record<string, Resolution>>({});
   const discoveredIdsRef = useRef<string[]>([]);
+  const [resourceDetails, setResourceDetails] = useState<DiscoverDetail[]>([]);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   useEffect(() => {
     setDiscovered({});
     discoveredIdsRef.current = [];
+    setResourceDetails([]);
+    setDetailsOpen(false);
   }, [scope]);
   useEffect(() => {
     const next = Object.keys(discovered).sort();
     const added = newlyDiscoveredIds(discoveredIdsRef.current, next);
     discoveredIdsRef.current = next;
     if (!added.length) return;
-    // Wait one frame so newly rendered sprites exist in the DOM.
     const handle = requestAnimationFrame(() => {
       animateDiscoveredStatIcons(added);
     });
@@ -121,14 +124,14 @@ export default function Statistics({
     const id = ++requestId.current;
     setCheckingResources(true);
     setResourceStatus('正在检查实例资源…');
-    await discoverIcons(snapshot.rows, true)
+    setDetailsOpen(false);
+    await discoverIcons(snapshot.rows, { refreshKnown: true, cacheOnly: false })
       .then((result) => {
         if (id !== requestId.current || snapshot !== dataRef.current) return;
-        setDiscovered((old) => ({ ...old, ...result }));
+        setDiscovered((old) => ({ ...old, ...result.icons }));
+        setResourceDetails(result.details);
         setResourceStatus(
-          `本页匹配 ${
-            Object.values(result).filter((r) => r.image).length
-          } 项本地资源图标`,
+          `成功 ${result.summary.resolved + result.summary.cached} · 缓存命中 ${result.summary.cached} · 未找到 ${result.summary.missing}`,
         );
       })
       .catch(() => {
@@ -140,10 +143,10 @@ export default function Statistics({
       });
   }
   useEffect(() => {
-    // Invalidates results from an old page without initiating any resource work.
     requestId.current++;
     setCheckingResources(false);
     setResourceStatus('');
+    setResourceDetails([]);
   }, [data]);
   useEffect(() => {
     if (!pageActive || !data) return;
@@ -154,21 +157,17 @@ export default function Statistics({
     );
     if (!missing.length) return;
     const id = ++requestId.current;
-    setResourceStatus('正在从本机实例补齐图标…');
-    void discoverIcons(missing, false)
+    void discoverIcons(missing, { cacheOnly: true })
       .then((result) => {
         if (id !== requestId.current || !result) return;
-        const found = Object.values(result).filter((entry) => entry.image).length;
-        if (!found) {
-          setResourceStatus('本页暂无新的本机资源图标');
-          return;
-        }
-        setDiscovered((old) => ({ ...old, ...result }));
-        setResourceStatus(`已自动匹配 ${found} 项本地资源图标`);
+        const hits = Object.values(result.icons).filter((entry) => entry.image)
+          .length;
+        if (!hits) return;
+        setDiscovered((old) => ({ ...old, ...result.icons }));
+        setResourceStatus(`已应用 ${hits} 项本机缓存图标`);
       })
       .catch(() => {
-        if (id === requestId.current)
-          setResourceStatus('本地资源自动补齐失败，可手动检查');
+        /* cache-only is silent on failure */
       });
   }, [data, pageActive]);
   useEffect(() => {
@@ -242,7 +241,7 @@ export default function Statistics({
         <button
           type="button"
           className="secondary-button"
-          title="手动检查本页本地模型与贴图，不会重新扫描统计；文件变化最多30秒后生效"
+          title="从本机已安装实例查找模型并补齐本页图标；不会写入游戏文件。打开页面只自动应用已有缓存。"
           disabled={loading || !data || checkingResources}
           onClick={() => void checkResources()}
         >
@@ -250,6 +249,16 @@ export default function Statistics({
         </button>
         {resourceStatus && !checkingResources ? (
           <span role="status">{resourceStatus}</span>
+        ) : null}
+        {resourceDetails.length > 0 ? (
+          <button
+            type="button"
+            className="link-button"
+            aria-expanded={detailsOpen}
+            onClick={() => setDetailsOpen((open) => !open)}
+          >
+            {detailsOpen ? '收起明细' : `展开明细（${resourceDetails.length}）`}
+          </button>
         ) : null}
         <div className="health-tabs" role="tablist" aria-label="统计口径">
           {[
@@ -275,6 +284,48 @@ export default function Statistics({
           </span>
         ) : null}
       </div>
+      {detailsOpen && resourceDetails.length > 0 ? (
+        <div className="stat-icon-details" role="region" aria-label="图标补齐明细">
+          <table>
+            <thead>
+              <tr>
+                <th>统计</th>
+                <th>结果</th>
+                <th>来源 / 原因</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resourceDetails.map((detail) => (
+                <tr key={detail.id} data-status={detail.status}>
+                  <td>
+                    <strong>{detail.label}</strong>
+                    <code>{detail.id}</code>
+                  </td>
+                  <td>
+                    <span className={`stat-detail-badge status-${detail.status}`}>
+                      {detail.status === 'cached'
+                        ? '缓存'
+                        : detail.status === 'resolved'
+                          ? '材质'
+                          : detail.status === 'rendered'
+                            ? '已渲染'
+                            : detail.status === 'error'
+                              ? '错误'
+                              : '未找到'}
+                    </span>
+                  </td>
+                  <td>
+                    <small title={detail.source}>
+                      {detail.source || '—'}
+                    </small>
+                    <div className="stat-detail-reason">{detail.reason}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
       {error ? (
         <p role="alert" className="scan-error">
           {error}

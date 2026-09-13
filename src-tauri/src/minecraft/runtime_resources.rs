@@ -47,6 +47,14 @@ pub struct Request {
     pub category: String,
     pub roots: Vec<String>,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolveStatIconsArgs {
+    pub requests: Vec<Request>,
+    #[serde(default)]
+    pub cache_only: bool,
+}
 #[derive(Clone, Serialize)]
 pub struct Resolution {
     pub image: Option<String>,
@@ -267,7 +275,9 @@ fn loose_files(path: &Path, depth: usize, files: &mut Vec<PathBuf>) {
         }
     }
 }
-fn indexed(root: &Path, previous: Option<Index>) -> Index {
+
+/// File identity only — does not open archives.
+fn resource_signature(root: &Path) -> String {
     let paths = sources(root);
     let mut files = Vec::new();
     for p in &paths {
@@ -277,7 +287,7 @@ fn indexed(root: &Path, previous: Option<Index>) -> Index {
             files.push(p.clone());
         }
     }
-    let signature = files
+    files
         .iter()
         .map(|p| {
             let m = fs::metadata(p).ok();
@@ -291,7 +301,20 @@ fn indexed(root: &Path, previous: Option<Index>) -> Index {
             )
         })
         .collect::<Vec<_>>()
-        .join("|");
+        .join("|")
+}
+
+fn indexed(root: &Path, previous: Option<Index>) -> Index {
+    let paths = sources(root);
+    let mut files = Vec::new();
+    for p in &paths {
+        if p.is_dir() {
+            loose_files(p, 0, &mut files);
+        } else {
+            files.push(p.clone());
+        }
+    }
+    let signature = resource_signature(root);
     if let Some(mut old) = previous {
         if old.signature == signature {
             old.checked = Instant::now();
@@ -819,11 +842,41 @@ pub async fn store_stat_icon(
     ))
 }
 
+fn lookup_icon_cache_only(
+    dir: Option<&Path>,
+    category: &str,
+    key: &str,
+    roots: &[String],
+) -> Resolution {
+    let Some(dir) = dir else {
+        return missing("缓存目录不可用；可手动检查本机实例");
+    };
+    for root in roots {
+        if !Path::new(root).is_absolute() {
+            continue;
+        }
+        let key_hash = cache_key(
+            root,
+            &resource_signature(Path::new(root)),
+            category,
+            key,
+        );
+        if let Some(hit) = read_icon_cache(dir, &key_hash) {
+            return hit;
+        }
+    }
+    missing("缓存未命中，可手动检查本机实例")
+}
+
 #[tauri::command]
 pub async fn resolve_stat_icons(
     cache_state: tauri::State<'_, IconCacheDir>,
-    requests: Vec<Request>,
+    args: ResolveStatIconsArgs,
 ) -> Result<BTreeMap<String, Resolution>, String> {
+    let ResolveStatIconsArgs {
+        requests,
+        cache_only,
+    } = args;
     if requests.len() > 100
         || requests
             .iter()
@@ -833,11 +886,24 @@ pub async fn resolve_stat_icons(
     }
     let cache_dir = cache_state.get();
     tauri::async_runtime::spawn_blocking(move || {
+        let mut result = BTreeMap::new();
+        if cache_only {
+            for request in requests {
+                let identity = format!("{}:{}", request.category, request.key);
+                let answer = lookup_icon_cache_only(
+                    cache_dir.as_deref(),
+                    &request.category,
+                    &request.key,
+                    &request.roots,
+                );
+                result.insert(identity, answer);
+            }
+            return Ok(result);
+        }
         let mut cache = CACHE
             .get_or_init(Default::default)
             .lock()
             .map_err(|_| "资源缓存锁失败")?;
-        let mut result = BTreeMap::new();
         let mut grouped: BTreeMap<String, Vec<(String, String, String)>> = BTreeMap::new();
         for request in requests {
             let identity = format!("{}:{}", request.category, request.key);
@@ -1081,6 +1147,48 @@ mod tests {
         let other = cache_key("/root", "sig2", "minecraft:used", "example:test");
         assert_ne!(key, other);
         assert!(read_icon_cache(dir.path(), &other).is_none());
+    }
+
+    #[test]
+    fn cache_only_hits_disk_without_jobs_and_misses_cleanly() {
+        let game = tempfile::tempdir().unwrap();
+        let root = game.path().join("instance");
+        fs::create_dir_all(root.join("mods")).unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        let signature = resource_signature(&root);
+        let key = cache_key(
+            &root.to_string_lossy(),
+            &signature,
+            "minecraft:used",
+            "example:cached",
+        );
+        assert!(write_icon_cache(
+            cache.path(),
+            &key,
+            &minimal_png(16, 16),
+            (16, 16),
+            "item",
+            "jar",
+            "自动发现"
+        ));
+        let hit = lookup_icon_cache_only(
+            Some(cache.path()),
+            "minecraft:used",
+            "example:cached",
+            &[root.to_string_lossy().to_string()],
+        );
+        assert!(hit.image.is_some());
+        assert!(hit.job.is_none());
+        assert_eq!(hit.reason, "本地缓存图标");
+        let miss = lookup_icon_cache_only(
+            Some(cache.path()),
+            "minecraft:used",
+            "example:not_cached",
+            &[root.to_string_lossy().to_string()],
+        );
+        assert!(miss.image.is_none());
+        assert!(miss.job.is_none());
+        assert!(miss.reason.contains("缓存未命中"));
     }
 
     #[test]

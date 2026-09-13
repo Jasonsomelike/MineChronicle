@@ -1,7 +1,7 @@
 ---
 feature: runtime-stat-icons
-status: delivered
-updated: 2026-09-08
+status: in-progress
+updated: 2026-09-09
 branch: feature/runtime-stat-icons
 commits: b9d8a4c..HEAD
 ---
@@ -10,78 +10,70 @@ commits: b9d8a4c..HEAD
 
 ## Report
 
-**What was built** — 强化运行时「更多统计」图标自动补齐：Rust 侧解析动画材质首帧 job、`models/block` 兜底、优先 `geo/entity` 的实体配对；按 root 签名的 blake3 磁盘缓存（`{app_data}/stat-icon-cache`）与 `store_stat_icon` 命令；前端懒加载自动补齐、frame canvas 裁剪、渲染结果回写缓存。引入 GSAP 3.13，对新发现的统计图标做 stagger 入场；`prefers-reduced-motion` 时跳过。three.js 沿用既有模型离屏渲染。
-
-**Verification** — `cargo test --jobs 1` 全绿；`cargo clippy --lib -D warnings` 通过；`npm run typecheck` / `lint` / `test`（77，含 `statIconMotion`）通过；`npm run build` 成功打包 GSAP。浏览器实测：`scripts/probe-gsap-stat-icons.mjs` 在 Edge headless + Vite 下调用 `animateDiscoveredStatIcons`，时间线完成、终点 opacity=1、reduced-motion 返回 null（`output/playwright/gsap-stat-icon-probe.png`）。独立审查无 critical 项。
-
-**Journey log** —
-- 空仓先做初始提交再开特性分支；`git worktree add` 被环境拦截，改在 `feature/runtime-stat-icons` 分支上完成。
-- `AppHandle` 在 generic `configure<R>` 下无法作 CommandArg，改为 `IconCacheDir` managed state。
-- 动画首帧不做 Rust PNG 裁剪（无 image 依赖），由前端 canvas 完成。
-- 模型 `elements` 内引用的动画材质仍保持 missing，仅平坦纹理路径升级为 frame job。
-- GSAP 按用户要求引入；CSS keyframe 入场已移除，避免双重动画。`CSS.escape` 在无 DOM 测试环境下需回退。
-
 ## [S1] Problem
 
-MineChronicle「更多统计」的图标目录是按开发档案预生成的。软件移植到其他用户后，对方安装的模组/资源包不同，大量统计行只能显示中性占位。已有 `resolve_stat_icons` 能做部分本地发现，但仍缺动画材质首帧、方块模型兜底、更稳健的实体几何配对，且前端成功渲染的 PNG 不会持久化，每次会话都要重扫重渲。
+MineChronicle「更多统计」的图标目录是按开发档案预生成的。软件移植到其他用户后，对方安装的模组/资源包不同，大量统计行只能显示中性占位。已有 `resolve_stat_icons` 能做部分本地发现，但仍缺动画材质首帧、方块模型兜底、更稳健的实体几何配对，且前端成功渲染的 PNG 不会持久化。
+
+补充问题：打开统计页会**自动**从本机实例补齐缺图，用户无法事先知情或否决；操作结果只有一行摘要，看不到逐条来源与失败原因。
 
 ## [S2] Design
 
 ### 目标行为
 
-1. 打开「更多统计」或点击「检查实例资源」时，对当前页缺图行懒加载解析；优先读磁盘缓存，未命中再扫实例。
-2. 运行时扩展：动画材质首帧、`models/block` 兜底、更稳健的 Bedrock 实体几何/皮肤配对。
-3. 前端 WebGL（three.js）渲染成功后，将 PNG 写回应用数据目录缓存；下次同根签名直接返回。
-4. 不执行 Java 代码，不改 Minecraft/PCL 文件，不做完整离线流水线（javap、GT/Draconic 专用适配器）。
+1. **磁盘缓存自动**：打开统计页对缺图行做 cache-only 查询，命中则显示，不扫 mods。
+2. **本机扫描必须手动**：仅用户点击「检查本页游戏图标」才完整解析（缓存→未命中再扫实例/渲染）。
+3. **操作明细**：手动检查后页内展示可折叠明细（逐条统计键、结果类型、来源/原因），并有成功/缓存/失败汇总。
+4. 运行时扩展与缓存契约（动画首帧、block 兜底、实体优选、blake3 缓存、`store_stat_icon`）保持已交付行为。
+5. 不执行 Java 代码，不改 Minecraft/PCL 文件。
 
 ### 解析契约（Rust `runtime_resources`）
 
-- **动画材质**：存在 `{texture}.png.mcmeta` 时，解析 `animation.frame_height`（缺省为宽度切方格），生成前端 job：
-  `{ kind: "frame", layers: [dataURL], frameHeight, cacheKey, root }`。
-  不再因动画直接 missing。
-- **方块模型兜底**：`models/item/{name}.json` 不存在时，尝试 `models/block/{name}.json`；父链、元素、材质解析复用现有逻辑。
-- **实体**（`killed` / `killed_by`）：
-  - 多个 `*.geo.json` 时优先 `geo/entity/` 路径，其次路径含实体名且无 `overlay`/`layer` 的文件；
-  - 皮肤优先 `textures/entity/**/{name}.png`，再回退唯一非 overlay 候选；
-  - 仍要求几何可唯一解释且复杂度未超限；无法唯一配对则 missing 并保留原因。
-- **缓存键**：`blake3(root_path + "\0" + index.signature + "\0" + category + "\0" + key)` 的十六进制。签名变化（装删模组/资源包）自动失效。
-- **缓存位置**：`{app_data}/stat-icon-cache/{cache_key}.png` 与同名 `.json` 元数据（source/reason/width/height/kind）。不写游戏目录。
+- **动画材质**：`.mcmeta` 存在时生成 `{ kind: "frame", layers, frameHeight, cacheKey, root }`。
+- **方块模型兜底**：`models/item` 缺失时试 `models/block`。
+- **实体**：优先 `geo/entity/`，皮肤唯一配对，否则 missing。
+- **缓存键**：`blake3(root + \0 + signature + \0 + category + \0 + key)`。
+- **缓存位置**：`{app_data}/stat-icon-cache/{cache_key}.png` + `.json`。
 - **`resolve_stat_icons`**：
-  1. 校验请求上限（保持现有 100 条 / root 限制）；
-  2. 对每条请求算 cacheKey；若 PNG+JSON 存在且 PNG 签名为 PNG，返回 `image: data:image/png;base64,...`，`reason` 标明来自缓存；
-  3. 否则按现有路径解析；需要前端渲染的结果带上 `cacheKey` 与 `root`；可直接返回的材质图由 Rust 写入缓存。
-- **`store_stat_icon`**（新命令）：
-  - 入参：`cache_key`（64 位十六进制）、`png`（base64 或 data URL，≤2MB）、`width`/`height`（1–2048）、`kind`、`source`、`reason`；
-  - 校验 PNG 魔数与尺寸后写入缓存；覆盖写；
-  - 返回 `ok: bool`。
-- **`IconCacheDir`**：由 `configure` 注入默认状态，`setup` 写入 `{app_data}/stat-icon-cache`；命令用 `State` 读取，不依赖 `AppHandle` CommandArg。
+  1. 请求上限保持；
+  2. 可选 `cache_only: bool`（默认 false）：true 时只读磁盘缓存，不索引实例、不生成 job；
+  3. 命中返回 data URL；完整模式未命中再解析并附 `cacheKey`/`root`。
+- **`store_stat_icon`**：校验后写缓存，返回 bool。
+- **`IconCacheDir`**：managed state，`setup` 注入 app_data 路径。
 
 ### 前端契约
 
-- `discoverIcons`：保持按需；处理 `kind: "frame"`（canvas 裁剪首帧）；渲染成功且有 `cacheKey` 时调用 `store_stat_icon`；失败不阻断展示。
-- 打开统计页、数据加载完成且存在无内嵌图标的行时，自动发起一次 `discoverIcons`（不强制 refresh 已有图标）；「检查实例资源」按钮仍可强制刷新。
-- 图标出现时使用 GSAP 入场动画（发现结果淡入上移、轻微 stagger）；`prefers-reduced-motion` 下直接跳过动画。three.js 继续负责模型离屏渲染。
-- 展示优先级不变：本地缓存/发现结果优先于内嵌目录缺失占位。
+- `discoverIcons(rows, { refreshKnown?, cacheOnly? })`：
+  - 自动路径：`cacheOnly: true`；
+  - 按钮路径：完整检查（可 `refreshKnown`）；
+  - frame 裁剪、渲染后 `store_stat_icon`。
+- **明细模型**：`{ id, label, status: 'cached'|'resolved'|'rendered'|'missing'|'error', source, reason }`。
+- **UI**：摘要 chip + 可折叠明细列表（默认收起）；移除打开页自动 full scan。
+- GSAP 入场；`prefers-reduced-motion` 跳过。
+- 优先级：内嵌目录 → 本机缓存/发现 → 占位。
 
 ### 错误与边界
 
-- 缓存目录不可写：解析结果仍返回，不持久化；不弹阻断错误。
-- 损坏缓存：视为未命中，可被覆盖。
-- 空气键 `minecraft:air` 继续跳过自动发现。
-- 请求含非绝对 root 时忽略该 root（现状保留）。
+- 缓存不可写：仍展示，不持久化。
+- 损坏缓存：当未命中。
+- `minecraft:air` 跳过。
+- 非绝对 root 忽略。
+- `cache_only` 未命中：missing，reason「缓存未命中，可手动检查」。
 
 ## [S3] Out of Scope
 
-- 开发期 PowerShell/JDK 提取流水线、javap、模组专用 adapter 下沉运行时。
+- 离线提取流水线 / javap / 专用 adapter 下沉。
 - 启动后全库后台批量渲染。
-- 改动内嵌 `stat-resources.json` 目录生成逻辑。
-- HMCL/Prism 适配。
-- 将缓存并入 SQLite 档案迁移。
+- 改动内嵌目录生成逻辑。
+- HMCL/Prism。
+- 缓存并入 SQLite 迁移。
 
 ## Tasks
 
-- [x] T1: Rust 扩展解析——动画首帧 job、block 模型兜底、实体几何/皮肤优选 — acceptance: 单元测试覆盖三类路径且通过 (covers: S2)
-- [x] T2: Rust 持久缓存——cacheKey、读缓存、`store_stat_icon` 命令与注册 — acceptance: 单元测试：写入后读缓存返回图，非法 key/PNG 拒绝 (covers: S2; depends: T1)
-- [x] T3: 前端 frame 裁剪、渲染回写缓存、统计页自动懒加载与图标入场动效 — acceptance: typecheck/lint/前端测试通过 (covers: S2; depends: T2)
-- [x] T4: 全量验证 — acceptance: cargo fmt/clippy/test 与 npm typecheck/lint/test 通过，失败项有记录 (covers: S2; depends: T1, T2, T3)
-- [x] T5: 引入 GSAP 优化图标入场动效并实测 — acceptance: 依赖锁定；`statIconMotion` 单测通过；typecheck/lint/test 通过；浏览器或 headless 实测动画可触发 (covers: S2; depends: T3)
+- [x] T1: Rust 扩展解析 — acceptance: 单测覆盖动画/block/实体 (covers: S2)
+- [x] T2: Rust 持久缓存与 store 命令 — acceptance: 读写与非法拒绝单测 (covers: S2; depends: T1)
+- [x] T3: 前端 frame/回写/懒加载/GSAP — acceptance: typecheck/lint/test (covers: S2; depends: T2)
+- [x] T4: 全量验证 — acceptance: cargo/npm 检查通过 (covers: S2; depends: T1, T2, T3)
+- [x] T5: GSAP 实测 — acceptance: 浏览器探针通过 (covers: S2; depends: T3)
+- [ ] T6: Rust `cache_only` — acceptance: 单测证明 cache_only 未命中不产生 job (covers: S2; depends: T2)
+- [ ] T7: 前端去自动扫描 + cache-only + 明细 UI — acceptance: 无自动 full discover；按钮后可折叠明细；typecheck/lint/test (covers: S2; depends: T6)
+- [ ] T8: 重建桌面版 — acceptance: desktop:build 成功 (covers: S2; depends: T7)
