@@ -41,6 +41,10 @@ import StatIconPreview from './StatIconPreview';
 import type { IconSelection } from './StatIconPreview';
 import { discoverIcons, iconUrl } from '../lib/runtimeResources';
 import type { Resolution } from '../lib/runtimeResources';
+import {
+  animateDiscoveredStatIcons,
+  newlyDiscoveredIds,
+} from '../lib/statIconMotion';
 import { usePageActive } from './SessionPage';
 const groupIcons = {
   all: ListFilter,
@@ -90,9 +94,22 @@ export default function Statistics({
     setOffset(0);
   }, [scope.uuids, scope.players_none]);
   const [discovered, setDiscovered] = useState<Record<string, Resolution>>({});
+  const discoveredIdsRef = useRef<string[]>([]);
   useEffect(() => {
     setDiscovered({});
+    discoveredIdsRef.current = [];
   }, [scope]);
+  useEffect(() => {
+    const next = Object.keys(discovered).sort();
+    const added = newlyDiscoveredIds(discoveredIdsRef.current, next);
+    discoveredIdsRef.current = next;
+    if (!added.length) return;
+    // Wait one frame so newly rendered sprites exist in the DOM.
+    const handle = requestAnimationFrame(() => {
+      animateDiscoveredStatIcons(added);
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [discovered]);
   const [resourceStatus, setResourceStatus] = useState('');
   const [checkingResources, setCheckingResources] = useState(false);
   const requestId = useRef(0);
@@ -450,7 +467,10 @@ export default function Statistics({
                   : resource?.icon;
                 const isAir = row.key === 'minecraft:air';
                 return (
-                  <tr key={`${row.category}:${row.key}`}>
+                  <tr
+                    key={`${row.category}:${row.key}`}
+                    data-stat-id={`${row.category}:${row.key}`}
+                  >
                     <td>
                       <div className="stat-identity">
                         {icon ? (

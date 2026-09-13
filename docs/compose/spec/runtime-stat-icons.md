@@ -3,23 +3,23 @@ feature: runtime-stat-icons
 status: delivered
 updated: 2026-09-08
 branch: feature/runtime-stat-icons
-commits: b9d8a4c..d6a2021
+commits: b9d8a4c..HEAD
 ---
 
 # 运行时统计图标自动补齐
 
 ## Report
 
-**What was built** — 强化运行时「更多统计」图标自动补齐：Rust 侧解析动画材质首帧 job、`models/block` 兜底、优先 `geo/entity` 的实体配对；按 root 签名的 blake3 磁盘缓存（`{app_data}/stat-icon-cache`）与 `store_stat_icon` 命令；前端懒加载自动补齐、frame canvas 裁剪、渲染结果回写缓存，以及尊重 `prefers-reduced-motion` 的图标入场 CSS 动效。未引入 GSAP，three.js 沿用既有模型离屏渲染。
+**What was built** — 强化运行时「更多统计」图标自动补齐：Rust 侧解析动画材质首帧 job、`models/block` 兜底、优先 `geo/entity` 的实体配对；按 root 签名的 blake3 磁盘缓存（`{app_data}/stat-icon-cache`）与 `store_stat_icon` 命令；前端懒加载自动补齐、frame canvas 裁剪、渲染结果回写缓存。引入 GSAP 3.13，对新发现的统计图标做 stagger 入场；`prefers-reduced-motion` 时跳过。three.js 沿用既有模型离屏渲染。
 
-**Verification** — `cargo test --jobs 1` 全绿；`cargo clippy --lib -D warnings` 通过；`npm run typecheck` / `lint` / `test`（74）通过。`cargo clippy --all-targets` 对既有测试的 `unwrap_used` 失败，记为 PRE-EXISTING。独立审查无 critical 项；已修 status 粘住与实体路径死逻辑。
+**Verification** — `cargo test --jobs 1` 全绿；`cargo clippy --lib -D warnings` 通过；`npm run typecheck` / `lint` / `test`（77，含 `statIconMotion`）通过；`npm run build` 成功打包 GSAP。浏览器实测：`scripts/probe-gsap-stat-icons.mjs` 在 Edge headless + Vite 下调用 `animateDiscoveredStatIcons`，时间线完成、终点 opacity=1、reduced-motion 返回 null（`output/playwright/gsap-stat-icon-probe.png`）。独立审查无 critical 项。
 
 **Journey log** —
 - 空仓先做初始提交再开特性分支；`git worktree add` 被环境拦截，改在 `feature/runtime-stat-icons` 分支上完成。
 - `AppHandle` 在 generic `configure<R>` 下无法作 CommandArg，改为 `IconCacheDir` managed state。
 - 动画首帧不做 Rust PNG 裁剪（无 image 依赖），由前端 canvas 完成。
 - 模型 `elements` 内引用的动画材质仍保持 missing，仅平坦纹理路径升级为 frame job。
-- GSAP 未引入：列表动效用 CSS 足够，减少离线包体与审计面。
+- GSAP 按用户要求引入；CSS keyframe 入场已移除，避免双重动画。`CSS.escape` 在无 DOM 测试环境下需回退。
 
 ## [S1] Problem
 
@@ -60,7 +60,7 @@ MineChronicle「更多统计」的图标目录是按开发档案预生成的。�
 
 - `discoverIcons`：保持按需；处理 `kind: "frame"`（canvas 裁剪首帧）；渲染成功且有 `cacheKey` 时调用 `store_stat_icon`；失败不阻断展示。
 - 打开统计页、数据加载完成且存在无内嵌图标的行时，自动发起一次 `discoverIcons`（不强制 refresh 已有图标）；「检查实例资源」按钮仍可强制刷新。
-- 图标出现时使用轻微入场动画（`stat-icon-in`）；`prefers-reduced-motion` 下关闭。不引入 GSAP 新依赖：three.js 已负责模型离屏渲染，列表动效用 CSS 即可，保持离线包体与审计面更小。
+- 图标出现时使用 GSAP 入场动画（发现结果淡入上移、轻微 stagger）；`prefers-reduced-motion` 下直接跳过动画。three.js 继续负责模型离屏渲染。
 - 展示优先级不变：本地缓存/发现结果优先于内嵌目录缺失占位。
 
 ### 错误与边界
@@ -77,7 +77,6 @@ MineChronicle「更多统计」的图标目录是按开发档案预生成的。�
 - 改动内嵌 `stat-resources.json` 目录生成逻辑。
 - HMCL/Prism 适配。
 - 将缓存并入 SQLite 档案迁移。
-- 引入 GSAP 或其它新动画运行时。
 
 ## Tasks
 
@@ -85,3 +84,4 @@ MineChronicle「更多统计」的图标目录是按开发档案预生成的。�
 - [x] T2: Rust 持久缓存——cacheKey、读缓存、`store_stat_icon` 命令与注册 — acceptance: 单元测试：写入后读缓存返回图，非法 key/PNG 拒绝 (covers: S2; depends: T1)
 - [x] T3: 前端 frame 裁剪、渲染回写缓存、统计页自动懒加载与图标入场动效 — acceptance: typecheck/lint/前端测试通过 (covers: S2; depends: T2)
 - [x] T4: 全量验证 — acceptance: cargo fmt/clippy/test 与 npm typecheck/lint/test 通过，失败项有记录 (covers: S2; depends: T1, T2, T3)
+- [x] T5: 引入 GSAP 优化图标入场动效并实测 — acceptance: 依赖锁定；`statIconMotion` 单测通过；typecheck/lint/test 通过；浏览器或 headless 实测动画可触发 (covers: S2; depends: T3)

@@ -19,6 +19,7 @@
   "dependencies": {
     "@tauri-apps/api": "2.11.1",
     "echarts": "6.1.0",
+    "gsap": "^3.13.0",
     "lucide-react": "^1.41.0",
     "playwright-core": "^1.63.0",
     "react": "19.2.7",
