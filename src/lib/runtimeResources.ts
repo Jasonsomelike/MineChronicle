@@ -25,7 +25,13 @@ export interface DiscoverDetail {
 export interface DiscoverResult {
   icons: Record<string, Resolution>;
   details: DiscoverDetail[];
-  summary: { cached: number; resolved: number; missing: number; error: number };
+  summary: {
+    cached: number;
+    resolved: number;
+    rendered: number;
+    missing: number;
+    error: number;
+  };
 }
 type RenderJob = {
   kind?: string;
@@ -43,13 +49,24 @@ export interface DiscoverOptions {
   cacheOnly?: boolean;
 }
 let renderQueue = Promise.resolve();
-function classify(entry: Resolution, label: string, id: string): DiscoverDetail {
+function classify(
+  entry: Resolution,
+  label: string,
+  id: string,
+  renderedIds: ReadonlySet<string>,
+): DiscoverDetail {
   const hasImage = Boolean(entry.image);
   const fromCache = entry.reason === '本地缓存图标';
   let status: DiscoverStatus = 'missing';
-  if (hasImage) status = fromCache ? 'cached' : 'resolved';
-  else if (entry.job) status = 'rendered';
-  else if (entry.reason.includes('失败') || entry.reason.includes('错误'))
+  if (hasImage) {
+    if (fromCache) status = 'cached';
+    else if (renderedIds.has(id)) status = 'rendered';
+    else status = 'resolved';
+  } else if (
+    entry.reason.includes('失败') ||
+    entry.reason.includes('错误') ||
+    entry.reason.includes('渲染')
+  )
     status = 'error';
   return {
     id,
@@ -110,14 +127,17 @@ async function persistRenderedIcon(
   }
 }
 function summarize(details: DiscoverDetail[]) {
-  const summary = { cached: 0, resolved: 0, missing: 0, error: 0 };
+  const summary = {
+    cached: 0,
+    resolved: 0,
+    rendered: 0,
+    missing: 0,
+    error: 0,
+  };
   for (const detail of details) {
     if (detail.status === 'cached') summary.cached += 1;
-    else if (
-      detail.status === 'resolved' ||
-      detail.status === 'rendered'
-    )
-      summary.resolved += 1;
+    else if (detail.status === 'resolved') summary.resolved += 1;
+    else if (detail.status === 'rendered') summary.rendered += 1;
     else if (detail.status === 'error') summary.error += 1;
     else summary.missing += 1;
   }
@@ -130,7 +150,13 @@ export async function discoverIcons(
   const empty: DiscoverResult = {
     icons: {},
     details: [],
-    summary: { cached: 0, resolved: 0, missing: 0, error: 0 },
+    summary: {
+      cached: 0,
+      resolved: 0,
+      rendered: 0,
+      missing: 0,
+      error: 0,
+    },
   };
   if (!isTauri()) return empty;
   const refreshKnown = options.refreshKnown ?? false;
@@ -157,9 +183,10 @@ export async function discoverIcons(
   const labels = new Map(
     pending.map((r) => [`${r.category}:${r.key}`, r.label ?? r.key]),
   );
+  const renderedIds = new Set<string>();
   if (!cacheOnly) {
     const work = renderQueue.then(async () => {
-      for (const entry of Object.values(result))
+      for (const [id, entry] of Object.entries(result))
         if (entry.job) {
           const job = entry.job as RenderJob;
           try {
@@ -181,6 +208,7 @@ export async function discoverIcons(
                 height: entry.height,
                 kind: entry.kind,
               });
+              renderedIds.add(id);
             }
           } catch {
             entry.reason = '已找到模型，但本地渲染失败；保留已有图标';
@@ -192,7 +220,7 @@ export async function discoverIcons(
     await work;
   }
   const details = Object.entries(result).map(([id, entry]) =>
-    classify(entry, labels.get(id) ?? id, id),
+    classify(entry, labels.get(id) ?? id, id, renderedIds),
   );
   return {
     icons: result,

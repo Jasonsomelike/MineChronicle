@@ -130,8 +130,12 @@ export default function Statistics({
         if (id !== requestId.current || snapshot !== dataRef.current) return;
         setDiscovered((old) => ({ ...old, ...result.icons }));
         setResourceDetails(result.details);
+        const ok =
+          result.summary.cached +
+          result.summary.resolved +
+          result.summary.rendered;
         setResourceStatus(
-          `成功 ${result.summary.resolved + result.summary.cached} · 缓存命中 ${result.summary.cached} · 未找到 ${result.summary.missing}`,
+          `共 ${result.details.length} 项 · 成功 ${ok} · 未找到 ${result.summary.missing} · 错误 ${result.summary.error}`,
         );
       })
       .catch(() => {
@@ -286,6 +290,26 @@ export default function Statistics({
       </div>
       {detailsOpen && resourceDetails.length > 0 ? (
         <div className="stat-icon-details" role="region" aria-label="图标补齐明细">
+          <div className="stat-detail-chips" aria-label="结果汇总">
+            <span className="stat-detail-badge status-cached">
+              缓存 {resourceDetails.filter((d) => d.status === 'cached').length}
+            </span>
+            <span className="stat-detail-badge status-resolved">
+              材质{' '}
+              {resourceDetails.filter((d) => d.status === 'resolved').length}
+            </span>
+            <span className="stat-detail-badge status-rendered">
+              已渲染{' '}
+              {resourceDetails.filter((d) => d.status === 'rendered').length}
+            </span>
+            <span className="stat-detail-badge status-missing">
+              未找到{' '}
+              {resourceDetails.filter((d) => d.status === 'missing').length}
+            </span>
+            <span className="stat-detail-badge status-error">
+              错误 {resourceDetails.filter((d) => d.status === 'error').length}
+            </span>
+          </div>
           <table>
             <thead>
               <tr>

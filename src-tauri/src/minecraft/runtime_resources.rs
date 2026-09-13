@@ -306,14 +306,6 @@ fn resource_signature(root: &Path) -> String {
 
 fn indexed(root: &Path, previous: Option<Index>) -> Index {
     let paths = sources(root);
-    let mut files = Vec::new();
-    for p in &paths {
-        if p.is_dir() {
-            loose_files(p, 0, &mut files);
-        } else {
-            files.push(p.clone());
-        }
-    }
     let signature = resource_signature(root);
     if let Some(mut old) = previous {
         if old.signature == signature {
@@ -847,6 +839,7 @@ fn lookup_icon_cache_only(
     category: &str,
     key: &str,
     roots: &[String],
+    signatures: &mut HashMap<String, String>,
 ) -> Resolution {
     let Some(dir) = dir else {
         return missing("缓存目录不可用；可手动检查本机实例");
@@ -855,12 +848,10 @@ fn lookup_icon_cache_only(
         if !Path::new(root).is_absolute() {
             continue;
         }
-        let key_hash = cache_key(
-            root,
-            &resource_signature(Path::new(root)),
-            category,
-            key,
-        );
+        let signature = signatures
+            .entry(root.clone())
+            .or_insert_with(|| resource_signature(Path::new(root)));
+        let key_hash = cache_key(root, signature, category, key);
         if let Some(hit) = read_icon_cache(dir, &key_hash) {
             return hit;
         }
@@ -888,6 +879,7 @@ pub async fn resolve_stat_icons(
     tauri::async_runtime::spawn_blocking(move || {
         let mut result = BTreeMap::new();
         if cache_only {
+            let mut signatures: HashMap<String, String> = HashMap::new();
             for request in requests {
                 let identity = format!("{}:{}", request.category, request.key);
                 let answer = lookup_icon_cache_only(
@@ -895,6 +887,7 @@ pub async fn resolve_stat_icons(
                     &request.category,
                     &request.key,
                     &request.roots,
+                    &mut signatures,
                 );
                 result.insert(identity, answer);
             }
@@ -1176,6 +1169,7 @@ mod tests {
             "minecraft:used",
             "example:cached",
             &[root.to_string_lossy().to_string()],
+            &mut HashMap::new(),
         );
         assert!(hit.image.is_some());
         assert!(hit.job.is_none());
@@ -1185,6 +1179,7 @@ mod tests {
             "minecraft:used",
             "example:not_cached",
             &[root.to_string_lossy().to_string()],
+            &mut HashMap::new(),
         );
         assert!(miss.image.is_none());
         assert!(miss.job.is_none());
