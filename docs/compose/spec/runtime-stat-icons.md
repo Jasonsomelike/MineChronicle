@@ -65,3 +65,4 @@ MineChronicle「更多统计」的图标目录是按开发档案预生成的。�
 - [x] T6: Rust cache_only (covers: S2; depends: T2)
 - [x] T7: 前端手动扫描与明细 UI (covers: S2; depends: T6)
 - [x] T8: 重建桌面版 (covers: S2; depends: T7)
+- [x] T9: legacy 实体键、纹理别名与纹理兜底 — acceptance: 单测覆盖 PoisonSpider/chaos_guardian/apostle 路径 (covers: S2)

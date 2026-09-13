@@ -554,83 +554,199 @@ fn pick_entity_path<'a>(paths: &[&'a String], key_name: &str) -> Option<&'a Stri
     None
 }
 
-fn entity(index: &Index, key: &str) -> Resolution {
-    let Some((ns, name)) = key.split_once(':') else {
-        return missing("非法生物标识");
-    };
-    let prefix = format!("assets/{ns}/");
-    let geometries: Vec<_> = index
-        .assets
-        .keys()
-        .filter(|p| {
-            p.starts_with(&format!("{prefix}geo/")) && p.ends_with(&format!("/{name}.geo.json"))
-        })
-        .collect();
-    let skins: Vec<_> = index
-        .assets
-        .keys()
-        .filter(|p| {
-            p.starts_with(&format!("{prefix}textures/entity/"))
-                && p.ends_with(&format!("/{name}.png"))
-        })
-        .collect();
-    let Some(geometry_path) = pick_entity_path(&geometries, name) else {
-        return missing("生物几何与皮肤不能唯一配对；需要Java渲染器绑定或专用适配器");
-    };
-    let skin_path = match pick_entity_path(&skins, name) {
-        Some(path) => path,
-        None if skins.len() == 1 => skins[0],
-        None => {
-            return missing("生物几何与皮肤不能唯一配对；需要Java渲染器绑定或专用适配器");
+fn snake_case(name: &str) -> String {
+    let mut out = String::with_capacity(name.len() + 4);
+    for (i, ch) in name.chars().enumerate() {
+        if ch.is_uppercase() {
+            if i != 0 {
+                out.push('_');
+            }
+            out.extend(ch.to_lowercase());
+        } else {
+            out.push(ch);
         }
-    };
-    let Some(geometry) = json(index, geometry_path) else {
-        return missing("生物几何JSON不可读");
-    };
-    let Some(models) = geometry.get("minecraft:geometry").and_then(Value::as_array) else {
-        return missing("非标准Bedrock几何格式");
-    };
-    if models.len() != 1 {
-        return missing("生物包含多种几何，需要明确渲染器绑定");
     }
-    let model = &models[0];
-    let Some(bones) = model.get("bones").and_then(Value::as_array) else {
-        return missing("生物几何无骨骼");
-    };
-    if bones.len() > 512
-        || bones
-            .iter()
-            .map(|b| b.get("cubes").and_then(Value::as_array).map_or(0, Vec::len))
-            .sum::<usize>()
-            > 2048
+    out
+}
+
+fn entity_name_aliases(ns: &str, name: &str) -> Vec<String> {
+    let mut names = vec![name.to_string()];
+    let snake = snake_case(name);
+    if snake != name {
+        names.push(snake);
+    }
+    let lower = name.to_ascii_lowercase();
+    if !names.contains(&lower) {
+        names.push(lower);
+    }
+    // Registry id differs from installed texture basename.
+    if ns == "draconicevolution"
+        && (name == "draconic_guardian" || name == "draconic_chaos_guardian")
     {
-        return missing("生物几何复杂度超限");
+        names.push("chaos_guardian".into());
     }
+    names.dedup();
+    names
+}
+
+fn entity_resource_candidates(key: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    if let Some((ns, name)) = key.split_once(':') {
+        if !ns.is_empty() && !name.is_empty() && !ns.contains('.') {
+            out.push((ns.to_string(), name.to_string()));
+            return out;
+        }
+    }
+    let raw = key
+        .strip_prefix("stat.entityKilledBy.")
+        .or_else(|| key.strip_prefix("stat.killEntity."))
+        .unwrap_or(key);
+    if raw.is_empty() {
+        return out;
+    }
+    if let Some((ns, name)) = raw.split_once('.') {
+        out.push((ns.to_ascii_lowercase(), name.to_string()));
+        if ns != ns.to_ascii_lowercase() {
+            out.push((ns.to_string(), name.to_string()));
+        }
+    }
+    let last = raw.rsplit('.').next().unwrap_or(raw);
+    for ns in ["minecraft", "specialmobs"] {
+        out.push((ns.to_string(), last.to_string()));
+    }
+    out.dedup();
+    out
+}
+
+fn is_entity_stat(category: &str, key: &str) -> bool {
+    category.ends_with("killed")
+        || category.ends_with("killed_by")
+        || (category == "legacy"
+            && (key.starts_with("stat.entityKilledBy.") || key.starts_with("stat.killEntity.")))
+}
+
+fn texture_only_entity(index: &Index, skin_path: &str, reason: &str) -> Resolution {
     let Some((bytes, source)) = read(index, skin_path) else {
-        return missing("生物皮肤不可读");
+        return missing("实体纹理不可读");
     };
-    let width = model
-        .pointer("/description/texture_width")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    let height = model
-        .pointer("/description/texture_height")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    if width == 0 || height == 0 || !png_is_valid(&bytes) {
-        return missing("生物材质尺寸或PNG无效");
+    if !png_is_valid(&bytes) {
+        return missing("实体纹理不是有效PNG");
     }
     Resolution {
-        image: None,
-        source: format!("{source} · {geometry_path}"),
-        reason: "自动配对同标识生物几何和原始皮肤（静态姿态）".into(),
-        job: Some(
-            serde_json::json!({"entityModel":{"format":"bedrock","textureWidth":width,"textureHeight":height,"bones":bones},"layers":[format!("data:image/png;base64,{}", STANDARD.encode(bytes))]}),
-        ),
+        image: Some(format!("data:image/png;base64,{}", STANDARD.encode(bytes))),
+        source,
+        reason: reason.into(),
+        job: None,
     }
 }
+
+fn entity(index: &Index, key: &str) -> Resolution {
+    let candidates = entity_resource_candidates(key);
+    if candidates.is_empty() {
+        return missing("非法生物标识");
+    }
+    let mut last_missing = missing("生物几何与皮肤不能唯一配对；需要Java渲染器绑定或专用适配器");
+    for (ns, name) in candidates {
+        let aliases = entity_name_aliases(&ns, &name);
+        let prefix = format!("assets/{ns}/");
+        let geometries: Vec<_> = index
+            .assets
+            .keys()
+            .filter(|p| {
+                p.starts_with(&format!("{prefix}geo/"))
+                    && p.ends_with(".geo.json")
+                    && aliases
+                        .iter()
+                        .any(|a| p.ends_with(&format!("/{a}.geo.json")))
+            })
+            .collect();
+        let skins: Vec<_> = index
+            .assets
+            .keys()
+            .filter(|p| {
+                p.starts_with(&format!("{prefix}textures/entity/"))
+                    && p.ends_with(".png")
+                    && aliases.iter().any(|a| p.ends_with(&format!("/{a}.png")))
+                    && !p.contains("overlay")
+                    && !p.ends_with("_spawn.png")
+            })
+            .collect();
+        let geometry_path =
+            pick_entity_path(&geometries, &name).or_else(|| geometries.first().copied());
+        let skin_path = pick_entity_path(&skins, &name).or_else(|| skins.first().copied());
+        if geometry_path.is_none() {
+            if let Some(skin) = skin_path {
+                return texture_only_entity(
+                    index,
+                    skin,
+                    "使用实体原始纹理作图标（无可用 Bedrock 几何）",
+                );
+            }
+            last_missing =
+                missing("未找到该生物的 Bedrock 几何或唯一实体纹理；Java 动态模型需要专用适配器");
+            continue;
+        }
+        let (Some(geometry_path), Some(skin_path)) = (geometry_path, skin_path) else {
+            last_missing = missing("生物几何存在但未找到对应皮肤");
+            continue;
+        };
+        let Some(geometry) = json(index, geometry_path) else {
+            last_missing = missing("生物几何JSON不可读");
+            continue;
+        };
+        let Some(models) = geometry.get("minecraft:geometry").and_then(Value::as_array) else {
+            last_missing = missing("非标准Bedrock几何格式");
+            continue;
+        };
+        if models.len() != 1 {
+            last_missing = missing("生物包含多种几何，需要明确渲染器绑定");
+            continue;
+        }
+        let model = &models[0];
+        let Some(bones) = model.get("bones").and_then(Value::as_array) else {
+            last_missing = missing("生物几何无骨骼");
+            continue;
+        };
+        if bones.len() > 512
+            || bones
+                .iter()
+                .map(|b| b.get("cubes").and_then(Value::as_array).map_or(0, Vec::len))
+                .sum::<usize>()
+                > 2048
+        {
+            last_missing = missing("生物几何复杂度超限");
+            continue;
+        }
+        let Some((bytes, source)) = read(index, skin_path) else {
+            last_missing = missing("生物皮肤不可读");
+            continue;
+        };
+        let width = model
+            .pointer("/description/texture_width")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let height = model
+            .pointer("/description/texture_height")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        if width == 0 || height == 0 || !png_is_valid(&bytes) {
+            last_missing = missing("生物材质尺寸或PNG无效");
+            continue;
+        }
+        return Resolution {
+            image: None,
+            source: format!("{source} · {geometry_path}"),
+            reason: "自动配对同标识生物几何和原始皮肤（静态姿态）".into(),
+            job: Some(
+                serde_json::json!({"entityModel":{"format":"bedrock","textureWidth":width,"textureHeight":height,"bones":bones},"layers":[format!("data:image/png;base64,{}", STANDARD.encode(bytes))]}),
+            ),
+        };
+    }
+    last_missing
+}
+
 fn resolve(index: &Index, key: &str, category: &str) -> Resolution {
-    if category.ends_with("killed") || category.ends_with("killed_by") {
+    if is_entity_stat(category, key) {
         return entity(index, key);
     }
     let Some((ns, name)) = key.split_once(':') else {
@@ -1254,5 +1370,56 @@ mod tests {
         let job = answer.job.expect("entity job");
         assert!(answer.source.contains("geo/entity/foo.geo.json"));
         assert!(job.get("entityModel").is_some());
+    }
+
+    #[test]
+    fn legacy_entity_keys_and_texture_aliases_resolve() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("mc-legacy-entity");
+        fs::create_dir_all(dir.join("kubejs/assets/specialmobs/textures/entity")).unwrap();
+        fs::create_dir_all(dir.join("kubejs/assets/draconicevolution/textures/entity")).unwrap();
+        fs::create_dir_all(dir.join("kubejs/assets/goety/textures/entity")).unwrap();
+        fs::write(
+            dir.join("kubejs/assets/specialmobs/textures/entity/PoisonSpider.png"),
+            minimal_png(64, 32),
+        )
+        .unwrap();
+        fs::write(
+            dir.join("kubejs/assets/draconicevolution/textures/entity/chaos_guardian.png"),
+            minimal_png(256, 256),
+        )
+        .unwrap();
+        fs::write(
+            dir.join("kubejs/assets/goety/textures/entity/apostle.png"),
+            minimal_png(128, 128),
+        )
+        .unwrap();
+        let index = indexed(&dir, None);
+        let legacy = resolve(
+            &index,
+            "stat.entityKilledBy.SpecialMobs.PoisonSpider",
+            "legacy",
+        );
+        assert!(
+            legacy.image.is_some(),
+            "legacy poison spider: {}",
+            legacy.reason
+        );
+        let guardian = resolve(
+            &index,
+            "draconicevolution:draconic_guardian",
+            "minecraft:killed_by",
+        );
+        assert!(
+            guardian.image.is_some(),
+            "draconic guardian: {}",
+            guardian.reason
+        );
+        assert!(guardian.source.contains("chaos_guardian"));
+        let apostle = resolve(&index, "goety:apostle", "minecraft:killed");
+        assert!(apostle.image.is_some(), "apostle: {}", apostle.reason);
+        assert!(is_entity_stat("legacy", "stat.killEntity.Zombie"));
+        assert!(!is_entity_stat("legacy", "stat.mineBlock.1"));
+        assert_eq!(snake_case("PoisonSpider"), "poison_spider");
     }
 }
