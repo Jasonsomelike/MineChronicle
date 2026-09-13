@@ -1137,17 +1137,27 @@ fn score_skin_path(path: &str, name: &str) -> i32 {
         }
     }
     // Cross-family penalties (e.g. silverfish/poison.png for a spider).
-    if n.contains("spider") && p.contains("silverfish") {
-        score -= 80;
+    let cross = [
+        ("spider", "silverfish", -80),
+        ("spider", "/creeper/", -40),
+        ("zombie", "/skeleton/", -40),
+        ("zombie", "/creeper/", -40),
+        ("bear", "/wolf/", -30),
+        ("bear", "/cat/", -30),
+        ("cave_spider", "/silverfish/", -60),
+        ("magma", "/slime/", 15),
+        ("slime", "/magma/", -25),
+    ];
+    for (entity, folder, delta) in cross {
+        if n.contains(entity) && p.contains(folder) {
+            score += delta;
+        }
     }
     if n.contains("spider") && p.contains("/spider/") {
         score += 25;
     }
-    if n.contains("zombie") && p.contains("/skeleton/") {
-        score -= 40;
-    }
-    if n.contains("bear") && p.contains("/wolf/") {
-        score -= 30;
+    if n.contains("cave_spider") && p.contains("cave_spider") {
+        score += 20;
     }
     score
 }
@@ -1172,7 +1182,8 @@ fn pick_best_skin(index: &Index, ns: &str, aliases: &[String], name: &str) -> Op
             continue;
         }
         let score = score_skin_path(path, name);
-        if score < 0 {
+        // Weak contains-matches must not beat folder-affinity candidates.
+        if score < 8 {
             continue;
         }
         if best.as_ref().is_none_or(|(s, _)| score > *s) {
@@ -1184,14 +1195,29 @@ fn pick_best_skin(index: &Index, ns: &str, aliases: &[String], name: &str) -> Op
 
 fn vanilla_family_texture(name: &str) -> Option<&'static str> {
     let n = name.to_ascii_lowercase();
+    if n.contains("cave_spider") {
+        return Some("assets/minecraft/textures/entity/spider/cave_spider.png");
+    }
     if n.contains("spider") {
         return Some("assets/minecraft/textures/entity/spider/spider.png");
+    }
+    if n.contains("zombie_villager") {
+        return Some("assets/minecraft/textures/entity/zombie_villager/zombie_villager.png");
     }
     if n.contains("zombie") {
         return Some("assets/minecraft/textures/entity/zombie/zombie.png");
     }
+    if n.contains("wither_skeleton") {
+        return Some("assets/minecraft/textures/entity/skeleton/wither_skeleton.png");
+    }
     if n.contains("skeleton") {
         return Some("assets/minecraft/textures/entity/skeleton/skeleton.png");
+    }
+    if n.contains("creeper") {
+        return Some("assets/minecraft/textures/entity/creeper/creeper.png");
+    }
+    if n.contains("enderman") {
+        return Some("assets/minecraft/textures/entity/enderman/enderman.png");
     }
     None
 }
@@ -1926,6 +1952,26 @@ mod tests {
                 "assets/specialmobs/textures/entity/silverfish/poison.png",
                 "poison_spider"
             )
+        );
+        assert!(
+            score_skin_path(
+                "assets/minecraft/textures/entity/spider/spider.png",
+                "poison_spider"
+            ) > 0
+        );
+        assert!(
+            score_skin_path(
+                "assets/minecraft/textures/entity/silverfish/silverfish.png",
+                "poison_spider"
+            ) < 0
+        );
+        assert_eq!(
+            vanilla_family_texture("poison_spider"),
+            Some("assets/minecraft/textures/entity/spider/spider.png")
+        );
+        assert_eq!(
+            vanilla_family_texture("cave_spider"),
+            Some("assets/minecraft/textures/entity/spider/cave_spider.png")
         );
         let temp = tempfile::tempdir().unwrap();
         let dir = temp.path().join("mc-spider-skin");
