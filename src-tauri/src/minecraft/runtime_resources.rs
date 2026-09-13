@@ -39,6 +39,10 @@ struct Index {
     assets: HashMap<String, Asset>,
     answers: HashMap<String, Resolution>,
     archives: Mutex<HashMap<PathBuf, zip::ZipArchive<fs::File>>>,
+    /// jar path → filtered `*Model*.class` entry names (avoids rescanning every entity).
+    model_class_files: Mutex<HashMap<PathBuf, Vec<String>>>,
+    /// Budget for expensive Java bytecode extraction per index generation.
+    java_attempts: std::sync::atomic::AtomicUsize,
 }
 static CACHE: OnceLock<Mutex<HashMap<String, Index>>> = OnceLock::new();
 #[derive(Deserialize)]
@@ -358,6 +362,8 @@ fn indexed(root: &Path, previous: Option<Index>) -> Index {
         assets,
         answers: HashMap::new(),
         archives: Mutex::new(HashMap::new()),
+        model_class_files: Mutex::new(HashMap::new()),
+        java_attempts: std::sync::atomic::AtomicUsize::new(0),
     }
 }
 fn read(index: &Index, path: &str) -> Option<(Vec<u8>, String)> {
@@ -937,6 +943,29 @@ fn zip_entry_names(container: &Path) -> Vec<String> {
     zip.file_names().map(str::to_owned).collect()
 }
 
+fn model_class_entries(index: &Index, container: &Path) -> Vec<String> {
+    if let Ok(cache) = index.model_class_files.lock() {
+        if let Some(listed) = cache.get(container) {
+            return listed.clone();
+        }
+    }
+    let names: Vec<String> = zip_entry_names(container)
+        .into_iter()
+        .filter(|n| {
+            n.ends_with(".class") && !n.contains('$') && {
+                let file = n.rsplit('/').next().unwrap_or("");
+                file.contains("Model")
+            }
+        })
+        .collect();
+    if let Ok(mut cache) = index.model_class_files.lock() {
+        if cache.len() < 64 {
+            cache.insert(container.to_path_buf(), names.clone());
+        }
+    }
+    names
+}
+
 fn find_java_model_class(index: &Index, aliases: &[String]) -> Option<(PathBuf, String)> {
     let pascals: Vec<String> = aliases.iter().map(|a| pascal_case(a)).collect();
     let mut containers: Vec<PathBuf> = index.assets.values().map(|a| a.container.clone()).collect();
@@ -946,13 +975,10 @@ fn find_java_model_class(index: &Index, aliases: &[String]) -> Option<(PathBuf, 
         if container.extension().is_none_or(|e| e != "jar") {
             continue;
         }
-        let names = zip_entry_names(&container);
+        let names = model_class_entries(index, &container);
         let hits: Vec<String> = names
             .iter()
             .filter(|n| {
-                if !n.ends_with(".class") || n.contains('$') {
-                    return false;
-                }
                 let file = n.rsplit('/').next().unwrap_or("");
                 if file.contains("Layer") || file.contains("Armor") {
                     return false;
@@ -1034,8 +1060,27 @@ fn collect_java_class_map(
 }
 
 fn java_model_resolution(index: &Index, aliases: &[String], skin: &str) -> Option<Resolution> {
+    // Cap expensive bytecode work per generation to keep the UI responsive.
+    const MAX_JAVA_ATTEMPTS: usize = 12;
+    if index
+        .java_attempts
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        >= MAX_JAVA_ATTEMPTS
+    {
+        return None;
+    }
     let (jar, class_name) = find_java_model_class(index, aliases)?;
-    let classes = collect_java_class_map(&jar, &class_name, index);
+    let mut classes = collect_java_class_map(&jar, &class_name, index);
+    if !classes.contains_key(&class_name) {
+        return None;
+    }
+    // Keep IPC payloads bounded.
+    const MAX_CLASS_BYTES: usize = 1_500_000;
+    let mut total = 0usize;
+    classes.retain(|_, bytes| {
+        total += bytes.len();
+        total <= MAX_CLASS_BYTES
+    });
     if !classes.contains_key(&class_name) {
         return None;
     }
@@ -1688,11 +1733,13 @@ pub async fn resolve_stat_icons(
                         continue;
                     }
                 }
-                let answer = index
-                    .answers
-                    .get(&identity)
-                    .cloned()
-                    .unwrap_or_else(|| resolve(index, &key, &category));
+                let answer = index.answers.get(&identity).cloned().unwrap_or_else(|| {
+                    // A single bad model must not crash the whole check.
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        resolve(index, &key, &category)
+                    }))
+                    .unwrap_or_else(|_| missing("图标解析内部错误，已跳过该条"))
+                });
                 let answer = attach_job_meta(answer, &key_hash, &root);
                 if let Some(dir) = cache_dir.as_ref() {
                     store_resolution_image(dir, &key_hash, &answer);

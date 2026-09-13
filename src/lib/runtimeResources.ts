@@ -291,6 +291,8 @@ export async function discoverIcons(
             entry.reason = '已找到模型，但本地渲染失败；保留已有图标';
           }
           delete entry.job;
+          // Let the WebView paint between renders to avoid UI freeze/crash.
+          await new Promise((r) => setTimeout(r, 0));
         }
     });
     renderQueue = work.catch(() => {});
