@@ -94,11 +94,23 @@ function cubeGeometry(cube, bone, model) {
     ),
     java ? 'ZYX' : 'XYZ',
   );
+  const [w, h, d] = cube.size;
+  const [u0, v0] = cube.uv;
+  // Minecraft ModelBox texOffs layout (entity models).
+  const javaFaceUV = {
+    down: [u0 + d, v0, w, d],
+    up: [u0 + d + w, v0, w, d],
+    east: [u0, v0 + d, d, h],
+    north: [u0 + d, v0 + d, w, h],
+    west: [u0 + d + w, v0 + d, d, h],
+    south: [u0 + d + w + d, v0 + d, w, h],
+  };
   for (const [direction, face] of Object.entries(faces)) {
     const perFace = !Array.isArray(cube.uv);
     const texture = perFace ? cube.uv?.[direction] : null;
     if (perFace && !texture) continue;
     const index = positions.length / 3;
+    const jUV = java && !perFace ? javaFaceUV[direction] : null;
     for (const corner of face.corners) {
       const origin = vector(cube.origin);
       const point = vector(
@@ -119,19 +131,23 @@ function cubeGeometry(cube, bone, model) {
         point.sub(cubePivot).applyEuler(rotation).add(cubePivot);
       point.sub(pivot);
       positions.push(point.x, point.y, point.z);
-      const textureSize = texture?.uv_size ?? [
-        Math.abs(dot(face.u1, cube.size) - dot(face.u0, cube.size)),
-        Math.abs(dot(face.v1, cube.size) - dot(face.v0, cube.size)),
-      ];
-      const [u, v] = perFace
-        ? [
-            texture.uv[0] + corner[3] * textureSize[0],
-            texture.uv[1] + corner[4] * textureSize[1],
-          ]
-        : [
-            cube.uv[0] + dot(corner[3] ? face.u1 : face.u0, cube.size),
-            cube.uv[1] + dot(corner[4] ? face.v1 : face.v0, cube.size),
-          ];
+      let u;
+      let v;
+      if (jUV) {
+        const [ju, jv, jw, jh] = jUV;
+        u = ju + corner[3] * jw;
+        v = jv + corner[4] * jh;
+      } else if (perFace) {
+        const textureSize = texture.uv_size ?? [
+          Math.abs(dot(face.u1, cube.size) - dot(face.u0, cube.size)),
+          Math.abs(dot(face.v1, cube.size) - dot(face.v0, cube.size)),
+        ];
+        u = texture.uv[0] + corner[3] * textureSize[0];
+        v = texture.uv[1] + corner[4] * textureSize[1];
+      } else {
+        u = cube.uv[0] + dot(corner[3] ? face.u1 : face.u0, cube.size);
+        v = cube.uv[1] + dot(corner[4] ? face.v1 : face.v0, cube.size);
+      }
       const scale = cube.uvScale ?? [1, 1];
       if (scale.some((value) => !Number.isFinite(value) || value <= 0))
         throw new Error('Invalid entity cube UV scale');
