@@ -131,14 +131,11 @@ export default function Statistics({
     setResourceStatus('正在扫描本机实例并解析图标…');
     setDetailsOpen(true);
     setDetailsMode('full');
-    // Only inspect rows that still lack an icon (catalog or already discovered).
-    const needIcons = snapshot.rows.filter((row) => {
-      if (row.key === 'minecraft:air') return false;
-      const id = `${row.category}:${row.key}`;
-      if (discovered[id]?.image) return false;
-      return !row.resources?.some((resource) => resource.icon);
-    });
-    const targetRows = needIcons.length ? needIcons : snapshot.rows;
+    // Re-check every non-air row so a correct runtime icon can replace a
+    // wrong bundled catalog icon (e.g. spider that still looks like slabs).
+    const targetRows = snapshot.rows.filter(
+      (row) => row.key !== 'minecraft:air',
+    );
     await discoverIcons(targetRows, { refreshKnown: true, cacheOnly: false })
       .then((result) => {
         if (id !== requestId.current || snapshot !== dataRef.current) return;
@@ -174,11 +171,9 @@ export default function Statistics({
   }, [data]);
   useEffect(() => {
     if (!pageActive || !data) return;
-    const missing = data.rows.filter(
-      (row) =>
-        row.key !== 'minecraft:air' &&
-        !row.resources?.some((resource) => resource.icon),
-    );
+    // Include rows that already have a bundled catalog icon so a cached
+    // runtime icon can replace a wrong/ugly bundled one on reopen.
+    const missing = data.rows.filter((row) => row.key !== 'minecraft:air');
     if (!missing.length) {
       if (detailsModeRef.current !== 'full') {
         setResourceDetails([]);
@@ -190,8 +185,9 @@ export default function Statistics({
     void discoverIcons(missing, { cacheOnly: true })
       .then((result) => {
         if (id !== requestId.current || !result) return;
-        const hits = Object.values(result.icons).filter((entry) => entry.image)
-          .length;
+        const hits = Object.values(result.icons).filter(
+          (entry) => entry.image,
+        ).length;
         if (hits) {
           setDiscovered((old) => ({ ...old, ...result.icons }));
         }
@@ -295,8 +291,8 @@ export default function Statistics({
           {detailsOpen
             ? '收起明细'
             : resourceDetails.length
-              ? `查看明细（${resourceDetails.length}）`
-              : '查看明细'}
+            ? `查看明细（${resourceDetails.length}）`
+            : '查看明细'}
         </button>
         {resourceStatus && !checkingResources ? (
           <span role="status" className="stat-icon-status">
@@ -334,7 +330,11 @@ export default function Statistics({
         ) : null}
       </div>
       {detailsOpen && resourceDetails.length > 0 ? (
-        <div className="stat-icon-details" role="region" aria-label="图标补齐明细">
+        <div
+          className="stat-icon-details"
+          role="region"
+          aria-label="图标补齐明细"
+        >
           {detailsMode === 'cache' ? (
             <p className="stat-detail-banner">
               下列结果来自<strong>缓存查询</strong>
@@ -377,22 +377,22 @@ export default function Statistics({
                     <code>{detail.id}</code>
                   </td>
                   <td>
-                    <span className={`stat-detail-badge status-${detail.status}`}>
+                    <span
+                      className={`stat-detail-badge status-${detail.status}`}
+                    >
                       {detail.status === 'cached'
                         ? '缓存'
                         : detail.status === 'resolved'
-                          ? '材质'
-                          : detail.status === 'rendered'
-                            ? '已渲染'
-                            : detail.status === 'error'
-                              ? '错误'
-                              : '未找到'}
+                        ? '材质'
+                        : detail.status === 'rendered'
+                        ? '已渲染'
+                        : detail.status === 'error'
+                        ? '错误'
+                        : '未找到'}
                     </span>
                   </td>
                   <td>
-                    <small title={detail.source}>
-                      {detail.source || '—'}
-                    </small>
+                    <small title={detail.source}>{detail.source || '—'}</small>
                     <div className="stat-detail-reason">{detail.reason}</div>
                   </td>
                 </tr>

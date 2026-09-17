@@ -21,7 +21,15 @@ export default [
     languageOptions: { globals: globals.node },
   },
   {
-    files: ['scripts/stat-icon-renderer.mjs', 'scripts/probe-gsap-stat-icons.mjs'],
+    // Scripts that touch DOM/canvas APIs (Image, ImageData, document) on top of
+    // Node. Only list the files that actually use them.
+    files: [
+      'scripts/stat-icon-renderer.mjs',
+      'scripts/probe-gsap-stat-icons.mjs',
+      'scripts/stat-entity-renderer.mjs',
+      'scripts/visual-qa-full-report.mjs',
+      'scripts/visual-qa-spider-ferro.mjs',
+    ],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
