@@ -445,66 +445,58 @@ impl Repository {
             }
         }
         let text = filter.query.to_lowercase();
-        let mut filtered: Vec<_> = values
-            .into_iter()
-            .map(
-                |((category, key), (value, sources, samples, packs, roots))| {
-                    let source_packs: Vec<_> = packs.into_iter().collect();
-                    let resources = crate::minecraft::translations::stat_resources(
-                        &category,
-                        &key,
-                        &source_packs,
-                    );
-                    StatisticRow {
-                        category_label: crate::minecraft::translations::category_label(&category)
-                            .into(),
-                        label: resources.iter().find_map(|r| r.label.clone()).or_else(|| {
-                            crate::minecraft::translations::stat_label(&category, &key)
-                        }),
-                        unit: crate::minecraft::translations::stat_unit(&category, &key).into(),
-                        category,
-                        key,
-                        source_packs,
-                        resource_roots: roots.into_iter().collect(),
-                        resources,
-                        value: value.map(|v| v.to_string()),
-                        sources,
-                        samples: if value.is_some() { vec![] } else { samples },
-                    }
-                },
-            )
-            .filter(|row| {
-                if text.is_empty() {
-                    return true;
-                }
-                let label = row.label.as_deref().unwrap_or_default();
-                let names = row
-                    .resources
-                    .iter()
-                    .flat_map(|r| {
-                        [
-                            r.english.as_deref().unwrap_or_default(),
-                            r.label.as_deref().unwrap_or_default(),
-                        ]
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                format!(
-                    "{} {} {label} {} {} {names}",
-                    row.category,
-                    row.key,
-                    row.category_label,
-                    row.source_packs.join(" ")
-                )
-                .to_lowercase()
-                .contains(&text)
-            })
-            .collect();
+        // Enrichment - the translation lookup plus cloning each key's resource
+        // list - is the expensive half of this function, and it used to run for
+        // every aggregated key (18,882 on the reference archive) even though at
+        // most 100 rows are returned. Rows are now carried unenriched through
+        // grouping, sorting and pagination, and only the returned page is
+        // enriched. A search term still has to match against labels, so that
+        // path enriches up front as before.
+        struct Pending {
+            category: String,
+            key: String,
+            value: Option<i128>,
+            sources: usize,
+            samples: Vec<String>,
+            packs: BTreeSet<String>,
+            roots: BTreeSet<String>,
+            /// Set only when a search forced enrichment before pagination.
+            enriched: Option<StatisticRow>,
+        }
+        let searching = !text.is_empty();
+        let mut filtered: Vec<Pending> = Vec::with_capacity(values.len());
+        for ((category, key), (value, sources, samples, packs, roots)) in values {
+            let enriched = if searching {
+                Some(enrich_row(
+                    &category, &key, value, sources, &samples, &packs, &roots,
+                ))
+            } else {
+                None
+            };
+            filtered.push(Pending {
+                category,
+                key,
+                value,
+                sources,
+                samples,
+                packs,
+                roots,
+                enriched,
+            });
+        }
+        if searching {
+            filtered.retain(|pending| {
+                pending
+                    .enriched
+                    .as_ref()
+                    .is_some_and(|row| row_matches_query(row, &text))
+            });
+        }
         // Counts describe the searched scope, before category selection or pagination.
         let mut group_counts = BTreeMap::new();
-        for row in &filtered {
+        for pending in &filtered {
             *group_counts
-                .entry(statistic_group(&row.category, &row.key))
+                .entry(statistic_group(&pending.category, &pending.key))
                 .or_insert(0) += 1;
         }
         let categories = STATISTICS_CATEGORIES
@@ -518,26 +510,40 @@ impl Repository {
             })
             .collect();
         if !filter.group.is_empty() && filter.group != "all" {
-            filtered.retain(|row| statistic_group(&row.category, &row.key) == filter.group);
+            filtered
+                .retain(|pending| statistic_group(&pending.category, &pending.key) == filter.group);
         }
         if filter.sort == "value_desc" || filter.sort == "value_asc" {
             // Compare exact integer totals before pagination; metadata stays last in both directions.
-            filtered.sort_by_cached_key(|row| {
-                let value = row.value.as_deref().and_then(|v| v.parse::<i128>().ok());
+            filtered.sort_by_cached_key(|pending| {
                 // Complement reverses signed integer order without overflowing i128::MIN.
                 let value = if filter.sort == "value_desc" {
-                    value.map(|v| !v)
+                    pending.value.map(|v| !v)
                 } else {
-                    value
+                    pending.value
                 };
                 (value.is_none(), value)
             });
         }
         let total = filtered.len();
+        // Enrich only what is returned; pre-enriched rows are moved across as-is.
         let rows = filtered
             .into_iter()
             .skip(filter.offset as usize)
             .take(100)
+            .map(|pending| {
+                pending.enriched.unwrap_or_else(|| {
+                    enrich_row(
+                        &pending.category,
+                        &pending.key,
+                        pending.value,
+                        pending.sources,
+                        &pending.samples,
+                        &pending.packs,
+                        &pending.roots,
+                    )
+                })
+            })
             .collect();
         Ok(StatisticsPage {
             counters: counters
@@ -552,4 +558,67 @@ impl Repository {
             unavailable,
         })
     }
+}
+
+/// Builds the presented row for one aggregated key: resolves its display label,
+/// unit and resource list. Split out of `statistics` so it can be applied to
+/// just the returned page instead of every aggregated key.
+#[allow(clippy::too_many_arguments)]
+fn enrich_row(
+    category: &str,
+    key: &str,
+    value: Option<i128>,
+    sources: usize,
+    samples: &[String],
+    packs: &BTreeSet<String>,
+    roots: &BTreeSet<String>,
+) -> StatisticRow {
+    let source_packs: Vec<_> = packs.iter().cloned().collect();
+    let resources = crate::minecraft::translations::stat_resources(category, key, &source_packs);
+    StatisticRow {
+        category_label: crate::minecraft::translations::category_label(category).into(),
+        label: resources
+            .iter()
+            .find_map(|r| r.label.clone())
+            .or_else(|| crate::minecraft::translations::stat_label(category, key)),
+        unit: crate::minecraft::translations::stat_unit(category, key).into(),
+        category: category.to_owned(),
+        key: key.to_owned(),
+        source_packs,
+        resource_roots: roots.iter().cloned().collect(),
+        resources,
+        value: value.map(|v| v.to_string()),
+        sources,
+        samples: if value.is_some() {
+            vec![]
+        } else {
+            samples.to_vec()
+        },
+    }
+}
+
+/// Whether a row matches the free-text search. Kept identical to the previous
+/// inline predicate so search results do not change.
+fn row_matches_query(row: &StatisticRow, text: &str) -> bool {
+    let label = row.label.as_deref().unwrap_or_default();
+    let names = row
+        .resources
+        .iter()
+        .flat_map(|r| {
+            [
+                r.english.as_deref().unwrap_or_default(),
+                r.label.as_deref().unwrap_or_default(),
+            ]
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    format!(
+        "{} {} {label} {} {} {names}",
+        row.category,
+        row.key,
+        row.category_label,
+        row.source_packs.join(" ")
+    )
+    .to_lowercase()
+    .contains(text)
 }
