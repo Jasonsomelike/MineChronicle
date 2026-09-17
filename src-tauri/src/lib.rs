@@ -1,3 +1,8 @@
+//! `unwrap_used` / `expect_used` are denied in shipped code (see Cargo.toml).
+//! Inline test modules assert against synthetic fixtures and legitimately
+//! unwrap, so relax those two lints for test builds only.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+
 pub mod commands;
 pub mod database;
 mod desktop;

@@ -46,7 +46,11 @@ import { emptyScope } from '../lib/activity';
 import type { ActivityScope } from '../lib/activity';
 import { loadPclSync } from '../lib/pclSync';
 import type { PclSyncStatus } from '../lib/pclSync';
-import { initialPlayers, initialPlayersNone } from '../lib/players';
+import {
+  initialPlayers,
+  initialPlayersNone,
+  savePlayers,
+} from '../lib/players';
 import SessionPage from './SessionPage';
 import StartupSettings from './StartupSettings';
 import SelfPlayerSettings from './SelfPlayerSettings';
@@ -102,6 +106,9 @@ export default function ScanPanel() {
   }));
   function changeScope(next: ActivityScope) {
     setScope(next);
+    // Persist the shared player selection so it survives a restart. All three
+    // pages funnel through here; savePlayers was previously never called.
+    savePlayers(next.uuids, next.players_none ?? false);
   }
   const sharedTimelineScope = useMemo(
     () => ({
@@ -525,7 +532,7 @@ export default function ScanPanel() {
           role="group"
           aria-label="联动与存档导入"
         >
-          <SessionPage active={view === 'settings'}>
+          <SessionPage active={view === 'settings'} label="PCL 联动">
             <PclConnection
               status={pclStatus}
               onEnabled={(enabled) =>
@@ -641,7 +648,7 @@ export default function ScanPanel() {
           </section>
         </div>
       </div>
-      <SessionPage active={view === 'observation'}>
+      <SessionPage active={view === 'observation'} label="实例观测">
         <InstanceObservation>
           {trackingStatus ? (
             <div className="watch-status">
@@ -742,7 +749,7 @@ export default function ScanPanel() {
             view === 'dashboard' ? 'dashboard-results' : 'scan-results'
           }
         >
-          <SessionPage active={view === 'dashboard'}>
+          <SessionPage active={view === 'dashboard'} label="生涯概览">
             <Dashboard
               report={report}
               tracking={tracking}
@@ -802,7 +809,7 @@ export default function ScanPanel() {
               }}
             />
           </div>
-          <SessionPage active={view === 'worlds'}>
+          <SessionPage active={view === 'worlds'} label="世界与玩家">
             <WorldLibrary
               report={report}
               query={worldQuery}
@@ -813,7 +820,7 @@ export default function ScanPanel() {
             />
           </SessionPage>
 
-          <SessionPage active={view === 'timeline'}>
+          <SessionPage active={view === 'timeline'} label="时间线">
             <Timeline
               report={report}
               scope={sharedTimelineScope}
@@ -831,7 +838,7 @@ export default function ScanPanel() {
               }}
             />
           </SessionPage>
-          <SessionPage active={view === 'statistics'}>
+          <SessionPage active={view === 'statistics'} label="更多统计">
             <Statistics
               report={report}
               scope={sharedStatisticsScope}
@@ -890,7 +897,7 @@ export default function ScanPanel() {
             </p>
           </div>
           <div hidden={view !== 'settings'} id="settings-health">
-            <SessionPage active={view === 'settings'}>
+            <SessionPage active={view === 'settings'} label="数据健康">
               <DataHealth
                 health={health}
                 report={report}

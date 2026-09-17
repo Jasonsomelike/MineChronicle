@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { checkRuntime } from './lib/runtime';
 import ScanPanel from './components/ScanPanel';
+import ErrorBoundary from './components/ErrorBoundary';
 import { FRONTEND_VERSION } from './lib/version';
 import { Activity, Sprout } from 'lucide-react';
 
@@ -44,7 +45,9 @@ export default function App() {
         </div>
       </header>
       <main>
-        <ScanPanel />
+        <ErrorBoundary>
+          <ScanPanel />
+        </ErrorBoundary>
         <details className="connection-check">
           <summary>
             <Activity size={14} />

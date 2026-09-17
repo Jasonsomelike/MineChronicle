@@ -12,18 +12,24 @@ pub struct RuntimeInfo {
     pub pcl_instances: usize,
 }
 
+/// Opens the archive and loads the whole library, so it runs off the main thread.
 #[tauri::command]
-pub fn runtime_info(database: State<'_, DatabaseState>) -> Result<RuntimeInfo, String> {
-    let library = Repository::open(&database.path)
-        .and_then(|r| r.load())
-        .map_err(|e| e.to_string())?;
-    Ok(RuntimeInfo {
-        version: env!("CARGO_PKG_VERSION"),
-        executable: std::env::current_exe().map_err(|e| e.to_string())?,
-        database_path: database.path.clone(),
-        embedded_assets: !tauri::is_dev(),
-        pcl_instances: library.instances.len(),
+pub async fn runtime_info(database: State<'_, DatabaseState>) -> Result<RuntimeInfo, String> {
+    let path = database.path.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let library = Repository::open(&path)
+            .and_then(|r| r.load())
+            .map_err(|e| e.to_string())?;
+        Ok(RuntimeInfo {
+            version: env!("CARGO_PKG_VERSION"),
+            executable: std::env::current_exe().map_err(|e| e.to_string())?,
+            database_path: path,
+            embedded_assets: !tauri::is_dev(),
+            pcl_instances: library.instances.len(),
+        })
     })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Limited local diagnostics emitted by the actual WebView after rendering.
@@ -36,8 +42,9 @@ pub struct ViewReceipt {
     pub pcl_instances: usize,
     pub pcl_panel_visible: bool,
 }
+/// Writes a small diagnostic file, so it also stays off the main thread.
 #[tauri::command]
-pub fn acknowledge_view(
+pub async fn acknowledge_view(
     receipt: ViewReceipt,
     database: State<'_, DatabaseState>,
 ) -> Result<(), String> {
@@ -52,9 +59,10 @@ pub fn acknowledge_view(
         .parent()
         .ok_or("档案缺少父目录")?
         .join("last-view.json");
-    std::fs::write(
-        path,
-        serde_json::to_vec_pretty(&receipt).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = serde_json::to_vec_pretty(&receipt).map_err(|e| e.to_string())?;
+        std::fs::write(path, bytes).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

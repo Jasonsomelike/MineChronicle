@@ -262,7 +262,7 @@ export default function Dashboard({
         </button>
       </div>
       <div className="ranking-grid ranking-unified">
-        <SessionPage active={ranking === 'worlds'}>
+        <SessionPage active={ranking === 'worlds'} label="世界排行">
           <RankingList
             key={`worlds:${rankingScope}`}
             title="世界排行"
@@ -270,7 +270,7 @@ export default function Dashboard({
             onOpen={onOpen}
           />
         </SessionPage>
-        <SessionPage active={ranking === 'instances'}>
+        <SessionPage active={ranking === 'instances'} label="实例排行">
           <RankingList
             key={`roots:${rankingScope}`}
             title="实例排行 · 按根目录汇总"

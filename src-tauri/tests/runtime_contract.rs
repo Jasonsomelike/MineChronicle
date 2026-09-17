@@ -3,6 +3,7 @@ use minechronicle_lib::{
     database::DatabaseState,
 };
 use tauri::{
+    async_runtime::block_on,
     test::{mock_builder, mock_context, noop_assets},
     Manager,
 };
@@ -16,7 +17,7 @@ fn runtime_reports_actual_archive_and_bounded_view_receipt(
             path: database.clone(),
         })
         .build(mock_context(noop_assets()))?;
-    let info = runtime_info(app.state())?;
+    let info = block_on(runtime_info(app.state()))?;
     assert_eq!(info.database_path, database);
     assert_eq!(info.version, env!("CARGO_PKG_VERSION"));
     assert_eq!(info.embedded_assets, !tauri::is_dev());
@@ -28,9 +29,9 @@ fn runtime_reports_actual_archive_and_bounded_view_receipt(
         pcl_instances: 0,
         pcl_panel_visible: false,
     };
-    assert!(acknowledge_view(receipt("x".repeat(33)), app.state()).is_err());
+    assert!(block_on(acknowledge_view(receipt("x".repeat(33)), app.state())).is_err());
     assert!(!temp.path().join("last-view.json").exists());
-    acknowledge_view(receipt(info.version.into()), app.state())?;
+    block_on(acknowledge_view(receipt(info.version.into()), app.state()))?;
     let saved: serde_json::Value =
         serde_json::from_slice(&std::fs::read(temp.path().join("last-view.json"))?)?;
     assert_eq!(saved["frontend_version"], env!("CARGO_PKG_VERSION"));

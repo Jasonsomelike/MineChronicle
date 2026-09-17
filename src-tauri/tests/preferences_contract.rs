@@ -3,6 +3,7 @@ use minechronicle_lib::{
     database::DatabaseState,
 };
 use tauri::{
+    async_runtime::block_on,
     test::{mock_builder, mock_context, noop_assets},
     Manager,
 };
@@ -18,22 +19,28 @@ fn identity_survives_app_recreation_and_clear_is_explicit() -> Result<(), Box<dy
             .build(mock_context(noop_assets()))
     };
     let app = create()?;
-    assert_eq!(self_player_identity(app.state())?, None);
-    set_self_player_identity(" Jasonsomelike ".into(), app.state())?;
+    assert_eq!(block_on(self_player_identity(app.state()))?, None);
+    block_on(set_self_player_identity(
+        " Jasonsomelike ".into(),
+        app.state(),
+    ))?;
     drop(app);
     let app = create()?;
     assert_eq!(
-        self_player_identity(app.state())?.as_deref(),
+        block_on(self_player_identity(app.state()))?.as_deref(),
         Some("Jasonsomelike")
     );
-    assert!(set_self_player_identity("x".repeat(257), app.state()).is_err());
+    assert!(block_on(set_self_player_identity("x".repeat(257), app.state())).is_err());
     assert_eq!(
-        self_player_identity(app.state())?.as_deref(),
+        block_on(self_player_identity(app.state()))?.as_deref(),
         Some("Jasonsomelike")
     );
-    set_self_player_identity("".into(), app.state())?;
+    block_on(set_self_player_identity("".into(), app.state()))?;
     drop(app);
     let app = create()?;
-    assert_eq!(self_player_identity(app.state())?.as_deref(), Some(""));
+    assert_eq!(
+        block_on(self_player_identity(app.state()))?.as_deref(),
+        Some("")
+    );
     Ok(())
 }

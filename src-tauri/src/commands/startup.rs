@@ -85,8 +85,8 @@ mod platform {
     }
 }
 
-#[tauri::command]
-pub fn startup_status() -> Result<StartupStatus, String> {
+/// Reads the registry; the command wrapper keeps it off the main thread.
+fn startup_status_sync() -> Result<StartupStatus, String> {
     let executable = std::env::current_exe()
         .map_err(|e| e.to_string())?
         .to_string_lossy()
@@ -109,17 +109,33 @@ pub fn startup_status() -> Result<StartupStatus, String> {
         executable,
     })
 }
+
 #[tauri::command]
-pub fn set_startup_enabled(enabled: bool) -> Result<StartupStatus, String> {
+pub async fn startup_status() -> Result<StartupStatus, String> {
+    tauri::async_runtime::spawn_blocking(startup_status_sync)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Writes the registry; the command wrapper keeps it off the main thread.
+#[cfg(windows)]
+fn set_startup_enabled_sync(enabled: bool) -> Result<StartupStatus, String> {
+    if enabled {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        platform::write(Some(&quoted_command(&exe)?))?;
+    } else {
+        platform::write(None)?;
+    }
+    startup_status_sync()
+}
+
+#[tauri::command]
+pub async fn set_startup_enabled(enabled: bool) -> Result<StartupStatus, String> {
     #[cfg(windows)]
     {
-        if enabled {
-            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-            platform::write(Some(&quoted_command(&exe)?))?;
-        } else {
-            platform::write(None)?;
-        }
-        startup_status()
+        tauri::async_runtime::spawn_blocking(move || set_startup_enabled_sync(enabled))
+            .await
+            .map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {

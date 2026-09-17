@@ -234,14 +234,21 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
     let watcher =
         notify::recommended_watcher(move |event: notify::Result<notify::Event>| match event {
             Ok(event) if relevant(&event) => {
-                if let Ok(mut paths) = event_paths.lock() {
-                    if paths.len() + event.paths.len() > 1024 {
-                        paths.clear();
-                        overflow_event.store(true, Ordering::Release);
-                    } else {
-                        paths.extend(event.paths);
-                    }
+                // Recover from poisoning instead of dropping the event: the
+                // guarded value is only a path set, which has no invariant a
+                // panic could leave broken. Silently losing it would leave
+                // `dirty` set with an empty event list, so the scan would run
+                // with the wrong scope.
+                let mut paths = event_paths
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if paths.len() + event.paths.len() > 1024 {
+                    paths.clear();
+                    overflow_event.store(true, Ordering::Release);
+                } else {
+                    paths.extend(event.paths);
                 }
+                drop(paths);
                 changed.store(true, Ordering::Release);
             }
             Err(e) => {
@@ -395,10 +402,13 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
             library
                 .roots
                 .retain(|r| active_roots.contains(&r.path) || closing_roots.contains_key(&r.path));
-            let events = changed_paths
-                .lock()
-                .map(|mut paths| std::mem::take(&mut *paths))
-                .unwrap_or_default();
+            // Same reasoning as the event callback: recover the path set from a
+            // poisoned lock rather than reporting "nothing changed".
+            let events = std::mem::take(
+                &mut *changed_paths
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
+            );
             let full = last_full.elapsed() >= RECONCILE || overflow.swap(false, Ordering::AcqRel);
             let mut roots: Vec<_> = if full {
                 library.roots.iter().map(|r| r.path.clone()).collect()

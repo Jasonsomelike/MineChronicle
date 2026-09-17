@@ -4,31 +4,50 @@
 
 每一项固定给出：严重度、位置、现状、证据、改法。工作量用 S（半天内）、M（1–2 天）、L（3 天以上或需设计取舍）标注。
 
-**本文不含已完成的改动。** 本次审计期间提交的两个提交（Java 实体模型 UV 画布修正、统计页全量重查）不在清单内；其中引入的新风险记为 B11。
+**进度**：第 1 批已完成，见下方"已完成"一节；其余各项仍待处理。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11。
 
 ---
 
-## 现状核实
+## 已完成（第 1 批）
 
-全部为本次实测结果。
+提交 `优化：第 1 批` 修掉了下列 5 项，均通过验证。
 
-| 检查         | 命令                                        | 结果                               |
-| ------------ | ------------------------------------------- | ---------------------------------- |
-| TypeScript   | `npm run typecheck`                         | 通过                               |
-| 前端测试     | `npm test`                                  | 通过，16 文件 / 77 用例            |
-| 前端构建     | `npm run build`                             | 通过，45.9s，含 >500 kB chunk 警告 |
-| Rust 测试    | `cargo test`                                | 通过，131 用例                     |
-| Rust 格式    | `cargo fmt --check`                         | 通过                               |
-| **ESLint**   | `npm run lint`                              | **失败，10 处错误**                |
-| **Prettier** | `npm run format:check`                      | **失败，35 文件 + 1 处语法错误**   |
-| **Clippy**   | `cargo clippy --all-targets -- -D warnings` | **失败，9 处 `approx_constant`**   |
-| CI           | —                                           | 无 `.github`，无流水线             |
+| 项  | 内容                                                                                                                                                            | 验证方式                                                                                                                  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| D3  | `runtime_resources.rs:777-785` 改用 `std::f32::consts::FRAC_PI_4` / `FRAC_PI_8`                                                                                 | 8 条腿的 yaw 序列化结果与改前**逐字节相同**（f32 常量与原字面量位相同）；`clippy --all-targets -D warnings` 通过          |
+| D3b | **审计遗漏的第二层**：修掉 approx_constant 后 clippy 才推进到 `lib test`，暴露 65 处 `unwrap_used`/`expect_used`（全在测试模块）                                | 在 `lib.rs` 加 `#![cfg_attr(test, allow(...))]`；并用临时探针确认生产代码的 deny 仍然生效                                 |
+| B3  | `watcher.rs` 事件回调与取用处改用 `PoisonError::into_inner()` 恢复，不再静默丢弃文件事件                                                                        | 编译 + 全量测试；被守护的只是路径集合，无 panic 可破坏的不变量                                                            |
+| B1  | `runtime_info`、`acknowledge_view`、`self_player_identity`、`set_self_player_identity`、`startup_status`、`set_startup_enabled` 改为 `async` + `spawn_blocking` | 两个集成测试改用既有 `tauri::async_runtime::block_on` 范式后通过                                                          |
+| B2  | 新增 `ErrorBoundary`，根部包裹 + `SessionPage` 每页隔离（带 `resetKey` 重试）                                                                                   | **真实 Edge 无头浏览器实测**：注入渲染异常后 `.app-header` 仍在（外壳存活）、显示"实例观测"页面级回退、离开再回来恢复正常 |
+| B10 | `ScanPanel.changeScope` 调用 `savePlayers`，玩家选择真正落盘                                                                                                    | **真实浏览器实测**：选中后写入 localStorage，刷新后仍在；并把修复 stash 掉复跑，确认该脚本会 FAIL（`stored=null`）        |
+
+`phase_status` 保持同步：它是纯计算，无 IO。
+
+B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-error-boundary.mjs` 保留在仓库中，都要求先自行运行 `npm run dev`（脚本不自己拉起服务器，避免留下孤儿 vite 进程）。
+
+---
+
+## 现状核实（审计时快照）
+
+下表是审计当时的状态；D3/B1/B2/B3/B10 已在第 1 批修复，其余仍然成立。
+
+| 检查         | 命令                                        | 结果                                              |
+| ------------ | ------------------------------------------- | ------------------------------------------------- |
+| TypeScript   | `npm run typecheck`                         | 通过                                              |
+| 前端测试     | `npm test`                                  | 通过，16 文件 / 77 用例                           |
+| 前端构建     | `npm run build`                             | 通过，45.9s，含 >500 kB chunk 警告                |
+| Rust 测试    | `cargo test`                                | 通过，131 用例                                    |
+| Rust 格式    | `cargo fmt --check`                         | 通过                                              |
+| **ESLint**   | `npm run lint`                              | **失败，10 处错误**（仍待修，见 D1）              |
+| **Prettier** | `npm run format:check`                      | **失败，35 文件 + 1 处语法错误**（仍待修，见 D2） |
+| **Clippy**   | `cargo clippy --all-targets -- -D warnings` | **已修复**，见"已完成"                            |
+| CI           | —                                           | 无 `.github`，无流水线                            |
 
 三项红灯的失败位置：
 
 - ESLint 10 处，全部在 `scripts/`：`debug-ferrouslime.mjs:9`、`fix-ghost-qa.mjs:13`、`playwright-entity-render-check.mjs:30,109`、`visual-qa-box.mjs:40`、`visual-qa-spider-color.mjs:25`、`visual-qa-spider.mjs:27`、`visual-qa-two-box.mjs:2,4,26`。
 - Prettier 35 文件：`scripts/` 24 个、`src/` 4 个、`docs/` 3 个，加 `eslint.config.js`、`package.json`、`README.md`、`src-tauri/tauri.conf.json`。其中 `scripts/visual-qa-spider.mjs` 是**语法级**失败，见 D2。
-- Clippy 9 处全部是 `runtime_resources.rs:777-785` 的 `approx_constant`（`0.7853982`、`0.3926991`）。**这些行在 `HEAD` 即存在**，不属于本次待提交改动。
+- Clippy 9 处全部是 `runtime_resources.rs:777-785` 的 `approx_constant`（`0.7853982`、`0.3926991`）。**这些行在 `HEAD` 即存在**，不属于当时待提交的改动。
 
 真实档案规模（`D:\MineChronicleData\minechronicle.sqlite3`，6.77 MB，只读查询）：
 
@@ -173,7 +192,7 @@
 - **改法**：与兄弟命令一致改为 `async fn` + `tauri::async_runtime::spawn_blocking`。
 - **风险/工作量**：S。纯机械改动，签名不变。
 
-### B2（高）前端没有 ErrorBoundary
+### B2（高）前端没有 ErrorBoundary —— 已修复（第 1 批）
 
 - **位置**：`src/main.tsx:9-13`、`src/App.tsx`。
 - **现状**：全仓 grep `ErrorBoundary` / `componentDidCatch` / `getDerivedStateFromError` 结果 **0 处**。任何渲染期异常都会卸载整棵树，用户看到空白页且没有任何提示。
@@ -237,7 +256,7 @@
 - **改法**：把数据库打开与诊断写盘移到 `setup` 之后的异步任务；`last-startup.json` 改为可选诊断（或仅在版本变化时写）。
 - **风险/工作量**：M。需保证首个命令到达时数据库已就绪（可与 A3 的常驻连接一起做）。
 
-### B10（高）玩家选择偏好实际从未被保存
+### B10（高）玩家选择偏好实际从未被保存 —— 已修复（第 1 批）
 
 - **位置**：`src/lib/players.ts:20-49`。
 - **现状**：`initialPlayers()`（`:20`）与 `initialPlayersNone()`（`:35`）从 `localStorage` 读取 `minechronicle.players` / `minechronicle.players-none`；但全仓 grep 显示 **`savePlayers`（`:42`）没有任何调用者**。因此写入路径不存在。
@@ -373,7 +392,7 @@
 - **改法**：升级 prettier 到 3.x（需同步改 `.prettierrc.json` 与 CI 习惯，格式化结果会有大范围 diff），或把该导入改写为 `createRequire` / `readFileSync` + `JSON.parse` 以兼容 2.8.8。其余 34 个文件可一次性 `prettier --write` 解决。
 - **风险/工作量**：S（改写单文件）／M（升级 prettier）。
 
-### D3（中）`cargo clippy -D warnings` 失败，9 处 `approx_constant`
+### D3（中）`cargo clippy -D warnings` 失败，9 处 `approx_constant` —— 已修复（第 1 批）
 
 - **位置**：`src-tauri/src/minecraft/runtime_resources.rs:777-785`。
 - **现状**：蜘蛛腿旋转角写成字面量 `0.7853982`（=π/4）与 `0.3926991`（=π/8），触发 `clippy::approx_constant`。因为 `README.md:43` 的验证命令带 `-D warnings`，该检查**在 HEAD 即失败**。
@@ -439,16 +458,16 @@
 
 ## 建议实施顺序
 
-按"风险低、收益明确、能解锁后续项"排序：
+按"风险低、收益明确、能解锁后续项"排序。第 1 批已完成（见上文"已完成"）。
 
-**第 1 批——低风险高收益，可立刻做**
+**第 1 批——低风险高收益（已完成）**
 
-1. **B10** 玩家偏好从未保存（功能缺陷，与文档不符）。
-2. **B1** 命令改 `async` + `spawn_blocking`（机械改动，消除主线程阻塞）。
-3. **B2** 加 ErrorBoundary（避免白屏）。
-4. **B3** 修 watcher 静默丢事件。
-5. **D3** 修 9 处 clippy（让 `-D warnings` 恢复绿灯）。
-6. **D5** 补 `package.json` 的 Rust 脚本。
+1. ~~**B10** 玩家偏好从未保存（功能缺陷，与文档不符）。~~
+2. ~~**B1** 命令改 `async` + `spawn_blocking`（机械改动，消除主线程阻塞）。~~
+3. ~~**B2** 加 ErrorBoundary（避免白屏）。~~
+4. ~~**B3** 修 watcher 静默丢事件。~~
+5. ~~**D3** 修 9 处 clippy（让 `-D warnings` 恢复绿灯）。~~ 实际修了两层：9 处 `approx_constant` + 被它掩盖的 65 处测试 `unwrap`。
+6. **D5** 补 `package.json` 的 Rust 脚本。（仍未做）
 
 **第 2 批——数据库基础，为 A1 铺路**
 

@@ -768,21 +768,27 @@ fn vanilla_template_model(ns: &str, name: &str, width: u32, height: u32) -> Opti
     let slime = name.contains("slime") || name.contains("magma");
     let bones = if spider && width == 64 && height == 32 {
         // Minecraft ModelSpider (Java) — proper leg pivots and Y rotations.
+        // ModelSpider authors these as Java float literals: legs splay at
+        // ±22.5° (inner) / ±45° (outer) and the rear segment pitches -45°.
+        // Use the f32 constants so the values match the game's own floats.
+        const LEG_YAW: f32 = std::f32::consts::FRAC_PI_4;
+        const LEG_YAW_INNER: f32 = std::f32::consts::FRAC_PI_8;
+        const REAR_PITCH: f32 = -std::f32::consts::FRAC_PI_4;
         let mut bones_json = serde_json::json!([
             {"name":"head","pivot":[0,15,-3],"rotation":[0.0,0.0,0.0],"cubes":[{"origin":[-4,-4,-8],"size":[8,8,8],"uv":[32,4]}]},
             {"name":"body","pivot":[0,15,0],"rotation":[0.0,0.0,0.0],"cubes":[{"origin":[-3,-3,-3],"size":[6,6,6],"uv":[0,0]}]},
-            {"name":"rear","pivot":[0,15,9],"rotation":[-0.7853982,0.0,0.0],"cubes":[{"origin":[-5,-4,-6],"size":[10,8,12],"uv":[0,12]}]}
+            {"name":"rear","pivot":[0,15,9],"rotation":[REAR_PITCH,0.0,0.0],"cubes":[{"origin":[-5,-4,-6],"size":[10,8,12],"uv":[0,12]}]}
         ]);
         if let Some(arr) = bones_json.as_array_mut() {
             let legs: [[f32; 4]; 8] = [
-                [-4.0, 15.0, 2.0, 0.7853982],
-                [4.0, 15.0, 2.0, -0.7853982],
-                [-4.0, 15.0, 1.0, 0.3926991],
-                [4.0, 15.0, 1.0, -0.3926991],
-                [-4.0, 15.0, 0.0, -0.3926991],
-                [4.0, 15.0, 0.0, 0.3926991],
-                [-4.0, 15.0, -1.0, -0.7853982],
-                [4.0, 15.0, -1.0, 0.7853982],
+                [-4.0, 15.0, 2.0, LEG_YAW],
+                [4.0, 15.0, 2.0, -LEG_YAW],
+                [-4.0, 15.0, 1.0, LEG_YAW_INNER],
+                [4.0, 15.0, 1.0, -LEG_YAW_INNER],
+                [-4.0, 15.0, 0.0, -LEG_YAW_INNER],
+                [4.0, 15.0, 0.0, LEG_YAW_INNER],
+                [-4.0, 15.0, -1.0, -LEG_YAW],
+                [4.0, 15.0, -1.0, LEG_YAW],
             ];
             for (i, leg) in legs.iter().enumerate() {
                 arr.push(serde_json::json!({
