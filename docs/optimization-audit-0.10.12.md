@@ -4,7 +4,27 @@
 
 每一项固定给出：严重度、位置、现状、证据、改法。工作量用 S（半天内）、M（1–2 天）、L（3 天以上或需设计取舍）标注。
 
-**进度**：第 1、2、3 批已完成，见下方"已完成"各节；其余各项仍待处理。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
+**进度**：第 1、2、3 批与清理批已完成，见下方"已完成"各节。剩余待处理项都需要设计取舍（A1/A8/A11，见第 4 批）。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
+
+---
+
+## 已完成（清理批：工程卫生与重复代码）
+
+不需要设计取舍的一批，一次提交完成。
+
+| 项  | 内容                                                                                              | 结果                                                                                                                                                          |
+| --- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | `npm run lint` 10 处清零                                                                          | **通过**（此前一直红）                                                                                                                                        |
+| D2  | `npm run format:check` 35 文件清零                                                                | **通过**（此前一直红）                                                                                                                                        |
+| D2  | `visual-qa-spider.mjs` 的语法级失败                                                               | 根因是 `import ... with { type: 'json' }`，Prettier 2.8.8 **无法解析**（硬 SyntaxError，非风格问题）。改为 `JSON.parse(fs.readFileSync(...))`，与其它脚本一致 |
+| D5  | `package.json` 增加 `rust:fmt` / `rust:clippy` / `rust:test` 与 `npm run verify`（串起 7 道门禁） | **`npm run verify` 全绿**，README 已记录（并注明 cargo 需在 PATH 上）                                                                                         |
+| C2  | 三份逐字重复的 usercache 名称循环                                                                 | 抽为 `scanner::apply_local_names`。手动扫描**保留自己的副本**——它按根检查取消并提前 break，那是真实行为                                                       |
+| C3  | 两处逐字重复的 watch/unwatch 块（各自 `registered.clone()`）                                      | 抽为 `reconcile_watches`，先收集差集，因此不再需要克隆                                                                                                        |
+| C8  | `wide()` 在启动项与 PCL 目录两处重复                                                              | 合并到共享的 windows-only 模块；尾部 NUL 对 Win32 API 是必需的，单一实现可避免只在一处漏掉                                                                    |
+| C10 | 27 个无引用脚本                                                                                   | 以 `git mv` 移入 `scripts/oneoff/`（**保留而非删除**），附 README 说明命名与"patch-_/fix-_ 会改写目标"的警告                                                  |
+| C11 | 三个不同的 root 上限（32/256/32），且手动扫描文案硬编码"1–32"                                     | 改为 `MAX_MANUAL_ROOTS` / `MAX_DISCOVERED_ROOTS`                                                                                                              |
+
+C10 的判定工具 `scripts/classify-scripts.mjs` 会同时检查**相对导入**——例如 `probe-alex-models.mjs` 用 `./java-entity-runtime.mjs`，移动后会失效，因此留在原地。全部 64 个 `.mjs` 仍可解析；脚本的大量 diff 经确认只是 Prettier 换行。
 
 ---
 
@@ -73,17 +93,17 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 
 下表是审计当时的状态；D3/B1/B2/B3/B10 已在第 1 批修复，其余仍然成立。
 
-| 检查         | 命令                                        | 结果                                              |
-| ------------ | ------------------------------------------- | ------------------------------------------------- |
-| TypeScript   | `npm run typecheck`                         | 通过                                              |
-| 前端测试     | `npm test`                                  | 通过，16 文件 / 77 用例                           |
-| 前端构建     | `npm run build`                             | 通过，45.9s，含 >500 kB chunk 警告                |
-| Rust 测试    | `cargo test`                                | 通过，131 用例                                    |
-| Rust 格式    | `cargo fmt --check`                         | 通过                                              |
-| **ESLint**   | `npm run lint`                              | **失败，10 处错误**（仍待修，见 D1）              |
-| **Prettier** | `npm run format:check`                      | **失败，35 文件 + 1 处语法错误**（仍待修，见 D2） |
-| **Clippy**   | `cargo clippy --all-targets -- -D warnings` | **已修复**，见"已完成"                            |
-| CI           | —                                           | 无 `.github`，无流水线                            |
+| 检查         | 命令                                        | 结果                                                                        |
+| ------------ | ------------------------------------------- | --------------------------------------------------------------------------- |
+| TypeScript   | `npm run typecheck`                         | 通过                                                                        |
+| 前端测试     | `npm test`                                  | 通过（清理批后为 18 文件 / 86 用例）                                        |
+| 前端构建     | `npm run build`                             | 通过，45.9s，含 >500 kB chunk 警告                                          |
+| Rust 测试    | `cargo test`                                | 通过（清理批后为 133 用例）                                                 |
+| Rust 格式    | `cargo fmt --check`                         | 通过                                                                        |
+| **ESLint**   | `npm run lint`                              | **已修复**（清理批）                                                        |
+| **Prettier** | `npm run format:check`                      | **已修复**（清理批）                                                        |
+| **Clippy**   | `cargo clippy --all-targets -- -D warnings` | **已修复**（第 1 批）                                                       |
+| CI           | —                                           | 无 `.github`，无流水线（仍待处理，见 D4）；但已有 `npm run verify` 一键门禁 |
 
 三项红灯的失败位置：
 
@@ -334,7 +354,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：按职责拆分为 `runtime_resources/{cache.rs, index.rs, entity/{aliases.rs, bedrock.rs, java_class.rs, scoring.rs}, commands.rs}`；把别名表外置为 JSON（与 `stat-resources.json` 同级的 `resources/` 目录），与既有"数据不入代码"的做法一致。
 - **风险/工作量**：L。纯搬迁，但文件大、测试多，建议单独一次提交且不改逻辑。
 
-### C2（中）三份逐字重复的玩家名称赋值循环
+### C2（中）三份逐字重复的玩家名称赋值循环 —— 已修复（清理批）
 
 - **位置**：`src-tauri/src/commands/scan.rs:121-137`、`src-tauri/src/tracker/watcher.rs:461-471`、`src-tauri/src/launcher/sync.rs:220-231`。
 - **现状**：三处都在做 `local_names(&root.path, &scopes, &mut issues)`，然后遍历 world→player、解析 UUID、命中就写 `preferred_name` + `name_source = "usercache"`。
@@ -342,7 +362,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：抽成 `scanner::apply_local_names(&mut summary_roots, &scopes, &mut issues)`，三处调用。
 - **风险/工作量**：S。
 
-### C3（中）watch/unwatch 块重复且含整集克隆
+### C3（中）watch/unwatch 块重复且含整集克隆 —— 已修复（清理批）
 
 - **位置**：`src-tauri/src/tracker/watcher.rs:412-428` 与 `:516-537`。
 - **现状**：两段逐字相同的"按 desired 差集 unwatch、再差集 watch、统计失败数"逻辑；都写成 `for path in desired.difference(&registered.clone())`，在循环条件里克隆整个集合（因为循环体要 `registered.insert`）。
@@ -382,7 +402,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：合并为一份，或把 `warmth.css` 明确降级为"仅覆盖颜色/背景"并加注释约束；同时抽出设计 token（当前颜色字面量如 `#f7f9fa`、`#20352e`、`#dce4db` 在多处重复）。
 - **风险/工作量**：M。视觉回归需要人工核对（仓库已有 `docs/ui-audit-2026-09-08/` 的截图基线可复用）。
 
-### C8（低）重复的小工具与惯用法
+### C8（低）重复的小工具与惯用法 —— 部分修复（清理批，wide() 已合并）
 
 - **位置**：`src-tauri/src/commands/startup.rs:30-32` 与 `src-tauri/src/launcher/pcl_folders.rs:111-113`（`wide()` 逐字相同）；`database/mod.rs:118-122, 139-142, 184-188, 201-205` 与 `database/health.rs:96-100`（INSERT 后紧跟 SELECT id 取回主键，共 5 处）；`launcher/sync.rs` 中 `map_err(|_| "PCL 状态锁无效")?` 重复 5 次。
 - **现状**：见上。
@@ -398,7 +418,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：逐个提为模块级 `const` 并加一行说明来源；无需改变数值。
 - **风险/工作量**：S。
 
-### C10（低）85 个脚本中 67 个无外部引用
+### C10（低）85 个脚本中 67 个无外部引用 —— 已处理（清理批）
 
 - **位置**：`scripts/` 全目录。
 - **现状**：实测 85 个文件中 **67 个**除自身外无任何引用（不被 `package.json`、`README.md`、`docs/*.md`、`src/` 或其它脚本引用）。其中 `dump-*.mjs`、`probe-*.mjs`、`patch-*.mjs`、`fix-*.mjs` 明显是一次性调试产物（例如 `patch-end-debug.mjs`、`fix-push-log.mjs`、`insert-java-rust2.mjs`）。
@@ -406,7 +426,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：把仍在用的生成/校验工具（`build-stat-catalog.mjs`、`export-stat-*.ps1`、`audit-*.mjs` 等，`docs/statistics-resources.md:140-145` 有引用）留在 `scripts/`，其余移入 `scripts/oneoff/` 或删除；同时给 `scripts/README.md` 说明每个保留脚本的用途。
 - **风险/工作量**：S。
 
-### C11（低）三个不同的 root 上限没有共享常量
+### C11（低）三个不同的 root 上限没有共享常量 —— 已修复（清理批）
 
 - **位置**：`src-tauri/src/commands/scan.rs:65`（32，且错误文案硬编码"1–32"）、`src-tauri/src/scanner/models.rs:93`（`ScanLimits::roots` 默认 32）、`src-tauri/src/tracker/watcher.rs:442`（256）、`src-tauri/src/scanner/discovery.rs:185`（256）。
 - **现状**：同一概念三个数值，且 `scan.rs:65` 的校验与 `models.rs:93` 的默认值各写一遍 32。
@@ -418,7 +438,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 
 ## D. 工程质量
 
-### D1（中）`npm run lint` 失败，10 处全在 `scripts/`
+### D1（中）`npm run lint` 失败，10 处全在 `scripts/` —— 已修复（清理批）
 
 - **位置**：`eslint.config.js`；失败文件见"现状核实"。
 - **现状**：8 处 `no-unused-vars`（`debug-ferrouslime.mjs:9`、`fix-ghost-qa.mjs:13`、`playwright-entity-render-check.mjs:30,109`、`visual-qa-spider.mjs:27`、`visual-qa-two-box.mjs:2,4`）、3 处 `no-undef`（`visual-qa-box.mjs:40`、`visual-qa-spider-color.mjs:25`、`visual-qa-two-box.mjs:26`，均为 `document`）。
@@ -426,7 +446,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：两种取舍——(a) 逐个删除未使用变量、把用 DOM 的脚本加入 `eslint.config.js` 的浏览器全局白名单（与本次做法一致，改动小、语义清晰）；(b) 把一次性脚本移入 `scripts/oneoff/` 并在 config 里整目录忽略（依赖 C10）。推荐 (a)，因为 (b) 会让 lint 覆盖不到仍在使用的工具。
 - **风险/工作量**：S。
 
-### D2（中）`npm run format:check` 失败，其中一个文件是语法级失败
+### D2（中）`npm run format:check` 失败，其中一个文件是语法级失败 —— 已修复（清理批）
 
 - **位置**：`package.json:45`（`prettier: 2.8.8`）；`scripts/visual-qa-spider.mjs:11`。
 - **现状**：35 个文件不符合格式；其中 `scripts/visual-qa-spider.mjs` 直接报 `SyntaxError: Unexpected token, expected "(" (11:67)`，因为 prettier 2.8.8 的解析器不支持 `import vanilla from './resources/stat-vanilla-entities.json' with { type: 'json' };` 这种 import attributes 语法。
@@ -450,7 +470,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：加一个最小 CI（Windows runner）：`npm ci` → `npm run typecheck` → `npm run lint` → `npm test` → `npm run format:check` → `cargo fmt --check` → `cargo clippy -- -D warnings` → `cargo test`。修复 D1/D2/D3 后即可全绿。
 - **风险/工作量**：M。
 
-### D5（低）`package.json` 没有任何 Rust 脚本
+### D5（低）`package.json` 没有任何 Rust 脚本 —— 已修复（清理批）
 
 - **位置**：`package.json:6-18`。
 - **现状**：12 个脚本全是前端相关；`README.md:41-50` 的验证流程要求手敲 4 条 cargo 命令（含 `--jobs 1` 这类本机特定参数）。
@@ -524,18 +544,28 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 12. ~~**A4** 拆分图标解析的锁粒度。~~ 未观测到锁争用，不做重构；只消除了重复的 `sources()` 走查。
 13. ~~**B11** 给"完整检查"分批（统计页全量重查的配套加固）。~~ 上限 100→500 解耦 `page_size`，前端按 40 条分批。
 
-**第 4 批——需要设计取舍，单独排期**
+**第 4 批——需要设计取舍，单独排期（剩余全部工作）**
 
 14. **A1** 统计聚合下沉（需先补 D6/D7 的回归网）。
 15. **A8** 快照保留策略（与 A6 一起设计）。
 16. **A11** Tailwind 去留（需你确认方向）。
 
-**第 5 批——清理，可与上面并行**
+**第 5 批——清理（已完成）**
 
-16. **D1**、**D2** 修 lint/format（D2 需先决定 prettier 升级与否）。
-17. **C1** 拆分 `runtime_resources.rs`；**C2**、**C3**、**C6**、**C8**、**C11** 抽公共逻辑。
-18. **C10** 归档一次性脚本；**C7** 合并样式表（需视觉核对）。
-19. **D4** 加 CI（在 D1/D2/D3 全绿之后）。
+17. ~~**D1**、**D2** 修 lint/format。~~ 已全绿。D2 未升级 Prettier：改用 `JSON.parse` 消除那个 Prettier 2.8.8 无法解析的语法即可。
+18. ~~**D5** 补 `package.json` 的 Rust 脚本。~~ 已加 `rust:*` 与 `npm run verify`。
+19. ~~**C2**、**C3**、**C8**、**C11** 抽公共逻辑。~~ 已做（C8 只合并了 `wide()`，其余惯用法保留）。
+20. ~~**C10** 归档一次性脚本。~~ 27 个移入 `scripts/oneoff/`。
+
+**仍未做（低优先）**
+
+- **C1** 拆分 2205 行的 `runtime_resources.rs`（纯搬迁，建议单独提交）。
+- **C7** 合并 `styles.css` / `warmth.css` 的 36 个重复选择器（需视觉核对，仓库有 `docs/ui-audit-2026-09-08/` 截图基线）。
+- **D4** 加 CI。**`npm run verify` 已就绪**，接 CI 只剩写 workflow 文件。
+- **D6** 性能回归门禁（`examples/bench_db.rs` 已提供基线数字）。
+- **D7** 补测试缺口（`desktop.rs` 零测试；`resolve_stat_icons`/`store_stat_icon` 未经 mock IPC）。
+- **C4/C5/C6/C9** 领域模型取舍、分类表合并、迁移机制（C6 已在第 2 批顺带解决）、魔法数字命名。
+- **B4**、**B5**、**B7**、**B12** 等其余稳定性项。
 
 ---
 
