@@ -177,7 +177,9 @@ export function createEntityObject(model, material) {
     const volume = (bone.cubes ?? []).reduce(
       (sum, cube) =>
         sum +
-        Math.abs((cube.size?.[0] ?? 0) * (cube.size?.[1] ?? 0) * (cube.size?.[2] ?? 0)),
+        Math.abs(
+          (cube.size?.[0] ?? 0) * (cube.size?.[1] ?? 0) * (cube.size?.[2] ?? 0),
+        ),
       0,
     );
     return volume > 8;
@@ -231,14 +233,18 @@ export function createEntityObject(model, material) {
     );
     if (!bone.hidden)
       for (const raw of bone.cubes ?? []) {
-        // Only true zero-thickness plates (wings/fins). Spider legs are 2 units
-        // thick and must not be inflated into giant planes.
-        const cube = {
-          ...raw,
-          size: (raw.size ?? [1, 1, 1]).map((n) =>
-            Number.isFinite(n) && n === 0 ? 0.45 : n,
-          ),
-        };
+        // Zero-thickness plates get a hair of depth for rasterization only.
+        // Large in-plane plates (mosquito wings/legs ~18x15) dominate icons —
+        // cap footprint so the body stays readable.
+        const inflated = (raw.size ?? [1, 1, 1]).map((n) =>
+          Number.isFinite(n) && n === 0 ? 0.08 : n,
+        );
+        const minDim = Math.min(...inflated);
+        const PLATE_CAP = 7;
+        const size = inflated.map((n) =>
+          minDim <= 0.35 && n > PLATE_CAP ? PLATE_CAP : n,
+        );
+        const cube = { ...raw, size };
         group.add(new THREE.Mesh(cubeGeometry(cube, bone, modelRef), material));
       }
     bones.set(bone.name, group);
@@ -251,7 +257,8 @@ export function createEntityObject(model, material) {
     if (!java && bone.parent)
       group.position.sub(
         vector(
-          modelRef.bones.find((candidate) => candidate.name === bone.parent).pivot,
+          modelRef.bones.find((candidate) => candidate.name === bone.parent)
+            .pivot,
         ),
       );
     parent.add(group);
@@ -261,8 +268,9 @@ export function createEntityObject(model, material) {
 
 /**
  * Entity skins are often mostly transparent with UVs in fixed atlas coords.
- * Cropping would break those UVs — instead fill holes with the average opaque
- * color so every texel stays addressable and visible.
+ * Cropping would break those UVs. Mid-density skins get a full fill so solid
+ * cubes stay readable. Very sparse skins (mosquito wings, membranes) must keep
+ * their transparent regions — only a thin halo is grown so wings don't become slabs.
  */
 async function densifySkinTexture(source) {
   try {
@@ -273,7 +281,12 @@ async function densifySkinTexture(source) {
     canvas.height = img.height;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(img, 0, 0);
-    const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const { data, width, height } = ctx.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
     let opaque = 0;
     let r = 0,
       g = 0,
@@ -288,10 +301,47 @@ async function densifySkinTexture(source) {
     }
     const coverage = opaque / (width * height || 1);
     if (coverage > 0.5) return source;
-    const fill =
-      opaque > 0
-        ? [r / opaque, g / opaque, b / opaque]
-        : [154, 160, 168];
+    if (opaque === 0) return source;
+    // Sparse wing/membrane skins: grow a 2px halo instead of a solid fill.
+    if (coverage < 0.12) {
+      const src = new Uint8ClampedArray(data);
+      const radius = 2;
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const i = (y * width + x) * 4;
+          if (src[i + 3] > 8) continue;
+          let br = 0,
+            bg = 0,
+            bb = 0,
+            bn = 0;
+          for (let dy = -radius; dy <= radius; dy += 1) {
+            for (let dx = -radius; dx <= radius; dx += 1) {
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+              const j = (ny * width + nx) * 4;
+              if (src[j + 3] > 8) {
+                br += src[j];
+                bg += src[j + 1];
+                bb += src[j + 2];
+                bn += 1;
+              }
+            }
+          }
+          if (bn > 0) {
+            data[i] = br / bn;
+            data[i + 1] = bg / bn;
+            data[i + 2] = bb / bn;
+            data[i + 3] = 255;
+          }
+        }
+      }
+      ctx.putImageData(new ImageData(data, width, height), 0, 0);
+      const next = new THREE.CanvasTexture(canvas);
+      next.needsUpdate = true;
+      return next;
+    }
+    const fill = [r / opaque, g / opaque, b / opaque];
     for (let i = 0; i < data.length; i += 4) {
       if (data[i + 3] <= 8) {
         data[i] = fill[0];
@@ -333,11 +383,10 @@ export async function renderEntity(job, renderer) {
       texture.encoding = THREE.sRGBEncoding;
       texture.flipY = false;
       textures.push(texture);
-      const material = new THREE.MeshLambertMaterial({
+      const material = new THREE.MeshBasicMaterial({
         map: texture,
         side: THREE.DoubleSide,
-        // Densified skins are opaque; skip discard so tiny UVs still draw.
-        alphaTest: 0,
+        alphaTest: 0.12,
         transparent: false,
         depthWrite: part.depthWrite ?? true,
       });
@@ -365,13 +414,35 @@ export async function renderEntity(job, renderer) {
     );
     camera.position.set(0, 0, Math.max(100, extent.z * 2));
     const scene = new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0xffffff, 1.35));
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    // MeshBasic shows the skin as-authored; a single soft key light is faked
+    // via vertex colors so forms still read without washing out browns.
+    scene.add(new THREE.AmbientLight(0xffffff, 0.0));
+    const key = new THREE.DirectionalLight(0xffffff, 0.0);
     key.position.set(-3, 7, 5);
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xffffff, 0.55);
-    fill.position.set(4, 2, -3);
-    scene.add(fill, display);
+    scene.add(display);
+    display.traverse((child) => {
+      if (!child.isMesh || !child.geometry) return;
+      const geom = child.geometry;
+      const pos = geom.getAttribute('position');
+      const nor = geom.getAttribute('normal');
+      if (!pos || !nor || geom.getAttribute('color')) return;
+      const colors = new Float32Array(pos.count * 3);
+      const light = new THREE.Vector3(-0.45, 0.75, 0.55).normalize();
+      for (let i = 0; i < pos.count; i += 1) {
+        const nx = nor.getX(i);
+        const ny = nor.getY(i);
+        const nz = nor.getZ(i);
+        const ndl = Math.max(0, nx * light.x + ny * light.y + nz * light.z);
+        const shade = 0.72 + ndl * 0.38;
+        colors[i * 3] = shade;
+        colors[i * 3 + 1] = shade;
+        colors[i * 3 + 2] = shade;
+      }
+      geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      child.material.vertexColors = true;
+      child.material.needsUpdate = true;
+    });
     renderer.render(scene, camera);
     return renderer.domElement.toDataURL('image/png').split(',')[1];
   } finally {

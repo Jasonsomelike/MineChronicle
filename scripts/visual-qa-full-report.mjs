@@ -71,7 +71,8 @@ const specs = [
   },
   {
     id: 'mosquito',
-    className: 'com.github.alexthe666.alexsmobs.client.model.ModelCrimsonMosquito',
+    className:
+      'com.github.alexthe666.alexsmobs.client.model.ModelCrimsonMosquito',
     jars: [alex, citadel],
     texJar: alex,
     tex: 'assets/alexsmobs/textures/entity/crimson_mosquito.png',
@@ -140,19 +141,43 @@ for (const spec of specs) {
               name: 'head',
               pivot: [0, 15, -3],
               rotation: [0, 0, 0],
-              cubes: [{ origin: [-4, -4, -8], size: [8, 8, 8], uv: [32, 4], inflate: 0, mirror: false }],
+              cubes: [
+                {
+                  origin: [-4, -4, -8],
+                  size: [8, 8, 8],
+                  uv: [32, 4],
+                  inflate: 0,
+                  mirror: false,
+                },
+              ],
             },
             {
               name: 'body',
               pivot: [0, 15, 0],
               rotation: [0, 0, 0],
-              cubes: [{ origin: [-3, -3, -3], size: [6, 6, 6], uv: [0, 0], inflate: 0, mirror: false }],
+              cubes: [
+                {
+                  origin: [-3, -3, -3],
+                  size: [6, 6, 6],
+                  uv: [0, 0],
+                  inflate: 0,
+                  mirror: false,
+                },
+              ],
             },
             {
               name: 'rear',
               pivot: [0, 15, 9],
               rotation: [-0.7853982, 0, 0],
-              cubes: [{ origin: [-5, -4, -6], size: [10, 8, 12], uv: [0, 12], inflate: 0, mirror: false }],
+              cubes: [
+                {
+                  origin: [-5, -4, -6],
+                  size: [10, 8, 12],
+                  uv: [0, 12],
+                  inflate: 0,
+                  mirror: false,
+                },
+              ],
             },
             ...[
               [-4, 15, 2, 0.7853982],
@@ -168,7 +193,13 @@ for (const spec of specs) {
               pivot: [leg[0], leg[1], leg[2]],
               rotation: [0, leg[3], 0],
               cubes: [
-                { origin: [-15, -1, -1], size: [16, 2, 2], uv: [18, 0], inflate: 0, mirror: false },
+                {
+                  origin: [-15, -1, -1],
+                  size: [16, 2, 2],
+                  uv: [18, 0],
+                  inflate: 0,
+                  mirror: false,
+                },
               ],
             })),
           ],
@@ -189,13 +220,29 @@ for (const spec of specs) {
               name: 'head',
               pivot: [0, 24, 0],
               rotation: [0, 0, 0],
-              cubes: [{ origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0, mirror: false }],
+              cubes: [
+                {
+                  origin: [-4, 24, -4],
+                  size: [8, 8, 8],
+                  uv: [0, 0],
+                  inflate: 0,
+                  mirror: false,
+                },
+              ],
             },
             {
               name: 'body',
               pivot: [0, 24, 0],
               rotation: [0, 0, 0],
-              cubes: [{ origin: [-4, 12, -2], size: [8, 12, 4], uv: [16, 16], inflate: 0, mirror: false }],
+              cubes: [
+                {
+                  origin: [-4, 12, -2],
+                  size: [8, 12, 4],
+                  uv: [16, 16],
+                  inflate: 0,
+                  mirror: false,
+                },
+              ],
             },
           ],
         },
@@ -238,8 +285,7 @@ for (const spec of specs) {
       job = {
         javaModel: { className: spec.className, classes },
         layers: [`data:image/png;base64,${b64(tex)}`],
-        textureWidth: 128,
-        textureHeight: 128,
+        // UV canvas comes from the model class, not a guessed atlas size.
         renderSize: 512,
       };
     }
@@ -287,7 +333,10 @@ for (const spec of specs) {
     }, result.image);
     const ratio = stats.nonblack / (stats.width * stats.height);
     const ok =
-      stats.nonblack >= 200 && ratio >= 0.02 && stats.bbox_w >= 8 && stats.bbox_h >= 8;
+      stats.nonblack >= 200 &&
+      ratio >= 0.02 &&
+      stats.bbox_w >= 8 &&
+      stats.bbox_h >= 8;
     report.push({
       id: spec.id,
       ok,
@@ -298,7 +347,13 @@ for (const spec of specs) {
       bbox_h: stats.bbox_h,
       file,
     });
-    console.log(ok ? 'OK' : 'FAIL', spec.id, ratio.toFixed(3), stats.bbox_w, stats.bbox_h);
+    console.log(
+      ok ? 'OK' : 'FAIL',
+      spec.id,
+      ratio.toFixed(3),
+      stats.bbox_w,
+      stats.bbox_h,
+    );
   } catch (e) {
     report.push({ id: spec.id, ok: false, error: String(e.message || e) });
     console.log('FAIL', spec.id, e.message);

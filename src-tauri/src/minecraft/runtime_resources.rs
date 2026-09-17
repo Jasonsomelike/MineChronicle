@@ -84,7 +84,7 @@ fn cache_key(root: &str, _signature: &str, category: &str, key: &str) -> String 
     hasher.update(category.as_bytes());
     hasher.update(b"\0");
     hasher.update(key.as_bytes());
-    hasher.update(b"\0stable-v11");
+    hasher.update(b"\0stable-v13");
     hasher.finalize().to_hex().to_string()
 }
 
@@ -1114,8 +1114,9 @@ fn java_model_resolution(
     aliases: &[String],
     skin: &str,
 ) -> Option<Resolution> {
-    // Cap expensive bytecode work per generation to keep the UI responsive.
-    const MAX_JAVA_ATTEMPTS: usize = 12;
+    // Cap expensive bytecode work so one scan cannot hang the UI.
+    // Reset per resolve_stat_icons batch; a full page needs far more than a dozen.
+    const MAX_JAVA_ATTEMPTS: usize = 256;
     if index
         .java_attempts
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -1178,6 +1179,8 @@ fn java_model_resolution(
     }
     let (tw, th) = png_size(&bytes)?;
     let render_size = tw.max(th).clamp(512, 2048);
+    // Do not override model texWidth/texHeight with PNG size — Java UVs
+    // are authored against the constructor's texOffs canvas, not the file.
     Some(Resolution {
         image: None,
         source: format!("{source} · {class_name}"),
@@ -1188,8 +1191,6 @@ fn java_model_resolution(
                 "classes": class_b64,
             },
             "layers": [format!("data:image/png;base64,{}", STANDARD.encode(bytes))],
-            "textureWidth": tw,
-            "textureHeight": th,
             "renderSize": render_size,
         })),
     })
@@ -1783,6 +1784,10 @@ pub async fn resolve_stat_icons(
             let Some(index) = cache.get_mut(&root) else {
                 continue;
             };
+            // Fresh budget per batch so a long-lived Index still allows a full page.
+            index
+                .java_attempts
+                .store(0, std::sync::atomic::Ordering::Relaxed);
             for (identity, key, category) in requests {
                 if result
                     .get(&identity)
