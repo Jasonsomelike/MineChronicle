@@ -12,4 +12,5 @@ src-tauri/gen/
 .cargo/config.toml
 .local/
 .playwright-cli/
-output/playwright/
+# Screenshot output from scripts/qa-visual-snapshot.mjs and its comparisons.
+output/

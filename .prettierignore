@@ -9,6 +9,6 @@ package-lock.json
 src-tauri/gen
 .local
 .playwright-cli
-output/playwright
+output
 src-tauri/resources/stat-resources.json
 scripts/resources/stat-vanilla-entities.json

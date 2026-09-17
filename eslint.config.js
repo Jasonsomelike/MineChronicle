@@ -34,6 +34,7 @@ export default [
       'scripts/visual-qa-spider-color.mjs',
       'scripts/visual-qa-two-box.mjs',
       'scripts/oneoff/probe-gsap-stat-icons.mjs',
+      'scripts/qa-visual-snapshot.mjs',
     ],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },

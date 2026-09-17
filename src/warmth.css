@@ -38,7 +38,6 @@ body {
   color: #58774d;
 }
 .app-nav {
-  gap: 6px;
   border-color: var(--warm-line);
 }
 .app-nav button {
@@ -57,7 +56,6 @@ body {
 .status-center {
   background: #f0f4eaf0;
   border-color: #dce5d4;
-  border-radius: 12px;
 }
 .status-center > summary {
   min-height: 24px;
@@ -67,6 +65,9 @@ body {
   background: #62895c;
   box-shadow: 0 0 0 4px #62895c12;
 }
+/* Load-bearing: styles.css sets a different font-size for this element inside
+   @media (max-width: 700px). Because this file is imported second, this base
+   rule wins above 700px; removing it changes 8 of the 14 captured pages. */
 .status-center-hint {
   font-size: 12px;
 }
@@ -185,7 +186,6 @@ body {
 .tracking-state p {
   color: var(--warm-muted);
   line-height: 1.7;
-  margin: 0;
 }
 .ranking-switch {
   width: fit-content;
@@ -295,7 +295,6 @@ body {
 }
 .settings-layout {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 20px;
 }
 .settings-column {
   display: flex;
@@ -377,6 +376,10 @@ body {
   margin-top: 4px;
   font-size: 11px;
 }
+/* Load-bearing, not a duplicate of styles.css's identical rule: this file is
+   imported second, so the base `.settings-layout` rule below (two columns)
+   overrides styles.css's @media (max-width: 950px) single-column rule. Without
+   this block the narrow settings page keeps two columns and grows ~528px. */
 @media (max-width: 950px) {
   .settings-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -471,13 +474,5 @@ footer {
   .app-header {
     margin-inline: -18px;
     padding-inline: 18px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-    transition: none !important;
   }
 }
