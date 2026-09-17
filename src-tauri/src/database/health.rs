@@ -274,10 +274,16 @@ impl Repository {
                 .unwrap_or(false),
         })
     }
-    pub fn review_health(&self, key: &str, reviewed: bool) -> DbResult<()> {
-        if !self.health_summary()?.items.iter().any(|i| i.key == key) {
+    /// Records a review decision and returns the updated summary.
+    ///
+    /// The summary is built once: the previous version built it to validate the
+    /// key and the command layer built it again to return the new state, so a
+    /// single click cost two full loads plus two candidate scans.
+    pub fn review_health(&self, key: &str, reviewed: bool) -> DbResult<HealthSummary> {
+        let mut summary = self.health_summary()?;
+        let Some(item) = summary.items.iter_mut().find(|i| i.key == key) else {
             return Err("此问题已不存在，请刷新数据。".into());
-        }
+        };
         if reviewed {
             self.connection.execute(
                 "INSERT INTO health_reviews(key) VALUES (?) ON CONFLICT(key) DO NOTHING",
@@ -287,7 +293,15 @@ impl Repository {
             self.connection
                 .execute("DELETE FROM health_reviews WHERE key=?", [key])?;
         }
-        Ok(())
+        // Reflect the write in the value we hand back instead of re-reading.
+        item.reviewed = reviewed;
+        summary.pending_count = summary.items.iter().filter(|i| !i.reviewed).count()
+            + summary
+                .candidates
+                .iter()
+                .filter(|c| c.status == "pending" || c.status == "deferred")
+                .count();
+        Ok(summary)
     }
     pub fn decide_clone(&mut self, id: i64, decision: &str, parent: Option<i64>) -> DbResult<()> {
         if !["confirmed", "rejected", "deferred", "pending"].contains(&decision) {

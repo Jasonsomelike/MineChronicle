@@ -24,12 +24,18 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             "open" => show(app),
             "quit" => {
                 // Mark an unfinished observation honestly before terminating.
-                if let Some(database) = app.try_state::<crate::database::DatabaseState>() {
-                    if let Ok(repo) = crate::database::Repository::open(&database.path) {
-                        let _ = repo.interrupt_observed_sessions();
+                // This opens SQLite and runs a migration check, so do it off the
+                // UI thread and exit from there; the menu callback returns at
+                // once instead of blocking the window.
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    if let Some(database) = app.try_state::<crate::database::DatabaseState>() {
+                        if let Ok(repo) = crate::database::Repository::open(&database.path) {
+                            let _ = repo.interrupt_observed_sessions();
+                        }
                     }
-                }
-                app.exit(0);
+                    app.exit(0);
+                });
             }
             _ => {}
         })

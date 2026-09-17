@@ -4,7 +4,32 @@
 
 每一项固定给出：严重度、位置、现状、证据、改法。工作量用 S（半天内）、M（1–2 天）、L（3 天以上或需设计取舍）标注。
 
-**进度**：第 1 批已完成，见下方"已完成"一节；其余各项仍待处理。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11。
+**进度**：第 1、2 批已完成，见下方"已完成"两节；其余各项仍待处理。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11。
+
+---
+
+## 已完成（第 2 批：数据库热路径）
+
+本批先做基准测量，再按数据决定改什么。测量用的是真实档案的**副本**（64 root / 97 world / 203 world-player），脚手架为 `examples/bench_db.rs`。
+
+| 项  | 内容                                                                                                     | 实测结果                                                                 |
+| --- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| A3  | 启用 WAL（`journal_mode=WAL` + `synchronous=NORMAL`）                                                    | 两个写者并发：**最坏单次写 70.5 ms → 22.0 ms**，平均 1.59 ms → 0.51 ms   |
+| A3  | `migrate()` 合并 `match version` 与 `if version < N` 双机制（同时消掉 C6），且已是最新版本时不再开写事务 | 已是最新档案不再付出迁移事务                                             |
+| A2  | `load()` 改为 3 条扁平查询、`prepare` 提到循环外、initial-import 用 `LEFT JOIN` 而非每行相关子查询       | **load 4.12 ms → 2.52 ms**；`health_summary` 4.66 ms → 2.84 ms           |
+| A2  | **输出等价性**：改前/改后用同一档案副本 dump 整个 `load()` 结果比对                                      | **SHA256 完全一致**（`46305BE2…7ADB`，191,470 字节）——重构未改变任何字段 |
+| B6  | `review_health` 构建一次汇总并返回，命令层不再二次构建                                                   | 单次点击从 2 次全量 `load()`+候选扫描降为 1 次                           |
+| B8  | 托盘"彻底退出"改为后台线程执行 SQLite 收尾后退出，菜单回调立即返回                                       | UI 线程不再开数据库连接                                                  |
+
+### 本批的两处修正（审计原文有误）
+
+1. **A3 的理由被高估了。** 审计称 31 处 `Repository::open` 各自重跑迁移事务是主要开销。实测 `open()` 仅 **0.234 ms**（已是最新版本的档案），迁移事务不是瓶颈。A3 的真正价值在**并发写**：`journal_mode` 原为 `delete`，两个写者下最坏单次写 **70.5 ms**。WAL 把这一项降到 22.0 ms。改完后 `open()` 变为约 1.2 ms——这是 WAL 的固有代价（首个查询要打开 WAL 索引），我用独立探针确认过：在 WAL 档案上，**任何**首个查询（`user_version`、`count(*)`）都要付这 ~1.2 ms，并非某条 pragma 引起。相对于消除 70 ms 写停顿，这个代价值得，且已写进代码注释。
+
+2. **`sum()` 不能替代 i128 累加。** 我一度把 `historical_ticks` 改成 SQL 侧 `SELECT sum(play_ticks)`，`database_contract.rs` 的 `aggregate_preserves_precision_beyond_i64…` 立刻失败：SQLite 的 `sum()` 用 i64 累加器，两笔 `i64::MAX` 初始导入就会报 "integer overflow"。已改回 Rust 侧 i128 累加（仍是一次遍历）。**这是既有测试真实拦下的一个回归**，不是理论风险。
+
+### B9 决定不改
+
+实测 `setup()` 全流程（建目录 + 开档案 + 写诊断文件）稳态仅 **2.3 ms**；只有"首次创建档案"这一次是 23 ms（要跑全部迁移）。A3 已把主因（每次 open 的迁移事务）消掉，为 2.3 ms 去重排启动顺序、引入"命令早于数据库就绪"的竞态风险不划算。故 B9 保留不改，此处记录测量结论。
 
 ---
 
@@ -76,7 +101,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：把聚合下沉到 SQL。`current_stats` 已是 JSON，可用 `json_each` + `GROUP BY category, key` 直接在 SQLite 内求和，只对当前页取明细；或（更彻底）在 `import()` 时物化一张 `stat_values(world_id, player_uuid, category, key, value, …)` 表并建索引，让统计页变成纯索引扫描。两者都需要重新设计 `samples` / `resources` 的装载时机，属于**需要设计取舍**的改动。
 - **风险/工作量**：L。会触碰 `activity_contract.rs`、`statistics_categories_contract.rs`、`statistics_categories_contract.rs` 的语义断言，需先补契约测试。
 
-### A2（高）`Repository::load()` 是 N+1
+### A2（高）`Repository::load()` 是 N+1 —— 已修复（第 2 批）
 
 - **位置**：`src-tauri/src/database/mod.rs:245-320`。`prepare` 出现在循环**内部**：`:255` 每个 root 准备一次 worlds 查询，`:268` 每个 world 准备一次 players 查询；`:268` 的 SQL 还含每行一个相关子查询 `(SELECT play_ticks FROM stat_snapshots … kind='initial_import')`。`:290-296` 另有一次对**全部** initial_import 快照的行级求和。
 - **现状**：`load()` 被 `commands/runtime.rs:17`、`commands/library.rs:18`、`commands/scan.rs:146`、`database/health.rs:109` 以及 `tracker/watcher.rs:394`（**每轮 watcher 循环**）调用。
@@ -84,7 +109,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：把三个 `prepare` 提到循环外；用一条 `LEFT JOIN` 取回 (root, world, player, initial_ticks) 再在 Rust 侧分组；`:290` 改成 `SELECT sum(play_ticks)` 由 SQLite 求和。
 - **风险/工作量**：S。纯内部重构，`database_contract.rs` 可作回归网。
 
-### A3（高）31 处 `Repository::open` 各自重跑迁移事务，且未启用 WAL
+### A3（高）31 处 `Repository::open` 各自重跑迁移事务，且未启用 WAL —— 已修复（第 2 批，理由经实测修正）
 
 - **位置**：`src-tauri/src/database/mod.rs:52-84`（迁移块）、`:54-55`（唯一的两条 PRAGMA）。
 - **现状**：`Repository::open` 每次都开新连接、`busy_timeout(5s)`、`PRAGMA foreign_keys=ON`，然后在一个事务里按 `user_version` 决定执行哪几个 `*.sql`，最后 commit。全仓 **31 处**调用点，其中 `commands/scan.rs:161` 与 `:177` 在同一次 `resolve_pcl_context` 里开了**两次**；`commands/health.rs:25-27` 与 `:42-44` 是"开 → 改 → 再开 → 读汇总"。
@@ -224,7 +249,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：改为 `continue 'groups`（只跳过放不下的分组）并累计被跳过的分组数，在 `analysis_limited` 之外回报具体数量。
 - **风险/工作量**：S。
 
-### B6（中）`review_health` 双跑全量健康汇总
+### B6（中）`review_health` 双跑全量健康汇总 —— 已修复（第 2 批）
 
 - **位置**：`src-tauri/src/database/health.rs:277-291`、`src-tauri/src/commands/health.rs:24-31` 与 `:41-48`。
 - **现状**：`review_health` 先 `self.health_summary()?` 校验 key 存在，改完再由命令层再调一次 `health_summary()` 返回新状态。`health_summary` 内部又调 `self.load()`（A2 的 N+1）并重扫候选。
@@ -240,7 +265,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：缩短重试（例如 10 × 100 ms），失败时用 `MessageBoxW` 或写一条 `last-startup.json` 记录说明原因，而不是静默退出。
 - **风险/工作量**：S。
 
-### B8（中）托盘退出在 UI 线程开数据库连接
+### B8（中）托盘退出在 UI 线程开数据库连接 —— 已修复（第 2 批）
 
 - **位置**：`src-tauri/src/desktop.rs:25-33`。
 - **现状**：托盘"彻底退出"的菜单回调里 `Repository::open(&database.path)` 新开连接并跑一次 `UPDATE observed_sessions`。菜单回调在 UI 线程，且 `Repository::open` 会重跑迁移事务（A3）。
@@ -248,7 +273,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：让 `Tracker` 暴露一个 `interrupt_now()`（复用其连接或至少复用 `DatabaseState` 的常驻连接），托盘只发信号。
 - **风险/工作量**：S（依赖 A3 的常驻连接）。
 
-### B9（中）`setup` 在窗口显示前做阻塞 IO
+### B9（中）`setup` 在窗口显示前做阻塞 IO —— 实测后决定不改（第 2 批）
 
 - **位置**：`src-tauri/src/lib.rs:54-71`。
 - **现状**：主线程顺序执行 `create_dir_all`、`Repository::open`（完整迁移事务）、写 `last-startup.json`，全部在窗口显示之前。`:64` 的 `std::env::current_exe()?` 与 `to_vec_pretty` 每次启动都跑。
@@ -469,23 +494,24 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 5. ~~**D3** 修 9 处 clippy（让 `-D warnings` 恢复绿灯）。~~ 实际修了两层：9 处 `approx_constant` + 被它掩盖的 65 处测试 `unwrap`。
 6. **D5** 补 `package.json` 的 Rust 脚本。（仍未做）
 
-**第 2 批——数据库基础，为 A1 铺路**
+**第 2 批——数据库基础（已完成）**
 
-7. **A3** 常驻连接 / WAL。
-8. **A2** 去掉 `load()` 的 N+1。
-9. **B6**、**B8**、**B9**（都依赖 A3 的常驻连接）。
+7. ~~**A3** 常驻连接 / WAL。~~ 改为只启用 WAL：常驻连接会波及全部命令签名，而实测 `open()` 仅 0.23 ms，不值得。WAL 解决的是并发写停顿（70.5→22.0 ms）。
+8. ~~**A2** 去掉 `load()` 的 N+1。~~ 4.12→2.52 ms，输出 SHA256 与改前一致。
+9. ~~**B6**、**B8**~~ 已修。~~**B9**~~ 实测 setup 仅 2.3 ms，决定不改。
+10. **D5** 补 `package.json` 的 Rust 脚本。（仍未做）
 
 **第 3 批——扫描与图标**
 
-10. **A5** 发现阶段去 O(n²) 与 Setup.ini memo。
-11. **A4** 拆分图标解析的锁粒度。
-12. **B11** 给"完整检查"分批（本次提交的配套加固）。
+11. **A5** 发现阶段去 O(n²) 与 Setup.ini memo。
+12. **A4** 拆分图标解析的锁粒度。
+13. **B11** 给"完整检查"分批（统计页全量重查的配套加固）。
 
 **第 4 批——需要设计取舍，单独排期**
 
-13. **A1** 统计聚合下沉（需先补 D6/D7 的回归网）。
-14. **A8** 快照保留策略（与 A6 一起设计）。
-15. **A11** Tailwind 去留（需你确认方向）。
+14. **A1** 统计聚合下沉（需先补 D6/D7 的回归网）。
+15. **A8** 快照保留策略（与 A6 一起设计）。
+16. **A11** Tailwind 去留（需你确认方向）。
 
 **第 5 批——清理，可与上面并行**
 

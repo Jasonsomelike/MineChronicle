@@ -16,6 +16,57 @@ fn scan(root: &Path) -> ScanSummary {
         .into()
 }
 
+/// An archive left at an older schema must be upgraded in place by open(),
+/// including the version-1 baseline that only 001_initial.sql had applied.
+/// This is the path the single-list migrate() replaced, so pin it here.
+#[test]
+fn legacy_archive_upgrades_from_initial_schema_to_latest() -> TestResult {
+    let temp = tempfile::tempdir()?;
+    let path = temp.path().join("legacy.sqlite3");
+    {
+        let connection = rusqlite::Connection::open(&path)?;
+        connection.execute_batch(include_str!("../src/database/001_initial.sql"))?;
+        assert_eq!(
+            connection.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
+            1
+        );
+    }
+    let repo = db(Repository::open(&path))?;
+    let connection = rusqlite::Connection::open(&path)?;
+    assert_eq!(
+        connection.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
+        6
+    );
+    for table in [
+        "instances",
+        "tracking_cursors",
+        "stat_rollbacks",
+        "clone_evidence",
+        "lineage_details",
+        "health_reviews",
+        "analysis_status",
+        "observed_sessions",
+    ] {
+        assert_eq!(
+            connection.query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?",
+                [table],
+                |r| r.get::<_, i64>(0)
+            )?,
+            1,
+            "missing table after upgrade: {table}"
+        );
+    }
+    // The upgraded archive must be readable through the normal path.
+    let library = db(repo.load())?;
+    assert!(library.roots.is_empty());
+    assert_eq!(
+        connection.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0))?,
+        "ok"
+    );
+    Ok(())
+}
+
 #[test]
 fn migrations_are_versioned_and_reopening_preserves_settings() -> TestResult {
     let temp = tempfile::tempdir()?;
