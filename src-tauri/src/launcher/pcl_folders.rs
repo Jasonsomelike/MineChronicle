@@ -104,13 +104,11 @@ pub fn validate_launcher(path: &Path) -> io::Result<PathBuf> {
 #[cfg(windows)]
 mod platform {
     use super::*;
+    use crate::wide::wide;
     use windows_sys::Win32::{
         Foundation::{CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, INVALID_HANDLE_VALUE},
         System::{Diagnostics::ToolHelp::*, Registry::*, Threading::*},
     };
-    fn wide(s: &str) -> Vec<u16> {
-        s.encode_utf16().chain(Some(0)).collect()
-    }
     pub fn folder_value() -> io::Result<String> {
         let mut data = vec![0u16; 65536];
         let mut bytes = (data.len() * 2) as u32;

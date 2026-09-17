@@ -14,7 +14,12 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "rust:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "rust:fmt:write": "cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "rust:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --jobs 1 -- -D warnings",
+    "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml --jobs 4",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run format:check && npm run rust:fmt && npm run rust:clippy && npm run rust:test"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1",

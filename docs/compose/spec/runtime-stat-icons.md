@@ -15,6 +15,7 @@ commits: b9d8a4c..HEAD
 **Verification** — cargo lib runtime/cache_only 测试与 clippy 通过；npm typecheck/lint/test（77）通过；独立审查无 critical；已修 rendered 分类、签名 memo、冗余遍历、明细 chips。
 
 **Journey log** —
+
 - AppHandle 在 generic configure 下不可作 CommandArg → IconCacheDir。
 - 动画首帧由前端 canvas 裁剪，无 image crate。
 - cache_only 需与完整模式同一 signature，因此仍做文件元数据 walk，但不打开 jar；按 root memo。

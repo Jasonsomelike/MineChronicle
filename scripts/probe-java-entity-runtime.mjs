@@ -7,20 +7,44 @@ import { parseJavaModelFromClass } from './java-entity-runtime.mjs';
 const jar = process.argv[2];
 const className = process.argv[3];
 if (!jar || !className) {
-  console.error('usage: node scripts/probe-java-entity-runtime.mjs <jar> <className>');
+  console.error(
+    'usage: node scripts/probe-java-entity-runtime.mjs <jar> <className>',
+  );
   process.exit(2);
 }
 const extractPs1 = path.join(process.cwd(), 'scripts', 'extract-class.ps1');
 
 function extractClass(archive, name) {
-  const tmp = path.join(os.tmpdir(), `mc-class-${process.pid}-${Date.now()}-${Math.random()}.class`);
+  const tmp = path.join(
+    os.tmpdir(),
+    `mc-class-${process.pid}-${Date.now()}-${Math.random()}.class`,
+  );
   execFileSync(
     'powershell',
-    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', extractPs1, '-Jar', archive, '-Class', name, '-Out', tmp],
+    [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      extractPs1,
+      '-Jar',
+      archive,
+      '-Class',
+      name,
+      '-Out',
+      tmp,
+    ],
     { stdio: 'pipe' },
   );
   const bytes = fs.readFileSync(tmp);
-  console.error('extract', name, 'len', bytes.length, 'head', bytes.subarray(0, 8));
+  console.error(
+    'extract',
+    name,
+    'len',
+    bytes.length,
+    'head',
+    bytes.subarray(0, 8),
+  );
   if (bytes.length < 8 || bytes[0] !== 0xca) {
     throw new Error(`extract failed for ${name}: len=${bytes.length}`);
   }

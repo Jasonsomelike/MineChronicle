@@ -17,6 +17,30 @@ pub fn valid_player_name(name: &str) -> bool {
         && !name.chars().any(char::is_control)
 }
 
+/// Applies local usercache names to every player of every root, recording any
+/// cache problems as scan issues.
+///
+/// This exact loop previously appeared three times: in the manual scan command,
+/// in the tracker's automatic pass, and in PCL sync. The only difference between
+/// them was how `scopes` was built, so that stays with the caller.
+pub fn apply_local_names(
+    roots: &mut [crate::database::read_models::RootSummary],
+    scopes: &[PathBuf],
+    issues: &mut Vec<ScanIssue>,
+) {
+    for root in roots.iter_mut() {
+        let names = local_names(&root.path, scopes, issues);
+        for player in root.worlds.iter_mut().flat_map(|world| &mut world.players) {
+            if let Ok(uuid) = Uuid::parse_str(&player.uuid) {
+                if let Some(name) = names.get(&uuid) {
+                    player.preferred_name = Some(name.clone());
+                    player.name_source = Some("usercache".into());
+                }
+            }
+        }
+    }
+}
+
 /// Only usercache.json is read. Nearest cache wins; ancestors outside the chosen scope are excluded.
 pub fn local_names(
     root: &Path,

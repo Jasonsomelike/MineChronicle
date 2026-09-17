@@ -5,7 +5,8 @@ import { execFileSync } from 'node:child_process';
 
 const jar = String.raw`D:\QQ下载\落幕曲\.minecraft\versions\落幕曲\mods\alexsmobs-1.22.9.jar`;
 console.log('exists', fs.existsSync(jar), fs.statSync(jar).size);
-const entry = 'com/github/alexthe666/alexsmobs/client/model/ModelGrizzlyBear.class';
+const entry =
+  'com/github/alexthe666/alexsmobs/client/model/ModelGrizzlyBear.class';
 const tmp = path.join(os.tmpdir(), 'mg-debug.class');
 const script = `
 Add-Type -AssemblyName System.IO.Compression.FileSystem

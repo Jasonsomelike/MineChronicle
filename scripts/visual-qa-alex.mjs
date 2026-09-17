@@ -54,7 +54,8 @@ function extractPng(jar, entry) {
 const specs = [
   {
     id: 'mosquito',
-    className: 'com.github.alexthe666.alexsmobs.client.model.ModelCrimsonMosquito',
+    className:
+      'com.github.alexthe666.alexsmobs.client.model.ModelCrimsonMosquito',
     jars: [alex, citadel],
     texJar: alex,
     tex: 'assets/alexsmobs/textures/entity/crimson_mosquito.png',

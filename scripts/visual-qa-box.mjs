@@ -61,7 +61,13 @@ await canvasJob(
           pivot: [0, 0, 0],
           rotation: [0, 0, 0],
           cubes: [
-            { origin: [-4, -4, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0, mirror: false },
+            {
+              origin: [-4, -4, -4],
+              size: [8, 8, 8],
+              uv: [0, 0],
+              inflate: 0,
+              mirror: false,
+            },
           ],
         },
       ],
@@ -86,7 +92,13 @@ await canvasJob(
           pivot: [0, 0, 0],
           rotation: [0, 0, 0],
           cubes: [
-            { origin: [-4, 0, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0, mirror: false },
+            {
+              origin: [-4, 0, -4],
+              size: [8, 8, 8],
+              uv: [0, 0],
+              inflate: 0,
+              mirror: false,
+            },
           ],
         },
       ],

@@ -88,7 +88,12 @@ for (const spec of specs) {
     for (let i = 0; i < 6; i += 1) {
       const parsed = parseClassFile(bytes);
       const superName = parsed.superName;
-      if (!superName || /EntityModel|AdvancedEntityModel|ListModel|HumanoidModel$/.test(superName))
+      if (
+        !superName ||
+        /EntityModel|AdvancedEntityModel|ListModel|HumanoidModel$/.test(
+          superName,
+        )
+      )
         break;
       const parent = resolve(superName);
       if (!parent) break;

@@ -217,18 +217,11 @@ impl PclSync {
                             inputs.push(root.clone());
                         }
                     }
-                    for root in &mut summary.roots {
-                        let names =
-                            crate::scanner::local_names(&root.path, &roots, &mut summary.issues);
-                        for player in root.worlds.iter_mut().flat_map(|w| &mut w.players) {
-                            if let Ok(uuid) = uuid::Uuid::parse_str(&player.uuid) {
-                                if let Some(name) = names.get(&uuid) {
-                                    player.preferred_name = Some(name.clone());
-                                    player.name_source = Some("usercache".into());
-                                }
-                            }
-                        }
-                    }
+                    crate::scanner::apply_local_names(
+                        &mut summary.roots,
+                        &roots,
+                        &mut summary.issues,
+                    );
                     summary.issues.extend(
                         previous
                             .issues

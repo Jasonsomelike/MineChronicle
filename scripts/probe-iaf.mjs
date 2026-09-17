@@ -31,7 +31,16 @@ for (const cls of names) {
   try {
     const m = parseJavaModelFromClass(b, resolve);
     const cubes = m.bones.reduce((s, x) => s + x.cubes.length, 0);
-    console.log('OK', cls, m.textureWidth, m.textureHeight, 'bones', m.bones.length, 'cubes', cubes);
+    console.log(
+      'OK',
+      cls,
+      m.textureWidth,
+      m.textureHeight,
+      'bones',
+      m.bones.length,
+      'cubes',
+      cubes,
+    );
   } catch (e) {
     console.log('FAIL', cls, e.message);
   }

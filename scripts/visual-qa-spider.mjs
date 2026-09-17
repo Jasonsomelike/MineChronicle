@@ -8,7 +8,20 @@ import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { setTimeout as delay } from 'node:timers/promises';
-import vanilla from './resources/stat-vanilla-entities.json' with { type: 'json' };
+// Read as text rather than `import ... with { type: 'json' }`: Prettier 2.8.8
+// cannot parse import attributes, which broke `npm run format:check`. Matches
+// the JSON-reading convention used by the other scripts.
+const vanilla = JSON.parse(
+  fs.readFileSync(
+    path.join(
+      process.cwd(),
+      'scripts',
+      'resources',
+      'stat-vanilla-entities.json',
+    ),
+    'utf8',
+  ),
+);
 
 const outDir = path.join(process.cwd(), 'output', 'playwright');
 fs.mkdirSync(outDir, { recursive: true });
@@ -24,7 +37,6 @@ server.stdout.on('data', (c) => {
 for (let i = 0; i < 80 && !ready; i += 1) await delay(250);
 await delay(1200);
 
-const ps1 = path.join(process.cwd(), 'scripts', 'extract-class.ps1');
 const mc = String.raw`D:\QQ下载\服务器3.0\服务器3.0\.minecraft\versions\1.21.11-Fabric 0.18.4\1.21.11-Fabric 0.18.4.jar`;
 function extractPng(jar, entry) {
   const t = path.join(os.tmpdir(), `qa-${Math.random()}.png`);

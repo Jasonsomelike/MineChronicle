@@ -47,19 +47,43 @@ const job = {
         name: 'head',
         pivot: [0, 0, 0],
         rotation: [0, 0, 0],
-        cubes: [{ origin: [-4, 11, -11], size: [8, 8, 8], uv: [32, 4], inflate: 0, mirror: false }],
+        cubes: [
+          {
+            origin: [-4, 11, -11],
+            size: [8, 8, 8],
+            uv: [32, 4],
+            inflate: 0,
+            mirror: false,
+          },
+        ],
       },
       {
         name: 'body',
         pivot: [0, 0, 0],
         rotation: [0, 0, 0],
-        cubes: [{ origin: [-3, 9, -3], size: [6, 6, 6], uv: [0, 0], inflate: 0, mirror: false }],
+        cubes: [
+          {
+            origin: [-3, 9, -3],
+            size: [6, 6, 6],
+            uv: [0, 0],
+            inflate: 0,
+            mirror: false,
+          },
+        ],
       },
       {
         name: 'rear',
         pivot: [0, 0, 0],
         rotation: [0, 0, 0],
-        cubes: [{ origin: [-5, 5, 3], size: [10, 8, 12], uv: [0, 12], inflate: 0, mirror: false }],
+        cubes: [
+          {
+            origin: [-5, 5, 3],
+            size: [10, 8, 12],
+            uv: [0, 12],
+            inflate: 0,
+            mirror: false,
+          },
+        ],
       },
     ],
   },

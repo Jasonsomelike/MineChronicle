@@ -26,7 +26,10 @@ const parsed = parseClassFile(fs.readFileSync(tmp));
 const utf = parsed.utf;
 for (const e of parsed.cp) {
   if (!e) continue;
-  if (e.tag === 1 && /Model|Part|Box|tex|add|create|Cube|Mesh|Pose/.test(e.value))
+  if (
+    e.tag === 1 &&
+    /Model|Part|Box|tex|add|create|Cube|Mesh|Pose/.test(e.value)
+  )
     console.log('U', e.value);
   if (e.tag === 10 || e.tag === 11 || e.tag === 9) {
     const nat = parsed.cp[e.b];

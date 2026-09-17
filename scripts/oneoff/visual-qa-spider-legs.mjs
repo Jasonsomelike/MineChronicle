@@ -51,19 +51,43 @@ const spiderJava = {
       name: 'head',
       pivot: [0, 15, -3],
       rotation: [0, 0, 0],
-      cubes: [{ origin: [-4, -4, -8], size: [8, 8, 8], uv: [32, 4], inflate: 0, mirror: false }],
+      cubes: [
+        {
+          origin: [-4, -4, -8],
+          size: [8, 8, 8],
+          uv: [32, 4],
+          inflate: 0,
+          mirror: false,
+        },
+      ],
     },
     {
       name: 'body',
       pivot: [0, 15, 0],
       rotation: [0, 0, 0],
-      cubes: [{ origin: [-3, -3, -3], size: [6, 6, 6], uv: [0, 0], inflate: 0, mirror: false }],
+      cubes: [
+        {
+          origin: [-3, -3, -3],
+          size: [6, 6, 6],
+          uv: [0, 0],
+          inflate: 0,
+          mirror: false,
+        },
+      ],
     },
     {
       name: 'rear',
       pivot: [0, 15, 9],
       rotation: [-0.7853982, 0, 0],
-      cubes: [{ origin: [-5, -4, -6], size: [10, 8, 12], uv: [0, 12], inflate: 0, mirror: false }],
+      cubes: [
+        {
+          origin: [-5, -4, -6],
+          size: [10, 8, 12],
+          uv: [0, 12],
+          inflate: 0,
+          mirror: false,
+        },
+      ],
     },
     ...[
       [-4, 15, 2, 0.7853982],
@@ -79,7 +103,13 @@ const spiderJava = {
       pivot: [leg[0], leg[1], leg[2]],
       rotation: [0, leg[3], 0],
       cubes: [
-        { origin: [-15, -1, -1], size: [16, 2, 2], uv: [18, 0], inflate: 0, mirror: false },
+        {
+          origin: [-15, -1, -1],
+          size: [16, 2, 2],
+          uv: [18, 0],
+          inflate: 0,
+          mirror: false,
+        },
       ],
     })),
   ],

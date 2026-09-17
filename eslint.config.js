@@ -26,11 +26,14 @@ export default [
     // (window, localStorage). Only list the files that actually need it.
     files: [
       'scripts/stat-icon-renderer.mjs',
-      'scripts/probe-gsap-stat-icons.mjs',
       'scripts/stat-entity-renderer.mjs',
       'scripts/visual-qa-full-report.mjs',
       'scripts/visual-qa-spider-ferro.mjs',
       'scripts/qa-player-persistence.mjs',
+      'scripts/visual-qa-box.mjs',
+      'scripts/visual-qa-spider-color.mjs',
+      'scripts/visual-qa-two-box.mjs',
+      'scripts/oneoff/probe-gsap-stat-icons.mjs',
     ],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },

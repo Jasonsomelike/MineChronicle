@@ -1,7 +1,6 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -47,33 +46,46 @@ async function shot(name, job) {
 }
 
 // two cubes, java, pivot 0
-await shot(
-  'qa2-two-box-java.png',
-  {
-    entityModel: {
-      format: 'java',
-      textureWidth: 16,
-      textureHeight: 16,
-      bones: [
-        {
-          name: 'a',
-          pivot: [0, 0, 0],
-          rotation: [0, 0, 0],
-          cubes: [{ origin: [-4, -4, -4], size: [8, 8, 8], uv: [0, 0], inflate: 0, mirror: false }],
-        },
-        {
-          name: 'b',
-          pivot: [0, 0, 0],
-          rotation: [0, 0, 0],
-          cubes: [{ origin: [-4, -4, 4], size: [8, 8, 8], uv: [0, 0], inflate: 0, mirror: false }],
-        },
-      ],
-    },
-    layers: [tex],
-    rotation: [20, 30, 0],
-    renderSize: 256,
+await shot('qa2-two-box-java.png', {
+  entityModel: {
+    format: 'java',
+    textureWidth: 16,
+    textureHeight: 16,
+    bones: [
+      {
+        name: 'a',
+        pivot: [0, 0, 0],
+        rotation: [0, 0, 0],
+        cubes: [
+          {
+            origin: [-4, -4, -4],
+            size: [8, 8, 8],
+            uv: [0, 0],
+            inflate: 0,
+            mirror: false,
+          },
+        ],
+      },
+      {
+        name: 'b',
+        pivot: [0, 0, 0],
+        rotation: [0, 0, 0],
+        cubes: [
+          {
+            origin: [-4, -4, 4],
+            size: [8, 8, 8],
+            uv: [0, 0],
+            inflate: 0,
+            mirror: false,
+          },
+        ],
+      },
+    ],
   },
-);
+  layers: [tex],
+  rotation: [20, 30, 0],
+  renderSize: 256,
+});
 
 await browser.close();
 server.kill('SIGTERM');

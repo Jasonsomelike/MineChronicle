@@ -27,9 +27,7 @@ mod platform {
     };
     const KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
     const VALUE: &str = "MineChronicle";
-    fn wide(s: &str) -> Vec<u16> {
-        s.encode_utf16().chain(Some(0)).collect()
-    }
+    use crate::wide::wide;
     pub fn read() -> Result<String, String> {
         let mut data = vec![0u16; 32768];
         let mut bytes = (data.len() * 2) as u32;

@@ -9,9 +9,4 @@ const updatedQa = qa.replace(
     tex: 'assets/iceandfire/textures/models/ghost/ghost_white.png'`,
 );
 fs.writeFileSync('scripts/visual-qa-iaf.mjs', updatedQa);
-
-const rust = fs.readFileSync(
-  'src-tauri/src/minecraft/rust-placeholder',
-  'utf8',
-);
-console.log('skip placeholder');
+console.log('ghost QA script updated');

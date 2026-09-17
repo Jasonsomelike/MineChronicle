@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { parseJavaModelFromClass, parseClassFile } from './java-entity-runtime.mjs';
+import {
+  parseJavaModelFromClass,
+  parseClassFile,
+} from './java-entity-runtime.mjs';
 
 const jar = String.raw`D:\QQ下载\落幕曲\.minecraft\versions\落幕曲\mods\goety-2.5.35.1.jar`;
 const ps1 = path.join(process.cwd(), 'scripts', 'extract-class.ps1');

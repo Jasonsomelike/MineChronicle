@@ -11,6 +11,8 @@ pub mod launcher;
 pub mod minecraft;
 pub mod scanner;
 pub mod tracker;
+#[cfg(windows)]
+mod wide;
 
 pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder

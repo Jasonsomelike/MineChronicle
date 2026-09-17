@@ -39,22 +39,22 @@ export function animateDiscoveredStatIcons(
 ): gsap.core.Timeline | null {
   if (!ids.length || prefersReducedMotion(media) || !root) return null;
   const nodes = ids
-    .map((id) => root.querySelector(`[data-stat-id="${escapeId(id)}"] .stat-sprite`))
+    .map((id) =>
+      root.querySelector(`[data-stat-id="${escapeId(id)}"] .stat-sprite`),
+    )
     .filter((node): node is HTMLElement => Boolean(node && 'style' in node));
   if (!nodes.length) return null;
-  return gsap
-    .timeline()
-    .fromTo(
-      nodes,
-      { opacity: 0, y: 6, scale: 0.92 },
-      {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: 0.32,
-        stagger: 0.025,
-        ease: 'power2.out',
-        overwrite: true,
-      },
-    );
+  return gsap.timeline().fromTo(
+    nodes,
+    { opacity: 0, y: 6, scale: 0.92 },
+    {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      duration: 0.32,
+      stagger: 0.025,
+      ease: 'power2.out',
+      overwrite: true,
+    },
+  );
 }

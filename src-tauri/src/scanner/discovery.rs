@@ -2,7 +2,7 @@
 use super::{
     fs_access::{children, issue, regular_metadata},
     path_identity::DirectoryIdentity,
-    GameRootScanner, ScanIssueKind, ScanLimits, ScanProgress, ScanReport,
+    GameRootScanner, ScanIssueKind, ScanLimits, ScanProgress, ScanReport, MAX_DISCOVERED_ROOTS,
 };
 use std::{collections::HashSet, path::PathBuf};
 
@@ -125,7 +125,7 @@ pub fn discover_and_scan_linked(
                 cancelled.issues.extend(discovery.issues);
                 return cancelled;
             }
-            if roots.len() >= 256 || budget == 0 {
+            if roots.len() >= MAX_DISCOVERED_ROOTS || budget == 0 {
                 issue(
                     &mut discovery.issues,
                     ScanIssueKind::ScanLimitReached,
@@ -182,13 +182,13 @@ pub fn discover_and_scan_linked(
                 "此目录范围内未发现包含 saves 的游戏根目录。",
             );
         }
-        if roots.len() >= 256 {
+        if roots.len() >= MAX_DISCOVERED_ROOTS {
             break;
         }
     }
     let mut report = GameRootScanner {
         limits: ScanLimits {
-            roots: 256,
+            roots: MAX_DISCOVERED_ROOTS,
             ..Default::default()
         },
     }

@@ -81,6 +81,11 @@ pub struct ScanProgress {
     pub player_files_scanned: usize,
 }
 
+/// Roots a user may name explicitly in one manual scan.
+pub const MAX_MANUAL_ROOTS: usize = 32;
+/// Roots automatic discovery may collect, and the cap the watcher scans with.
+pub const MAX_DISCOVERED_ROOTS: usize = 256;
+
 #[derive(Debug, Clone, Copy)]
 pub struct ScanLimits {
     pub roots: usize,
@@ -90,7 +95,7 @@ pub struct ScanLimits {
 impl Default for ScanLimits {
     fn default() -> Self {
         Self {
-            roots: 32,
+            roots: MAX_MANUAL_ROOTS,
             worlds_per_root: 10_000,
             player_files_per_world: 10_000,
         }

@@ -33,7 +33,10 @@ page.on('console', (message) => {
 });
 
 try {
-  await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(`${origin}/`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000,
+  });
   await page.waitForTimeout(1500);
   const result = await page.evaluate(async () => {
     const { animateDiscoveredStatIcons, prefersReducedMotion } = await import(
@@ -61,7 +64,9 @@ try {
         reduced: prefersReducedMotion({ matches: false }),
       };
     }
-    await new Promise((resolve) => timeline.eventCallback('onComplete', resolve));
+    await new Promise((resolve) =>
+      timeline.eventCallback('onComplete', resolve),
+    );
     const after = getComputedStyle(sprite).opacity;
     const transform = getComputedStyle(sprite).transform;
     return {
@@ -79,8 +84,15 @@ try {
     };
   });
   console.log('GSAP_PROBE', JSON.stringify(result));
-  await page.screenshot({ path: 'output/playwright/gsap-stat-icon-probe.png', fullPage: false });
-  if (!result.ok || String(result.after) !== '1' || result.reducedTrue !== true) {
+  await page.screenshot({
+    path: 'output/playwright/gsap-stat-icon-probe.png',
+    fullPage: false,
+  });
+  if (
+    !result.ok ||
+    String(result.after) !== '1' ||
+    result.reducedTrue !== true
+  ) {
     process.exitCode = 1;
   }
 } catch (error) {

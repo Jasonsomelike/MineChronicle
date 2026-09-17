@@ -62,8 +62,14 @@ async fn scan_impl(
     database: State<'_, DatabaseState>,
     launcher: Option<PathBuf>,
 ) -> Result<ScanSummary, String> {
-    if paths.is_empty() || paths.len() > 32 || paths.iter().any(|p| p.trim().is_empty()) {
-        return Err("请提供 1–32 个明确的游戏根目录。".to_owned());
+    if paths.is_empty()
+        || paths.len() > crate::scanner::MAX_MANUAL_ROOTS
+        || paths.iter().any(|p| p.trim().is_empty())
+    {
+        return Err(format!(
+            "请提供 1–{} 个明确的游戏根目录。",
+            crate::scanner::MAX_MANUAL_ROOTS
+        ));
     }
     control
         .foreground

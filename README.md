@@ -38,10 +38,18 @@ npm run desktop:build
 
 ## 验证
 
+一条命令跑完全部检查（TypeScript、ESLint、Vitest、Prettier、rustfmt、Clippy、Rust 测试）：
+
 ```powershell
-cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --jobs 1 -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml --jobs 1
+npm run verify
+```
+
+需要 `cargo` 在 PATH 上（Rust 默认安装位置为 `%USERPROFILE%\.cargo\bin`）。单项也可单独运行：
+
+```powershell
+npm run rust:fmt      # cargo fmt --check
+npm run rust:clippy   # cargo clippy --all-targets --jobs 1 -- -D warnings
+npm run rust:test     # cargo test --jobs 4
 npm run typecheck
 npm run lint
 npm test
@@ -49,6 +57,7 @@ npm run format:check
 npm run build
 ```
 
+`--jobs 1` 用于 Clippy，避免 Windows 上的提交内存峰值；Rust 测试用 `--jobs 4`。
 Rust 测试只使用合成 JSON 与仓库内 fixture。不会读取真实 Minecraft 数据；另有经用户授权的实际程序验收。
 完整范围和验证记录见 [Phase 1 说明](docs/phase-1.md)、[Phase 2 说明](docs/phase-2.md)、[Phase 3 说明](docs/phase-3.md)、[Phase 4 说明](docs/phase-4.md) 与 [Phase 6 说明](docs/phase-6.md)。
 

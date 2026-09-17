@@ -37,7 +37,9 @@ try {
     m.bones.reduce((s, b) => s + b.cubes.length, 0),
   );
   console.log(
-    m.bones.slice(0, 6).map((b) => ({ n: b.name, p: b.pivot, c: b.cubes.length })),
+    m.bones
+      .slice(0, 6)
+      .map((b) => ({ n: b.name, p: b.pivot, c: b.cubes.length })),
   );
 } catch (e) {
   console.error('FAIL', e.message);

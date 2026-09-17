@@ -185,6 +185,34 @@ pub fn relevant(event: &notify::Event) -> bool {
             )
     })
 }
+/// Brings the watch set in line with `desired`: unwatch what is no longer
+/// needed, watch what is new, and return how many registrations failed.
+///
+/// This block appeared twice verbatim (initial reconcile and post-scan
+/// reconcile). It also removes the `registered.clone()` the old code needed
+/// because it mutated the set while iterating its own difference.
+fn reconcile_watches<W: Watcher + ?Sized>(
+    watcher: &mut W,
+    desired: &HashSet<PathBuf>,
+    registered: &mut HashSet<PathBuf>,
+) -> usize {
+    for path in registered.difference(desired) {
+        let _ = watcher.unwatch(path);
+    }
+    registered.retain(|p| desired.contains(p));
+    let missing: Vec<PathBuf> = desired.difference(registered).cloned().collect();
+    let mut failures = 0;
+    for path in missing {
+        match watcher.watch(&path, RecursiveMode::NonRecursive) {
+            Ok(()) => {
+                registered.insert(path);
+            }
+            Err(_) => failures += 1,
+        }
+    }
+    failures
+}
+
 fn path_under(path: &Path, root: &Path) -> bool {
     #[cfg(not(windows))]
     {
@@ -420,21 +448,7 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
             roots.sort();
             roots.dedup();
             let mut desired = watch_paths(&library);
-            for path in registered.difference(&desired) {
-                let _ = watcher.unwatch(path);
-            }
-            registered.retain(|p| desired.contains(p));
-            let mut failures = 0;
-            for path in desired.difference(&registered.clone()) {
-                match watcher.watch(path, RecursiveMode::NonRecursive) {
-                    Ok(()) => {
-                        registered.insert(path.clone());
-                    }
-                    Err(_) => {
-                        failures += 1;
-                    }
-                }
-            }
+            let mut failures = reconcile_watches(&mut watcher, &desired, &mut registered);
             state.watched.store(registered.len(), Ordering::Release);
             if failures > 0 {
                 set_error(
@@ -449,7 +463,7 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
             }
             let report = GameRootScanner {
                 limits: ScanLimits {
-                    roots: 256,
+                    roots: crate::scanner::MAX_DISCOVERED_ROOTS,
                     ..Default::default()
                 },
             }
@@ -468,17 +482,7 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
                 .iter()
                 .filter_map(|p| std::fs::canonicalize(p).ok())
                 .collect();
-            for root in &mut summary.roots {
-                let names = crate::scanner::local_names(&root.path, &scopes, &mut summary.issues);
-                for player in root.worlds.iter_mut().flat_map(|w| &mut w.players) {
-                    if let Ok(uuid) = uuid::Uuid::parse_str(&player.uuid) {
-                        if let Some(name) = names.get(&uuid) {
-                            player.preferred_name = Some(name.clone());
-                            player.name_source = Some("usercache".into());
-                        }
-                    }
-                }
-            }
+            crate::scanner::apply_local_names(&mut summary.roots, &scopes, &mut summary.issues);
             // Never-played configured instances may not yet have saves.
             summary.issues.retain(|i| {
                 i.kind != crate::scanner::ScanIssueKind::SavesNotFound
@@ -530,20 +534,7 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
                     .chain(closing_roots.keys())
                     .any(|r| path_under(p, r))
             });
-            for path in registered.difference(&desired) {
-                let _ = watcher.unwatch(path);
-            }
-            registered.retain(|p| desired.contains(p));
-            for path in desired.difference(&registered.clone()) {
-                match watcher.watch(path, RecursiveMode::NonRecursive) {
-                    Ok(()) => {
-                        registered.insert(path.clone());
-                    }
-                    Err(_) => {
-                        failures += 1;
-                    }
-                }
-            }
+            failures += reconcile_watches(&mut watcher, &desired, &mut registered);
             state.watched.store(registered.len(), Ordering::Release);
             if failures == 0 {
                 set_error(&state, None);

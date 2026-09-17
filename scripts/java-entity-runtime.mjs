@@ -205,7 +205,12 @@ export function parseClassFile(input) {
     if (tag === 1) {
       const len = u2(view, o);
       o += 2;
-      cp[i] = { tag, value: new TextDecoder('utf-8', { fatal: false }).decode(bytes.subarray(o, o + len)) };
+      cp[i] = {
+        tag,
+        value: new TextDecoder('utf-8', { fatal: false }).decode(
+          bytes.subarray(o, o + len),
+        ),
+      };
       o += len;
     } else if (tag === 3) {
       cp[i] = { tag, value: view.getInt32(o) };
@@ -217,10 +222,23 @@ export function parseClassFile(input) {
       cp[i] = { tag, value: view.getBigInt64(o) };
       o += 8;
       i += 1;
-    } else if (tag === 7 || tag === 8 || tag === 16 || tag === 19 || tag === 20) {
+    } else if (
+      tag === 7 ||
+      tag === 8 ||
+      tag === 16 ||
+      tag === 19 ||
+      tag === 20
+    ) {
       cp[i] = { tag, value: u2(view, o) };
       o += 2;
-    } else if (tag === 9 || tag === 10 || tag === 11 || tag === 12 || tag === 17 || tag === 18) {
+    } else if (
+      tag === 9 ||
+      tag === 10 ||
+      tag === 11 ||
+      tag === 12 ||
+      tag === 17 ||
+      tag === 18
+    ) {
       cp[i] = { tag, a: u2(view, o), b: u2(view, o + 2) };
       o += 4;
     } else if (tag === 15) {
@@ -301,7 +319,11 @@ export function parseClassFile(input) {
 }
 
 function decodeBytecode(codeBytes, cp, utf) {
-  const view = new DataView(codeBytes.buffer, codeBytes.byteOffset, codeBytes.byteLength);
+  const view = new DataView(
+    codeBytes.buffer,
+    codeBytes.byteOffset,
+    codeBytes.byteLength,
+  );
   const ops = [];
   let i = 0;
   while (i < codeBytes.length) {
@@ -315,8 +337,10 @@ function decodeBytecode(codeBytes, cp, utf) {
     let note = '';
     if (kind === 'u8') operands.push(codeBytes[i]);
     else if (kind === 'i8') operands.push((codeBytes[i] << 24) >> 24);
-    else if (kind === 'u16') operands.push((codeBytes[i] << 8) | codeBytes[i + 1]);
-    else if (kind === 'i16') operands.push(((codeBytes[i] << 8) | codeBytes[i + 1]) << 16 >> 16);
+    else if (kind === 'u16')
+      operands.push((codeBytes[i] << 8) | codeBytes[i + 1]);
+    else if (kind === 'i16')
+      operands.push((((codeBytes[i] << 8) | codeBytes[i + 1]) << 16) >> 16);
     else if (kind === 'i32')
       operands.push(
         (codeBytes[i] << 24) |
@@ -327,7 +351,11 @@ function decodeBytecode(codeBytes, cp, utf) {
     else if (kind === 'u8s8') {
       operands.push(codeBytes[i], (codeBytes[i + 1] << 24) >> 24);
     } else if (kind === 'u16u8u8') {
-      operands.push((codeBytes[i] << 8) | codeBytes[i + 1], codeBytes[i + 2], codeBytes[i + 3]);
+      operands.push(
+        (codeBytes[i] << 8) | codeBytes[i + 1],
+        codeBytes[i + 2],
+        codeBytes[i + 3],
+      );
     }
     if (kind === 'u8' || kind === 'i8') i += 1;
     else if (kind === 'u16' || kind === 'i16' || kind === 'u8s8') i += 2;
@@ -349,7 +377,13 @@ function decodeBytecode(codeBytes, cp, utf) {
     ) {
       const cls = cp[operands[0]];
       note = `class ${utf(cls?.value)?.replaceAll('/', '.') ?? ''}`;
-    } else if (op.startsWith('invoke') || op === 'getstatic' || op === 'putstatic' || op === 'getfield' || op === 'putfield') {
+    } else if (
+      op.startsWith('invoke') ||
+      op === 'getstatic' ||
+      op === 'putstatic' ||
+      op === 'getfield' ||
+      op === 'putfield'
+    ) {
       const ref = cp[operands[0]];
       const nat = cp[ref?.b];
       const ownerCls = cp[ref?.a];
@@ -430,8 +464,7 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
   const target = createMesh ?? ctor ?? createLayer;
   if (!target) throw new Error(`No supported model constructor: ${className}`);
   const ops = decodeBytecode(target.code.code, cp, utf);
-  const defaults =
-    target === ctor ? argumentTypes(ctor.desc).map(() => 0) : [];
+  const defaults = target === ctor ? argumentTypes(ctor.desc).map(() => 0) : [];
   const self = { type: className, fields: {} };
   // Static createBodyLayer has no `this` local slot.
   const locals = target === createLayer && !ctor ? [] : [self, ...defaults];
@@ -445,7 +478,8 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
   let complete = false;
   let steps = 0;
   for (let ip = 0; ip < ops.length; ip += 1) {
-    if (++steps > 80000) throw new Error('Entity constructor exceeded instruction limit');
+    if (++steps > 80000)
+      throw new Error('Entity constructor exceeded instruction limit');
     const ins = ops[ip];
     const { op, operands = [], note = '' } = ins;
     if (op === 'return' || op === 'areturn') {
@@ -456,50 +490,59 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
       const value = pop();
       const table = ins.switchTargets;
       const target = offsets.get(table[value] ?? table.default);
-      if (target === undefined) throw new Error('Invalid entity constructor switch jump');
+      if (target === undefined)
+        throw new Error('Invalid entity constructor switch jump');
       ip = target - 1;
     } else if (op === 'goto' || op === 'goto_w') {
       const target = offsets.get(operands[0]);
-      if (target === undefined) throw new Error('Invalid entity constructor jump');
+      if (target === undefined)
+        throw new Error('Invalid entity constructor jump');
       ip = target - 1;
-    } else if (/^if(?:_icmp|_acmp|null|nonnull)?(eq|ne|lt|ge|gt|le)?$/.test(op) || op === 'ifnull' || op === 'ifnonnull') {
+    } else if (
+      /^if(?:_icmp|_acmp|null|nonnull)?(eq|ne|lt|ge|gt|le)?$/.test(op) ||
+      op === 'ifnull' ||
+      op === 'ifnonnull'
+    ) {
       let jump = false;
       if (op === 'ifnull') jump = pop() == null;
       else if (op === 'ifnonnull') jump = pop() != null;
       else if (op.startsWith('if_icmp') || op.startsWith('if_acmp')) {
         const b = pop();
         const a = pop();
-        if (op.startsWith('if_acmp')) jump = op.endsWith('ne') ? a !== b : a === b;
+        if (op.startsWith('if_acmp'))
+          jump = op.endsWith('ne') ? a !== b : a === b;
         else
           jump = op.endsWith('eq')
             ? a === b
             : op.endsWith('ne')
-              ? a !== b
-              : op.endsWith('lt')
-                ? a < b
-                : op.endsWith('ge')
-                  ? a >= b
-                  : op.endsWith('gt')
-                    ? a > b
-                    : a <= b;
+            ? a !== b
+            : op.endsWith('lt')
+            ? a < b
+            : op.endsWith('ge')
+            ? a >= b
+            : op.endsWith('gt')
+            ? a > b
+            : a <= b;
       } else {
         const a = pop();
-        if (typeof a !== 'number') throw new Error('Unknown entity constructor branch');
+        if (typeof a !== 'number')
+          throw new Error('Unknown entity constructor branch');
         jump = op.endsWith('eq')
           ? a === 0
           : op.endsWith('ne')
-            ? a !== 0
-            : op.endsWith('lt')
-              ? a < 0
-              : op.endsWith('ge')
-                ? a >= 0
-                : op.endsWith('gt')
-                  ? a > 0
-                  : a <= 0;
+          ? a !== 0
+          : op.endsWith('lt')
+          ? a < 0
+          : op.endsWith('ge')
+          ? a >= 0
+          : op.endsWith('gt')
+          ? a > 0
+          : a <= 0;
       }
       if (jump) {
         const target = offsets.get(operands[0]);
-        if (target === undefined) throw new Error('Invalid entity constructor jump');
+        if (target === undefined)
+          throw new Error('Invalid entity constructor jump');
         ip = target - 1;
       }
     } else if (/^[aifdl]load(?:_\d+)?$/.test(op)) {
@@ -526,14 +569,24 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
     } else if (/^[aifdlbcs]aload$/.test(op)) {
       const index = pop();
       const array = pop();
-      if (!Array.isArray(array) || !Number.isInteger(index) || index < 0 || index >= array.length)
+      if (
+        !Array.isArray(array) ||
+        !Number.isInteger(index) ||
+        index < 0 ||
+        index >= array.length
+      )
         throw new Error('Invalid model array read');
       stack.push(array[index]);
     } else if (/^[aifdlbcs]astore$/.test(op)) {
       const value = pop();
       const index = pop();
       const array = pop();
-      if (!Array.isArray(array) || !Number.isInteger(index) || index < 0 || index >= array.length)
+      if (
+        !Array.isArray(array) ||
+        !Number.isInteger(index) ||
+        index < 0 ||
+        index >= array.length
+      )
         throw new Error('Invalid model array write');
       array[index] = value;
     } else if (op === 'arraylength') {
@@ -546,16 +599,22 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
       const b = pop();
       stack.push(a, b, a);
     } else if (op === 'pop') pop();
-    else if (op === 'getstatic' && /:L[^;]+;$/.test(note)) stack.push({ type: note, fields: {} });
+    else if (op === 'getstatic' && /:L[^;]+;$/.test(note))
+      stack.push({ type: note, fields: {} });
     else if (op === 'getfield' || op === 'putfield') {
-      const field = note.replace(/^Field /, '').split(':')[0].split('.').pop();
+      const field = note
+        .replace(/^Field /, '')
+        .split(':')[0]
+        .split('.')
+        .pop();
       if (op === 'getfield') stack.push(pop()?.fields?.[field]);
       else {
         const value = pop();
         const receiver = pop();
         if (!receiver) throw new Error('Unknown field receiver');
         receiver.fields[field] = value;
-        if (receiver === self && value?.cubes && !value.name) value.name = field;
+        if (receiver === self && value?.cubes && !value.name)
+          value.name = field;
       }
     } else if (/^[ifdl](add|sub|mul|div)$/.test(op)) {
       const b = pop();
@@ -564,10 +623,10 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
         op.endsWith('add')
           ? a + b
           : op.endsWith('sub')
-            ? a - b
-            : op.endsWith('mul')
-              ? a * b
-              : a / b,
+          ? a - b
+          : op.endsWith('mul')
+          ? a * b
+          : a / b,
       );
     } else if (/^[fd]cmp[gl]$/.test(op)) {
       const b = pop();
@@ -578,13 +637,14 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
             ? 1
             : -1
           : a > b
-            ? 1
-            : a < b
-              ? -1
-              : 0,
+          ? 1
+          : a < b
+          ? -1
+          : 0,
       );
     } else if (/^[ifdl]neg$/.test(op)) stack.push(-pop());
-    else if (/^[ifdl]2[ifdl]$/.test(op) || op === 'checkcast' || op === 'iinc') continue;
+    else if (/^[ifdl]2[ifdl]$/.test(op) || op === 'checkcast' || op === 'iinc')
+      continue;
     else if (op.startsWith('invoke')) {
       const call = note.match(/(?:InterfaceMethod|Method) (.+):(\(.*\).+)$/);
       if (!call) {
@@ -623,12 +683,18 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
           ownerFull,
         )
       ) {
-        if (!resolveClass) throw new Error(`Missing inherited entity geometry: ${ownerFull}`);
+        if (!resolveClass)
+          throw new Error(`Missing inherited entity geometry: ${ownerFull}`);
         const parentBytes = resolveClass(ownerFull);
-        if (!parentBytes) throw new Error(`Missing inherited entity geometry: ${ownerFull}`);
+        if (!parentBytes)
+          throw new Error(`Missing inherited entity geometry: ${ownerFull}`);
         let parent = null;
         try {
-          parent = parseJavaModelFromClass(parentBytes, resolveClass, depth + 1);
+          parent = parseJavaModelFromClass(
+            parentBytes,
+            resolveClass,
+            depth + 1,
+          );
         } catch {
           parent = null;
         }
@@ -657,30 +723,40 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
         returned = (args[0] * Math.PI) / 180;
         if (name === 'rad') returned = Math.fround(returned);
       } else if (name === '<init>') {
-          
         if (
           /(?:^|[./])(?:AdvancedModelBox|AdvancedModelRenderer|HideableModelRenderer|AnimatedModelRenderer|ModelPart)$/.test(
             receiver?.type ?? '',
           )
         ) {
-        if (typeof args[1] === 'string') receiver.name = args[1];
-        if (typeof args[1] === 'number' && typeof args[2] === 'number')
-          receiver.uv = args.slice(1, 3);
-        if (receiver?.cubes) bones.push(receiver);
+          if (typeof args[1] === 'string') receiver.name = args[1];
+          if (typeof args[1] === 'number' && typeof args[2] === 'number')
+            receiver.uv = args.slice(1, 3);
+          if (receiver?.cubes) bones.push(receiver);
         }
       } else if (name === 'setPos' || name === 'setRotationPoint') {
         receiver.pivot = args.slice(0, 3);
       } else if (name === 'addChild') args[0].parent = receiver;
-      else if (name === 'setTextureOffset' || name === 'texOffs' || name === 'setTexOffs')
+      else if (
+        name === 'setTextureOffset' ||
+        name === 'texOffs' ||
+        name === 'setTexOffs'
+      )
         receiver.uv = args.slice(0, 2);
-      else if (name === 'setRotationAngle' || name === 'setRotateAngle' || name === 'setRot')
+      else if (
+        name === 'setRotationAngle' ||
+        name === 'setRotateAngle' ||
+        name === 'setRot'
+      )
         args[0].rotation = args.slice(1, 4);
       else if (name === 'addBox' || name === 'addBoxVoxel') {
         if (!receiver) throw new Error('Invalid model cube receiver');
         if (!Array.isArray(receiver.cubes)) receiver.cubes = [];
         if (!Array.isArray(receiver.uv)) receiver.uv = [0, 0];
         const values = typeof args[0] === 'string' ? args.slice(1) : args;
-        if (values.length < 6 || values.slice(0, 6).some((n) => !Number.isFinite(n)))
+        if (
+          values.length < 6 ||
+          values.slice(0, 6).some((n) => !Number.isFinite(n))
+        )
           throw new Error('Invalid model cube');
         receiver.cubes.push({
           origin: values.slice(0, 3),
@@ -691,7 +767,8 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
         });
       } else if (
         name === 'createMesh' &&
-        (ownerFull.endsWith('HumanoidModel') || ownerFull.endsWith('AgeableListModel'))
+        (ownerFull.endsWith('HumanoidModel') ||
+          ownerFull.endsWith('AgeableListModel'))
       ) {
         const make = (boneName, pivot, cube) => {
           const bone = newBone('ModelPart');
@@ -765,7 +842,11 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
       } else if (name === 'getRoot' && ownerFull.endsWith('MeshDefinition')) {
         returned = newBone('PartDefinition');
       } else if (name === 'offset' && ownerFull.endsWith('PartPose')) {
-        returned = { type: 'PartPose', pivot: args.slice(0, 3), rotation: [0, 0, 0] };
+        returned = {
+          type: 'PartPose',
+          pivot: args.slice(0, 3),
+          rotation: [0, 0, 0],
+        };
       } else if (
         (name === 'offsetAndRotation' || name === 'offsetAndRotationDegrees') &&
         ownerFull.endsWith('PartPose')
@@ -796,10 +877,18 @@ export function parseJavaModelFromClass(bytes, resolveClass, depth = 0) {
     } else throw new Error(`Unsupported model instruction ${op}`);
   }
   if (!complete || !bones.some((bone) => bone.cubes.length))
-    throw new Error('No complete entity geometry complete=' + complete + ' bones=' + bones.length + ' cubes=' + bones.map((b) => b.cubes.length).join(','));
+    throw new Error(
+      'No complete entity geometry complete=' +
+        complete +
+        ' bones=' +
+        bones.length +
+        ' cubes=' +
+        bones.map((b) => b.cubes.length).join(','),
+    );
   const fieldName = (bone) =>
     Object.entries(self.fields).find(([, value]) => value === bone)?.[0];
-  const boneName = (bone) => fieldName(bone) ?? bone.name ?? `bone${bones.indexOf(bone)}`;
+  const boneName = (bone) =>
+    fieldName(bone) ?? bone.name ?? `bone${bones.indexOf(bone)}`;
   return {
     format: 'java',
     textureWidth: self.fields.texWidth ?? self.fields.textureWidth ?? 64,
