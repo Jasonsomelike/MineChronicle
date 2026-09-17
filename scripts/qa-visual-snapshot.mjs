@@ -404,17 +404,20 @@ for (const [viewportName, viewport] of viewports) {
     // settings page in particular keeps settling for longer than 2.5 s, and a
     // screenshot taken mid-settle differs between runs of identical CSS.
     await page.waitForLoadState('networkidle').catch(() => {});
+    // Wait until the full document height stops changing. Watching only
+    // `.scan-panel` was not enough: the settings page resolves several async IPC
+    // calls (PCL status, tracking, runtime info) that can change the layout
+    // after the panel itself has settled, which made that one page differ
+    // between runs of identical CSS.
     await page
       .waitForFunction(
         () => {
-          const root = document.querySelector('.scan-panel');
-          if (!root) return true;
-          const height = root.getBoundingClientRect().height;
+          const height = document.documentElement.scrollHeight;
           const previous = window.__qaHeight;
           window.__qaHeight = height;
           return previous === height;
         },
-        { timeout: 15000, polling: 400 },
+        { timeout: 20000, polling: 500 },
       )
       .catch(() => {});
     await delay(1200);

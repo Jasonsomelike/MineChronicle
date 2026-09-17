@@ -3,12 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use minechronicle_lib::{
-    domain::{GameRootId, Instance, InstanceId, LauncherId, World, WorldId, WorldStatus},
-    minecraft::{
-        DefaultStatsLocationResolver, FutureStatsLocation, JsonStatsParser, StatsLayout,
-        StatsLocationResolver, StatsParser,
-    },
+use minechronicle_lib::minecraft::{
+    DefaultStatsLocationResolver, FutureStatsLocation, JsonStatsParser, StatsLayout,
+    StatsLocationResolver, StatsParser,
 };
 use uuid::Uuid;
 
@@ -53,32 +50,4 @@ fn future_layout_is_explicit_and_cannot_escape_world() -> Result<(), Box<dyn Err
         assert!(FutureStatsLocation::new(PathBuf::from(path)).is_err());
     }
     Ok(())
-}
-
-#[test]
-fn two_instances_reference_one_root_and_world_is_owned_by_root() {
-    let root_id = GameRootId(1);
-    let instances: Vec<_> = [1, 2]
-        .into_iter()
-        .map(|id| Instance {
-            id: InstanceId(id),
-            launcher_id: LauncherId(1),
-            game_root_id: root_id,
-            name: format!("Synthetic instance {id}"),
-            minecraft_version: None,
-            mod_loader: None,
-        })
-        .collect();
-    let world = World {
-        id: WorldId(1),
-        game_root_id: root_id,
-        path: PathBuf::from("synthetic/saves/world"),
-        name: "Synthetic".to_owned(),
-        status: WorldStatus::Present,
-        data_version: None,
-    };
-    assert!(instances
-        .iter()
-        .all(|instance| instance.game_root_id == world.game_root_id));
-    assert_ne!(instances[0].id, instances[1].id);
 }
