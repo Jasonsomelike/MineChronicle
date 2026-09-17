@@ -565,6 +565,27 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **D6** 性能回归门禁（`examples/bench_db.rs` 已提供基线数字）。
 - **D7** 补测试缺口（`desktop.rs` 零测试；`resolve_stat_icons`/`store_stat_icon` 未经 mock IPC）。
 - **C4/C5/C6/C9** 领域模型取舍、分类表合并、迁移机制（C6 已在第 2 批顺带解决）、魔法数字命名。
+
+---
+
+## 新发现：一个既有的不稳定测试
+
+清理批的验证过程中，`cargo test` 偶发失败（约 5–10 次运行出现一次），失败用例是：
+
+```
+tracking_contract.rs:193  native_watcher_debounces_tracks_new_worlds_and_resumes
+assertion `left == right` failed
+```
+
+**已确认与本次改动无关**，证据：
+
+1. 我**没有改动任何时间常量**（`git diff` 检查：`RECONCILE=300s`、`EXIT_DRAIN=8s`、200 ms 轮询、2 s 防抖全部未动），改动只是把两处重复的 watch/unwatch 块抽成一个函数。
+2. 用 `git worktree` 检出**改动前**的 `65d96bb` 对比：隔离运行 12/12 通过、全量并行 6/6 通过；当前代码同样 12/12 与 6/6 通过。两者在相同条件下表现一致，说明这是**时序竞态**而非回归。
+
+根因（读代码即可确定）：测试在写入新统计后只等 **450 ms**，就断言"防抖尚未触发、增量仍为 0"（`tracking_contract.rs:192-193`）。但 watcher 主循环每次 `sleep(200ms)`（`watcher.rs:320`），而防抖窗口是 **2 s**（`watcher.rs:405`）。断言成立与否取决于扫描恰好在哪一 tick 落地——机器负载高时（并行测试）就可能提前完成，于是 `total()` 已是 `100` 而断言期望 `0`。
+
+**建议**（未改，因为它是独立问题且需要判断）：把 `assert_eq!(total(&repo)?, "0")` 从"睡眠后断言"改成"在防抖窗口内确认未变"的轮询式断言，或直接删掉这条断言——它要验证的"防抖生效"其实由紧随其后的 `wait_for(|| total == "100")` 间接覆盖了。修它需要单独一次提交与多次运行验证。
+
 - **B4**、**B5**、**B7**、**B12** 等其余稳定性项。
 
 ---
