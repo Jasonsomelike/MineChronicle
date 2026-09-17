@@ -4,7 +4,24 @@
 
 每一项固定给出：严重度、位置、现状、证据、改法。工作量用 S（半天内）、M（1–2 天）、L（3 天以上或需设计取舍）标注。
 
-**进度**：第 1、2 批已完成，见下方"已完成"两节；其余各项仍待处理。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11。
+**进度**：第 1、2、3 批已完成，见下方"已完成"各节；其余各项仍待处理。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
+
+---
+
+## 已完成（第 3 批：扫描与图标）
+
+同样先测量。本批最重要的结果是**两条审计判断被实测推翻**，因此改动比原计划小得多。
+
+| 项  | 内容                                                                           | 实测结果与结论                                                                                                                                                                                                       |
+| --- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A5  | `discovery.rs` 的 `roots` 成员判断改为 `HashSet`（保留原 `Vec` 顺序）          | **实测否定 O(n²)**：`roots.contains` 在 240 项上仅 **0.013 ms**，而整趟约 436 ms。逐实例成本平坦（60 项 1.87 ms/实例、240 项 1.82 ms/实例）→ 扫描是**线性**的。改动仅作为 256 上限处的防御，注释写明"并非已观测瓶颈" |
+| A5  | Setup.ini 记忆化                                                               | **不做**：实测每趟 40 个容器共 **5.1 ms**，占比约 1%。加 memo 会引入缓存失效问题，收益不成比例                                                                                                                       |
+| A4  | `resource_signature` 改为接收已解析的 source 列表，消除重复的 `sources()` 走查 | 实测重复走查 **0.23 ms**，而同一函数内的 stat 遍历是 **29 ms**（300 jar 实例）——相差 125 倍。只做这一处消除重复，其余不动                                                                                            |
+| A4  | 锁粒度重构                                                                     | **不做**：`cache_only` 分支在取全局锁**之前**就返回，而 UI 的完整检查由 `renderQueue` 串行化，两个完整检查不会并发。没有观测到争用，重构风险大于收益                                                                 |
+| B11 | 请求上限 `100` → `500`，并把条数写进错误信息                                   | 原上限恰好等于 `page_size`（也是 100），页大小一变或只多一行就整批失败。已解耦                                                                                                                                       |
+| B11 | 前端 `discoverIcons` 分批发送（默认 40 条/批）                                 | 大页面不再因单批超限整体失败；每批重置后端的 Java 字节码预算                                                                                                                                                         |
+
+新增测试：`commands_contract.rs::icon_requests_accept_a_page_larger_than_the_old_cap`（经真实 mock IPC 验证 101 条成功、501 条被拒）、`src/lib/runtimeResources.test.ts`（5 例，含分批边界不丢行、跨批汇总计数、已解析时不发请求）。
 
 ---
 
@@ -117,7 +134,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：在 `lib.rs` 的 `setup` 里开一次连接放进 `DatabaseState`（`Mutex<Repository>`），各命令改为借用；退一步至少执行一次 `PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;`。注意 watcher 线程与前台扫描并发写同一库，WAL 能显著减少"database is locked"重试。
 - **风险/工作量**：M。改 `DatabaseState` 形状会波及全部命令签名，但每个命令改动都很机械。
 
-### A4（高）图标解析全程持有一把全局锁，且会整体清空缓存
+### A4（高）图标解析全程持有一把全局锁，且会整体清空缓存 —— 实测后只做部分修复（第 3 批）
 
 - **位置**：`src-tauri/src/minecraft/runtime_resources.rs:1747-1750`（全局 `CACHE` 锁）、`:1774-1783`（TTL 与 `cache.clear()`）、`:368-396`（`read()` 持 `archives` 锁解压）、`:286` 与 `:313`（`sources(root)` 被调用两次）。
 - **现状**：`resolve_stat_icons` 在 `spawn_blocking` 里锁住全局 `CACHE`，然后在其下完成索引构建、逐条 `resolve()`、base64 编码、写磁盘缓存。`:1780` 的 `if cache.len() >= 4 { cache.clear(); }` 会丢弃**所有** root 的索引，包括其它 root 已预热的 `archives` 与 `model_class_files`。`read()` 在持有 `archives` 互斥锁的情况下做 zip 解压，且 `:375` 的 `archives.clear()` 会在批量中途关闭所有已打开的 `File` 句柄。
@@ -125,7 +142,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：把"索引构建"与"逐条解析"分开加锁（例如索引放在 `RwLock` 或 `Arc` 快照里，锁只覆盖查找不覆盖 IO）；`read()` 改为先取出 `Arc<File>` 或复制所需 entry 字节再解压；去掉 `cache.clear()`，改为按 root 淘汰；`indexed()` 内复用一次 `sources(root)` 的结果。
 - **风险/工作量**：M。并发行为改动，需要人工验证图标仍能正确补齐。
 
-### A5（中）扫描发现阶段是 O(n²)，且反复重解析 `PCL/Setup.ini`
+### A5（中）扫描发现阶段是 O(n²)，且反复重解析 `PCL/Setup.ini` —— 实测否定 O(n²)（第 3 批）
 
 - **位置**：`src-tauri/src/scanner/discovery.rs:102` 与 `:110`（`roots.contains` 线性查找）、`:90`（每个目录调用一次 `scan_linked_container`）；`src-tauri/src/launcher/pcl.rs:225`（`settings()` 解析）。
 - **现状**：`roots` 是 `Vec<PathBuf>`，在最多 10,000 个条目的循环里用 `.contains()` 判重；`scan_linked_container` 对每个弹出的目录都调用一次，而它会重新读取并解析同一个 `PCL/Setup.ini`。
@@ -289,7 +306,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：在 `changeScope` / `onScope` 处调用 `savePlayers(uuids, players_none)`（注意 `savePlayers` 第二参数默认 `false`，需显式传），或在 `CombinationPicker.onChange` 统一持久化。修好后需补一条"写入后能读回"的测试。
 - **风险/工作量**：S。**这是一处与文档不符的功能缺陷**，建议优先修。
 
-### B11（中）统计页全量重查放大了 Java 字节码提取预算
+### B11（中）统计页全量重查放大了 Java 字节码提取预算 —— 已加固（第 3 批）
 
 - **位置**：`src/components/Statistics.tsx:134-137` 与 `:169-176`（本次提交引入）、`src-tauri/src/minecraft/runtime_resources.rs:1722`（上限）与 `:1117-1126`（预算）。
 - **现状**：提交 `507f23a` 让统计页对所有非 air 行做运行时检查，而 `resolve_stat_icons` 的请求上限恰好是 `requests.len() > 100`，`page_size` 也是 100——正好卡在边界。同时 `MAX_JAVA_ATTEMPTS` 由 12 提到 **256**，且每批重置。
@@ -501,11 +518,11 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 9. ~~**B6**、**B8**~~ 已修。~~**B9**~~ 实测 setup 仅 2.3 ms，决定不改。
 10. **D5** 补 `package.json` 的 Rust 脚本。（仍未做）
 
-**第 3 批——扫描与图标**
+**第 3 批——扫描与图标（已完成）**
 
-11. **A5** 发现阶段去 O(n²) 与 Setup.ini memo。
-12. **A4** 拆分图标解析的锁粒度。
-13. **B11** 给"完整检查"分批（统计页全量重查的配套加固）。
+11. ~~**A5** 发现阶段去 O(n²) 与 Setup.ini memo。~~ 实测否定 O(n²)（`roots.contains` 0.013 ms / 整趟 436 ms），只做防御性 `HashSet`；Setup.ini memo 因收益约 1% 而未做。
+12. ~~**A4** 拆分图标解析的锁粒度。~~ 未观测到锁争用，不做重构；只消除了重复的 `sources()` 走查。
+13. ~~**B11** 给"完整检查"分批（统计页全量重查的配套加固）。~~ 上限 100→500 解耦 `page_size`，前端按 40 条分批。
 
 **第 4 批——需要设计取舍，单独排期**
 

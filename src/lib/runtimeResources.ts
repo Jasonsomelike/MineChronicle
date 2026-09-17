@@ -47,6 +47,8 @@ type RenderJob = {
 export interface DiscoverOptions {
   refreshKnown?: boolean;
   cacheOnly?: boolean;
+  /** Requests per backend call; smaller chunks keep a big page responsive. */
+  chunkSize?: number;
 }
 let renderQueue = Promise.resolve();
 function classify(
@@ -117,7 +119,12 @@ async function cropOpaquePortrait(dataUrl: string) {
   const sctx = source.getContext('2d', { willReadFrequently: true });
   if (!sctx) throw new Error('Canvas unavailable');
   sctx.drawImage(image, 0, 0);
-  const { data, width, height } = sctx.getImageData(0, 0, source.width, source.height);
+  const { data, width, height } = sctx.getImageData(
+    0,
+    0,
+    source.width,
+    source.height,
+  );
   let minX = width;
   let minY = height;
   let maxX = -1;
@@ -138,7 +145,10 @@ async function cropOpaquePortrait(dataUrl: string) {
     maxX = width - 1;
     maxY = height - 1;
   }
-  const pad = Math.max(1, Math.floor(Math.max(maxX - minX, maxY - minY) * 0.08));
+  const pad = Math.max(
+    1,
+    Math.floor(Math.max(maxX - minX, maxY - minY) * 0.08),
+  );
   minX = Math.max(0, minX - pad);
   minY = Math.max(0, minY - pad);
   maxX = Math.min(width - 1, maxX + pad);
@@ -226,19 +236,29 @@ export async function discoverIcons(
   const noRootRows = pending.filter(
     (r) => !(r.resource_roots ?? []).length,
   ).length;
-  const result = await invoke<Record<string, Resolution>>(
-    'resolve_stat_icons',
-    {
-      args: {
-        requests: pending.map((r) => ({
-          key: r.key,
-          category: r.category,
-          roots: r.resource_roots ?? [],
-        })),
-        cacheOnly,
+  // Send in chunks rather than one request per page: a full "check every row"
+  // pass is 100 rows today, and the backend cap is a safety limit, not a budget
+  // the UI must match exactly. Chunking also keeps a single oversized page from
+  // failing outright, and lets each chunk's Java bytecode budget reset.
+  const result: Record<string, Resolution> = {};
+  const chunkSize = options.chunkSize ?? 40;
+  for (let start = 0; start < pending.length; start += chunkSize) {
+    const chunk = pending.slice(start, start + chunkSize);
+    const part = await invoke<Record<string, Resolution>>(
+      'resolve_stat_icons',
+      {
+        args: {
+          requests: chunk.map((r) => ({
+            key: r.key,
+            category: r.category,
+            roots: r.resource_roots ?? [],
+          })),
+          cacheOnly,
+        },
       },
-    },
-  );
+    );
+    Object.assign(result, part);
+  }
   if (noRootRows) {
     for (const entry of Object.values(result)) {
       if (!entry.image && !entry.job && entry.reason.includes('来源实例')) {
