@@ -6,6 +6,12 @@ use super::{
 };
 use std::{collections::HashSet, path::PathBuf};
 
+/// Directory entries inspected while looking for game roots, per input path.
+const MAX_DISCOVERY_ENTRIES: usize = 10_000;
+/// How deep discovery descends below a selected directory before asking the
+/// user to point at the game root directly.
+const MAX_DISCOVERY_DEPTH: usize = 6;
+
 const SKIP: &[&str] = &[
     "saves",
     "assets",
@@ -51,7 +57,7 @@ pub fn discover_and_scan_linked(
     let mut roots = Vec::new();
     let mut visited = HashSet::new();
     for input in paths {
-        let mut budget = 10_000usize;
+        let mut budget = MAX_DISCOVERY_ENTRIES;
         if !input.is_absolute() {
             issue(
                 &mut discovery.issues,
@@ -161,7 +167,7 @@ pub fn discover_and_scan_linked(
                     continue;
                 }
                 if regular_metadata(&entry, &mut discovery.issues).is_some_and(|m| m.is_dir()) {
-                    if depth < 6 {
+                    if depth < MAX_DISCOVERY_DEPTH {
                         pending.push((entry, depth + 1));
                     } else {
                         issue(

@@ -69,44 +69,96 @@ impl Drop for InstanceGuard {
     }
 }
 
-/// A second launch restores the resident window, avoiding duplicate trackers.
+/// Creates (or opens) the named single-instance mutex.
+///
+/// Returns the guard plus whether the mutex already existed, i.e. another
+/// instance owns it. Split out from `single_instance` so the mutual-exclusion
+/// behaviour can be tested with a unique name instead of the real one, and so
+/// the wait-for-window loop stays out of the test path.
 #[cfg(windows)]
-pub fn single_instance() -> std::io::Result<Option<InstanceGuard>> {
+pub fn acquire_instance_mutex(name: &str) -> std::io::Result<(InstanceGuard, bool)> {
     use std::{ffi::c_void, ptr::null};
     #[link(name = "kernel32")]
     extern "system" {
         fn CreateMutexW(attributes: *const c_void, owner: i32, name: *const u16) -> *mut c_void;
     }
+    let name: Vec<_> = name.encode_utf16().chain(Some(0)).collect();
+    unsafe {
+        let handle = CreateMutexW(null(), 0, name.as_ptr());
+        if handle.is_null() {
+            return Err(std::io::Error::last_os_error());
+        }
+        // ERROR_ALREADY_EXISTS is 183; CreateMutexW sets it when the named
+        // object already existed, which is how a second launch is detected.
+        let already_exists = windows_sys::Win32::Foundation::GetLastError() == 183;
+        Ok((InstanceGuard(handle), already_exists))
+    }
+}
+
+/// A second launch restores the resident window, avoiding duplicate trackers.
+#[cfg(windows)]
+pub fn single_instance() -> std::io::Result<Option<InstanceGuard>> {
+    use std::{ffi::c_void, ptr::null};
     #[link(name = "user32")]
     extern "system" {
         fn FindWindowW(class: *const u16, title: *const u16) -> *mut c_void;
         fn ShowWindow(window: *mut c_void, command: i32) -> i32;
         fn SetForegroundWindow(window: *mut c_void) -> i32;
     }
-    let name: Vec<_> = "Local\\MineChronicle.Desktop.Instance"
-        .encode_utf16()
-        .chain(Some(0))
-        .collect();
-    unsafe {
-        let handle = CreateMutexW(null(), 0, name.as_ptr());
-        if handle.is_null() {
-            return Err(std::io::Error::last_os_error());
-        }
-        let already_exists = windows_sys::Win32::Foundation::GetLastError() == 183;
-        let guard = InstanceGuard(handle);
-        if !already_exists {
-            return Ok(Some(guard));
-        }
-        let title: Vec<_> = "MineChronicle".encode_utf16().chain(Some(0)).collect();
-        for _ in 0..30 {
-            let window = FindWindowW(null(), title.as_ptr());
-            if !window.is_null() {
+    let (guard, already_exists) = acquire_instance_mutex("Local\\MineChronicle.Desktop.Instance")?;
+    if !already_exists {
+        return Ok(Some(guard));
+    }
+    let title: Vec<_> = "MineChronicle".encode_utf16().chain(Some(0)).collect();
+    for _ in 0..30 {
+        let window = unsafe { FindWindowW(null(), title.as_ptr()) };
+        if !window.is_null() {
+            unsafe {
                 ShowWindow(window, 9);
                 SetForegroundWindow(window);
-                break;
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            break;
         }
-        Ok(None)
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    Ok(None)
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    /// Two acquisitions of the same name must not both claim to be first.
+    #[test]
+    fn second_acquisition_reports_an_existing_instance() {
+        // A unique name keeps this independent of a real running MineChronicle
+        // and of previous runs, whose mutex object can outlive the process.
+        let name = format!(
+            "Local\\MineChronicle.Test.{}.{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        );
+        let (first, first_existed) = acquire_instance_mutex(&name).expect("first");
+        assert!(
+            !first_existed,
+            "the first acquisition must create the mutex"
+        );
+
+        let (second, second_existed) = acquire_instance_mutex(&name).expect("second");
+        assert!(
+            second_existed,
+            "the second acquisition must observe the existing mutex"
+        );
+
+        // Dropping both handles releases the name.
+        drop(first);
+        drop(second);
+        let (_third, third_existed) = acquire_instance_mutex(&name).expect("third");
+        assert!(
+            !third_existed,
+            "after every guard is dropped the name must be free again"
+        );
     }
 }

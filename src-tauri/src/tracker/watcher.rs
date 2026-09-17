@@ -16,8 +16,21 @@ use std::{
     time::{Duration, Instant},
 };
 type ActivityProbe = Box<dyn Fn() -> crate::database::DbResult<Vec<ActiveInstance>> + Send>;
+/// How often the watcher wakes to re-check for events, process changes and
+/// deadlines. Also the granularity of every other timer below.
+const TICK: Duration = Duration::from_millis(200);
+/// Full re-check of every active root, to compensate for missed notifications.
 const RECONCILE: Duration = Duration::from_secs(300);
+/// How long a root stays watched after its game exits, to catch the final save.
 const EXIT_DRAIN: Duration = Duration::from_secs(8);
+/// How long file events are batched before scanning. Bounded (not reset by each
+/// event) so continuous saving cannot postpone a scan forever.
+const DEBOUNCE: Duration = Duration::from_secs(2);
+/// How often running game processes are matched against known instances.
+const ACTIVITY_PROBE: Duration = Duration::from_secs(3);
+/// Buffered event paths; beyond this the batch is dropped and a full reconcile
+/// is requested instead.
+const MAX_BUFFERED_PATHS: usize = 1024;
 
 #[derive(Default)]
 struct State {
@@ -270,7 +283,7 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
                 let mut paths = event_paths
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
-                if paths.len() + event.paths.len() > 1024 {
+                if paths.len() + event.paths.len() > MAX_BUFFERED_PATHS {
                     paths.clear();
                     overflow_event.store(true, Ordering::Release);
                 } else {
@@ -302,7 +315,7 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
     let mut last_full = last_scan;
     let mut pending: Option<Instant> = None;
     let mut was_enabled = false;
-    let mut last_probe = Instant::now() - Duration::from_secs(3);
+    let mut last_probe = Instant::now() - ACTIVITY_PROBE;
     let mut active_roots = HashSet::new();
     let mut closing_roots = HashMap::<PathBuf, Instant>::new();
     let mut opening_roots = HashSet::new();
@@ -317,7 +330,7 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
             }
         };
     while !state.shutdown.load(Ordering::Acquire) {
-        std::thread::sleep(Duration::from_millis(200));
+        std::thread::sleep(TICK);
         let enabled = state.enabled.load(Ordering::Acquire);
         if !enabled {
             if was_enabled {
@@ -349,11 +362,11 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
         if !was_enabled {
             last_scan = Instant::now() - RECONCILE;
             last_full = last_scan;
-            last_probe = Instant::now() - Duration::from_secs(3);
+            last_probe = Instant::now() - ACTIVITY_PROBE;
             last_import = None;
             was_enabled = true;
         }
-        if last_probe.elapsed() >= Duration::from_secs(3) {
+        if last_probe.elapsed() >= ACTIVITY_PROBE {
             last_probe = Instant::now();
             match probe() {
                 Ok(active) => {
@@ -402,7 +415,7 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
             // a scan forever.
             pending.get_or_insert_with(Instant::now);
         }
-        if pending.is_some_and(|t| t.elapsed() < Duration::from_secs(2)) {
+        if pending.is_some_and(|t| t.elapsed() < DEBOUNCE) {
             continue;
         }
         if pending.is_none()

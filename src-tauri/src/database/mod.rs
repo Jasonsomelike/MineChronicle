@@ -13,6 +13,11 @@ use std::{
 };
 
 pub type DbResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+thread_local! {
+    /// Bridges SQLite's `fn`-pointer trace hook to the observer a test supplies.
+    static OBSERVER: std::cell::RefCell<Option<fn(&str)>> = const { std::cell::RefCell::new(None) };
+}
 #[derive(Clone)]
 pub struct DatabaseState {
     pub path: PathBuf,
@@ -54,6 +59,29 @@ impl Repository {
         Ok(self
             .connection
             .query_row("PRAGMA journal_mode", [], |r| r.get(0))?)
+    }
+    /// Registers a statement observer for this connection, so tests can assert
+    /// the *shape* of a read path (how many round trips it makes) instead of
+    /// timing it. This needs rusqlite's `trace` feature, which Cargo.toml enables
+    /// for exactly this purpose; see `tests/performance_scale_contract.rs`.
+    ///
+    /// Takes a plain `fn` rather than a closure because SQLite's trace hook
+    /// carries only a function pointer, so an observer cannot capture state -
+    /// tests accumulate into a `static` counter instead.
+    pub fn trace_statements(&self, observer: fn(&str)) {
+        use rusqlite::trace::{TraceEvent, TraceEventCodes};
+        fn dispatch(event: TraceEvent<'_>) {
+            if let TraceEvent::Stmt(_, sql) = event {
+                OBSERVER.with(|slot| {
+                    if let Some(observer) = *slot.borrow() {
+                        observer(sql);
+                    }
+                });
+            }
+        }
+        OBSERVER.with(|slot| *slot.borrow_mut() = Some(observer));
+        self.connection
+            .trace_v2(TraceEventCodes::SQLITE_TRACE_STMT, Some(dispatch));
     }
     /// Switch the archive to WAL. `journal_mode` is persistent, so this only
     /// needs to succeed once; readers no longer block the writer.
