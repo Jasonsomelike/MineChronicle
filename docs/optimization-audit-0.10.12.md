@@ -4,7 +4,60 @@
 
 每一项固定给出：严重度、位置、现状、证据、改法。工作量用 S（半天内）、M（1–2 天）、L（3 天以上或需设计取舍）标注。
 
-**进度**：第 1、2、3 批与两批清理均已完成，**第 4 批（A1/A8/A11）与 C4/C5 也已完成**，见下方各节。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
+**进度**：第 1–5 批已完成，见下方各节。**仍未处理的是 A6/A7/A9/A10/A12/A13/A14 七项**，见文末"清单状态"。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
+
+---
+
+## 已完成（第 5 批：低优先健壮性收尾）
+
+清单剩下的 B4/B5/B7/B12/D8/D9。六项都先读代码确认存在，再动手。
+
+### B5 —— 已修复，但**影响比原文小**
+
+原文说 `break 'groups` 会让"一个超限分组压掉后面所有分组"，听起来像会漏掉候选。**实际不是。**
+
+上限是**全局且单调**的：一旦 `pairs.len() >= MAX_PAIRS`，任何**新** pair 都会撞上守卫，所以无论 `break` 还是 `continue`，**最终 pair 集合完全相同**，继续循环并不能发现更多候选。我先写了个模拟验证这一点，然后才改的代码。
+
+`continue` 真正改变的是**证据**：守卫只拒绝"尚未存在的 key"，所以后续分组仍能为**已找到**的 pair 追加佐证。`break` 会丢掉这些佐证，让同一个候选在不同分组顺序下证据厚薄不一。
+
+改法：只跳过放不下的那个分组，并把跳过的分组数写入 `analysis_status`，通过 `HealthSummary.analysis_skipped_groups` 传到前端（原来只有一个布尔 `limited`，无法区分"跳过一个"还是"跳过全部"）。
+
+顺带把配对逻辑抽成 `collect_pairs`，因为**上限是 2000、真实档案产出 0 对**，集成测试根本够不到这段代码。新增 5 个单测，并**验证过**其中关键的"超限后仍贡献证据"一例在旧的 `break` 下会失败。
+
+### B4 —— 两个 `Drop` 逐字相同，且都会丢句柄
+
+```rust
+if worker.is_finished() { let _ = worker.join(); }   // 否则句柄被直接丢弃
+```
+
+未完成时 `JoinHandle` 被 `take()` 后丢掉，线程继续跑且**再也无法 join**，它持有的数据库连接与 `Arc<Mutex<…>>` 会活过本应关闭它的服务。
+
+抽出 `shutdown_worker`，返回 `Joined` / `Detached` / `NotRunning`，并在不得不分离时**记录一条消息**而不是静默丢弃。签名收 `&AtomicBool` 而非 `&Arc<AtomicBool>`，因为 `Tracker` 把标志内联在共享状态里、`PclSync` 自己持有 `Arc`，两边都要能用。
+
+（说明：两者都由 `app.manage()` 持有，`Drop` 实际只在进程退出时跑一次，所以这不是日常可触发的泄漏；但句柄丢失本身是错的，且退出路径上确实需要它。）
+
+### B7 —— 双击图标毫无反应
+
+第二个实例轮询窗口 30×100 ms 后返回 `None`，调用方 `return Ok(())` —— **退出码 0、没有任何提示**。
+
+- 重试缩短为 10×100 ms：常驻进程已经在跑了，一秒内还没窗口就不会有了，多的两秒纯粹是白等
+- 找不到窗口时用 `MessageBoxW` 说明原因（此时 Tauri 窗口还不存在，没有别的 UI 可用）
+
+### B12 —— 一条坏路径毁掉整次扫描
+
+`path_key` 遇到无法转 UTF-8 的路径就返回 `Err`，`import()` 用 `?` 传播 —— **一个世界的路径有问题，同一次扫描的其它世界全部丢弃**。改为返回 `Option`：跳过该条，并把跳过的路径记为 anomaly，让损失可见。`sessions.rs` 里还有两处同样需要处理。
+
+### D8 —— 测试套件依赖一个没写进文档的工具
+
+测试用 `pwsh -CommandWithArgs` 建目录联接，而 `-CommandWithArgs` **需要 PowerShell 7+**，README 的前置条件里从没提过。
+
+改为 `cmd /C mklink /J`：系统自带、不需要开发者模式或管理员权限，而且**联接正是 Minecraft 启动器实际会创建的东西**。
+
+踩到的坑：`mklink` 是 `cmd` 内建命令，用普通 `.arg()` 传参时 Rust 会给内层引号加反斜杠转义，而 `cmd` 不认 —— 报出 `Invalid switch - "linked"`。改用 `raw_arg` 传整行。另外验证过它确实建出了 `ReparsePoint`，而不是静默什么都没做。
+
+### D9 —— 桌面应用却产出移动端模板的库
+
+`crate-type = ["staticlib", "cdylib", "rlib"]` 是移动端模板的遗留。改为 `["rlib"]`，并**实测** `cargo build --release` 与 `npm run desktop:build` 都仍能产出可执行文件，`target/release` 下的 `.a`/`.dll` 不再生成。
 
 ---
 
@@ -328,7 +381,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：中毒时至少 `set_error` 并置 `overflow`，让 5 分钟补偿检查兜底；更好的是改用 `parking_lot::Mutex`（无中毒）或 `poisoned.into_inner()` 继续使用。
 - **风险/工作量**：S。
 
-### B4（中）两个后台服务的 `Drop` 会泄漏线程
+### B4（中）两个后台服务的 `Drop` 会泄漏线程 —— 已修复（第 5 批）
 
 - **位置**：`src-tauri/src/tracker/watcher.rs:57-70`、`src-tauri/src/launcher/sync.rs:46-59`。
 - **现状**：`Drop` 忙等最多 500 ms，然后 `if worker.is_finished() { let _ = worker.join(); }`。若线程仍在运行，`JoinHandle` 被 `take()` 后直接丢弃——**线程继续跑且无法再 join**，其持有的 `Arc<Mutex<…>>` 与数据库连接一并泄漏。
@@ -336,7 +389,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：`Drop` 里无条件 `join()`（接受退出变慢），或改用带超时的协作式关闭 + `detach` 并在文档中写明；至少不要丢掉句柄。
 - **风险/工作量**：S。
 
-### B5（中）健康检查在首个超限分组处终止全部分析
+### B5（中）健康检查在首个超限分组处终止全部分析 —— 已修复（第 5 批，但影响比原文小）
 
 - **位置**：`src-tauri/src/database/health.rs:74-93`，关键是 `:81-84`。
 - **现状**：`'groups:` 循环里，一旦 `pairs.len() >= MAX_PAIRS`（2000）就 `break 'groups` —— 不是跳过当前分组，而是**放弃所有剩余分组**。`limited` 只置位一个布尔，UI 仅提示"部分候选尚未列出"。
@@ -352,7 +405,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：校验改为直接查 `health_reviews` 与当前 issues 的最小集合（或信任前端传入的 key 并容错），避免重复构建完整汇总。
 - **风险/工作量**：S。
 
-### B7（中）单实例检测在主线程最多睡 3 秒，失败静默
+### B7（中）单实例检测在主线程最多睡 3 秒，失败静默 —— 已修复（第 5 批）
 
 - **位置**：`src-tauri/src/desktop.rs:68-105`，关键是 `:95-103`。
 - **现状**：第二个实例发现互斥量已存在后，循环 30 次 × 100 ms 用 `FindWindowW` 找窗口，找不到就 `Ok(None)`；调用方 `lib.rs:49-52` 直接 `return Ok(())`，进程以退出码 0 静默结束，用户双击图标毫无反应。
@@ -392,7 +445,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：给"完整检查"加分批（例如每批 25 行、串行 await）并显示进度；或把 `MAX_JAVA_ATTEMPTS` 改为按批传入的参数而非固定 256。同时把请求上限与 `page_size` 解耦，避免任何页大小调整都整批失败。
 - **风险/工作量**：M。
 
-### B12（低）非 UTF-8 路径让整个导入失败
+### B12（低）非 UTF-8 路径让整个导入失败 —— 已修复（第 5 批）
 
 - **位置**：`src-tauri/src/database/mod.rs:333-335`（`path_key`）、调用点 `:108`、`:130`、`:182`、`:199` 等。
 - **现状**：`path_key` 对无法转 UTF-8 的路径返回 `Err`，`import()` 用 `?` 直接传播——单个世界的路径含非法 UTF-8 会让**整次扫描**回滚（`scan_commands_contract.rs` 的 `failed_import_rolls_back_the_entire_scan` 正是这个行为）。
@@ -574,7 +627,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：优先补 `resolve_stat_icons` 的 mock IPC 测试（B11/A4 的改动都需要它做回归网）与 `watch_paths` 的单元测试；`desktop.rs` 至少覆盖 `InstanceGuard` 的句柄释放。
 - **风险/工作量**：M。
 
-### D8（低）测试套件隐式依赖 PowerShell 7+
+### D8（低）测试套件隐式依赖 PowerShell 7+ —— 已修复（第 5 批，改为不依赖外部工具）
 
 - **位置**：`src-tauri/tests/support/mod.rs:79-81`。
 - **现状**：测试用 `pwsh -CommandWithArgs` 创建目录联接，但 `Cargo.toml` 的 `[dev-dependencies]` 只声明了 `tauri` 与 `tempfile`；`-CommandWithArgs` 需要 PowerShell 7+，Windows PowerShell 5.1 不支持。README 未提及该前提。
@@ -582,7 +635,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：在 README 的验证环境里补一行"PowerShell 7+"，或改用 Rust 侧的 `std::os::windows::fs::symlink_dir` / junction crate 消除外部依赖。
 - **风险/工作量**：S。
 
-### D9（低）`crate-type` 含桌面应用不需要的产物
+### D9（低）`crate-type` 含桌面应用不需要的产物 —— 已修复（第 5 批）
 
 - **位置**：`src-tauri/Cargo.toml:9-10`。
 - **现状**：`crate-type = ["staticlib", "cdylib", "rlib"]`。桌面应用只需要 `rlib`（集成测试用）+ Tauri 的构建方式；`staticlib`/`cdylib` 是移动端模板的遗留，会增加构建时间与磁盘占用。
@@ -648,7 +701,19 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - ~~**C4/C5** 领域模型取舍、分类分类法合并。~~ 已完成：C4 删除死代码，C5 改为漂移守卫（详见第 4 批）。
 - ~~**A1 / A8 / A11** 第 4 批三项。~~ 已完成（详见第 4 批）。
 
-**低优先、未处理**（都不是回归，按需再做）：C6 之外的 B4/B5/B7/B12、D8/D9。
+**清单状态**：第 1–5 批处理了大部分条目（A1–A5、A8、A11、B1–B12、C1–C11、D1–D9）。**仍未处理的是 A6、A7、A9、A10、A12、A13、A14 共七项**，都是"中/低优先、需要设计取舍或改动面较大"的：
+
+| 项  | 内容                                                                    | 为什么还没做                                                               |
+| --- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| A6  | `timeline` 每请求跑两遍 CTE；`date(observed_at,'localtime')` 让索引失效 | 需覆盖本地时区边界，`activity_contract.rs` 有日期用例                      |
+| A7  | 18,882 键的资源表随每页 IPC 重复传输同一批 pack 名                      | 需同步改前端类型与渲染，收益要实测                                         |
+| A9  | watcher 每轮序列化整个 summary 只为算指纹                               | 可改用 `tracking_cursors.normalized_hash`，但需确认语义等价                |
+| A10 | 统计文件读取最坏 300 ms/文件，且落在扫描热循环内                        | 改动不能破坏"不信任 mtime"的既有保证（`scan_optimization_contract.rs:75`） |
+| A12 | `dist` 71.7 MB，10,710 个图标 PNG 每次构建整份拷贝                      | 需改为按需加载或再压缩                                                     |
+| A13 | 前端逐像素扫描整张皮肤 PNG 找包围盒（512² = 262,144 次迭代，在主线程）  | 可用 `createImageBitmap` + 降采样，收益需实测                              |
+| A14 | 三套轮询与常驻挂载                                                      | 需统一生命周期设计                                                         |
+
+唯一**实测后决定不改**的是 B9（`setup` 阻塞 IO，稳态仅 2.3 ms）。
 
 ---
 
