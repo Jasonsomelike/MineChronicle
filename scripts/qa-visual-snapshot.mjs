@@ -286,6 +286,27 @@ const trackingSummary = {
       started_at: '2026-09-16T20:00:00.000Z',
       ended_at: '2026-09-16T22:15:00.000Z',
       status: 'closed',
+      pseudo_seconds: '8100',
+    },
+    {
+      id: 2,
+      game_root: 'D:\\QA\\server',
+      instance_name: '香草纪元：食旅纪行',
+      started_at: '2026-09-17T10:17:48.000Z',
+      ended_at: '2026-09-17T12:37:00.000Z',
+      status: 'closed',
+      pseudo_seconds: '8352',
+    },
+    {
+      // No observed end: the row must show a dash rather than a number, and the
+      // total line must say the duration could not be measured.
+      id: 3,
+      game_root: 'D:\\QA\\server',
+      instance_name: '香草纪元：食旅纪行',
+      started_at: '2026-09-18T04:39:43.000Z',
+      ended_at: null,
+      status: 'interrupted',
+      pseudo_seconds: '0',
     },
   ],
   players: [
@@ -305,6 +326,26 @@ const trackingSummary = {
   rollback_count: 1,
   observations: 12,
   started_at: '2026-09-01T09:00:00.000Z',
+  pseudo: [
+    {
+      game_root: 'D:\\QA\\server',
+      instance_name: '香草纪元：食旅纪行',
+      seconds: '16452',
+      week_seconds: '8352',
+      month_seconds: '16452',
+      sessions: 2,
+      unknown_sessions: 1,
+    },
+    {
+      game_root: 'D:\\QA\\root',
+      instance_name: 'QA Instance',
+      seconds: '8100',
+      week_seconds: '0',
+      month_seconds: '8100',
+      sessions: 1,
+      unknown_sessions: 0,
+    },
+  ],
 };
 
 const pclStatus = {

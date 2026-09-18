@@ -165,11 +165,7 @@ pub fn match_instances(
 ) -> Vec<ActiveInstance> {
     let key = |p: &std::path::Path| {
         let p = std::fs::canonicalize(p).unwrap_or_else(|_| p.to_owned());
-        p.to_string_lossy()
-            .trim_start_matches(r"\\?\")
-            .replace('\\', "/")
-            .trim_end_matches('/')
-            .to_lowercase()
+        crate::scanner::path_identity::comparison_key(&p.to_string_lossy())
     };
     let mut roots = BTreeMap::<String, ActiveInstance>::new();
     for game in games {

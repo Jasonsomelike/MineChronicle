@@ -11,6 +11,12 @@ pub struct ObservedSession {
     pub started_at: String,
     pub ended_at: Option<String>,
     pub status: String,
+    /// Seconds of this run with no world progress: play whose statistics live
+    /// somewhere the archive cannot see (a server). Filled in by
+    /// `tracking_summary`, which owns the attribution rule; `observed_sessions`
+    /// alone leaves it at zero.
+    #[serde(default)]
+    pub pseudo_seconds: String,
 }
 
 impl Repository {
@@ -91,8 +97,25 @@ impl Repository {
                 started_at: r.get(3)?,
                 ended_at: r.get(4)?,
                 status: r.get(5)?,
+                pseudo_seconds: "0".into(),
             })
         })?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// The same list with each run's pseudo-server time filled in.
+    ///
+    /// Kept separate from `observed_sessions` because attribution needs the
+    /// deltas as well as the sessions, and callers that only want the raw
+    /// boundaries should not pay for that.
+    pub fn observed_sessions_with_pseudo(&self) -> DbResult<Vec<ObservedSession>> {
+        let mut sessions = self.observed_sessions()?;
+        let (_, per_session) = self.pseudo_attribution()?;
+        for session in &mut sessions {
+            if let Some(seconds) = per_session.get(&session.id) {
+                session.pseudo_seconds = seconds.to_string();
+            }
+        }
+        Ok(sessions)
     }
 }

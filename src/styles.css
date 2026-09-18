@@ -2198,6 +2198,14 @@ button.stat-icon:hover {
   font-size: 12px;
   line-height: 1.7;
 }
+.observed-sessions-total {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: #35594a;
+}
+.observed-sessions-total strong {
+  font-variant-numeric: tabular-nums;
+}
 .observed-sessions-scroll {
   max-height: 340px;
   overflow: auto;

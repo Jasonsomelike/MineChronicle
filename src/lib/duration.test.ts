@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPlayTicks, formatTickTotal } from './duration';
+import { formatPlayTicks, formatSeconds, formatTickTotal } from './duration';
 
 describe('integer tick display', () => {
   it('formats aggregate ticks beyond i64 without rounding', () => {
@@ -26,4 +26,21 @@ describe('integer tick display', () => {
       expect(() => formatPlayTicks(input)).toThrow();
     },
   );
+});
+
+describe('second display', () => {
+  it.each([
+    ['0', '0 秒'],
+    ['59', '59 秒'],
+    ['60', '1 分钟'],
+    ['3600', '1 小时'],
+    ['3660', '1 小时 1 分钟'],
+    ['37737', '10 小时 28 分钟 57 秒'],
+    ['9007199254740993', '2501999792983 小时 36 分钟 33 秒'],
+  ])('formats %s seconds', (input, output) => {
+    expect(formatSeconds(input)).toBe(output);
+  });
+  it.each(['-1', '1.5', '', 'abc'])('rejects invalid seconds %s', (input) => {
+    expect(() => formatSeconds(input)).toThrow();
+  });
 });

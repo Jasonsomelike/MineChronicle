@@ -18,6 +18,8 @@ export interface TrackingSummary {
     started_at: string;
     ended_at: string | null;
     status: 'running' | 'closed' | 'interrupted';
+    /** Seconds of this run with no world progress. Absent on older archives. */
+    pseudo_seconds?: string;
   }[];
   players: {
     uuid: string;
@@ -36,6 +38,20 @@ export interface TrackingSummary {
   rollback_count: number;
   observations: number;
   started_at: string | null;
+  /**
+   * Per-instance time observed running while its worlds did not progress, i.e.
+   * play whose statistics live somewhere this archive cannot see (a server).
+   * Seconds, not ticks: it is a wall-clock measurement.
+   */
+  pseudo: {
+    game_root: string;
+    instance_name: string;
+    seconds: string;
+    week_seconds: string;
+    month_seconds: string;
+    sessions: number;
+    unknown_sessions: number;
+  }[];
 }
 export async function loadTracking() {
   if (!isTauri()) return null;
@@ -77,5 +93,35 @@ export function trackingTotals(
       month: sum.month + BigInt(p.month_ticks),
     }),
     { ticks: 0n, week: 0n, month: 0n },
+  );
+}
+
+/**
+ * Pseudo-server time across every instance.
+ *
+ * Deliberately not filtered by player: `observed_sessions` records which
+ * instance ran, not who was playing, so there is no uuid to filter on. The
+ * dashboard's player selector therefore cannot narrow this figure, which is why
+ * it is presented as an instance-level measurement rather than a player stat.
+ */
+export function pseudoTotals(summary: TrackingSummary | null) {
+  const rows = summary?.pseudo ?? [];
+  return rows.reduce(
+    (sum, entry) => ({
+      seconds: sum.seconds + BigInt(entry.seconds),
+      week: sum.week + BigInt(entry.week_seconds),
+      month: sum.month + BigInt(entry.month_seconds),
+      sessions: sum.sessions + entry.sessions,
+      unknown: sum.unknown + entry.unknown_sessions,
+      instances: sum.instances + (BigInt(entry.seconds) > 0n ? 1 : 0),
+    }),
+    {
+      seconds: 0n,
+      week: 0n,
+      month: 0n,
+      sessions: 0,
+      unknown: 0,
+      instances: 0,
+    },
   );
 }

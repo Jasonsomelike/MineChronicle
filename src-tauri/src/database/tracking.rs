@@ -2,6 +2,111 @@ use super::{DbResult, Repository};
 use rusqlite::OptionalExtension;
 use serde::Serialize;
 use std::collections::BTreeMap;
+
+/// How long after a session ends a world delta may still be attributed to it.
+///
+/// The watcher only scans *after* a game process exits (`EXIT_DRAIN`, then the
+/// reconcile pass), so a delta caused by a session is always stamped later than
+/// that session's `ended_at`. Measured on the reference archive: 0 of 5 recorded
+/// deltas fall inside a session window, so without this grace every local
+/// single-player session would read as 100% pseudo-server time - a plausible
+/// looking number that is entirely wrong.
+///
+/// The window is also capped by the next session's start, so a long gap cannot
+/// let one run claim progress that happened during a later one.
+const DELTA_GRACE_SECONDS: i64 = 900;
+
+/// One observed session, with times already converted to Unix epoch seconds.
+#[derive(Debug, Clone)]
+pub(crate) struct SessionWindow {
+    /// Row id, so attribution can be reported per session as well as per
+    /// instance.
+    pub id: i64,
+    pub game_root: String,
+    pub started: i64,
+    /// End of the observed run. Sessions with no observed end are excluded
+    /// before this point: their duration is unknown, not zero.
+    pub ended: i64,
+    /// When the next session for the same root began, if there is one.
+    pub next_start: Option<i64>,
+}
+
+/// One recorded world play-time increase.
+#[derive(Debug, Clone)]
+pub(crate) struct DeltaAt {
+    pub game_root: String,
+    pub world_id: i64,
+    pub observed: i64,
+    pub ticks: i64,
+}
+
+/// Attributes each world delta to the observed session that caused it.
+///
+/// Returns the attributed ticks per session, in the same order as `sessions`.
+///
+/// Split out as a pure function because the grace window cannot be exercised
+/// against the real archive - no recorded delta falls inside a session there -
+/// so an integration test would pass even with the window removed entirely.
+pub(crate) fn attribute_deltas(
+    sessions: &[SessionWindow],
+    deltas: &[DeltaAt],
+    grace_seconds: i64,
+) -> Vec<i64> {
+    // Two players in one world each write a delta at the same instant for the
+    // same wall-clock progress, so take the largest rather than the sum. The
+    // reference archive only has single-player worlds today, which is exactly
+    // why summing would go unnoticed until a shared world appeared.
+    let mut merged: BTreeMap<(&str, i64, i64), i64> = BTreeMap::new();
+    for delta in deltas {
+        merged
+            .entry((delta.game_root.as_str(), delta.world_id, delta.observed))
+            .and_modify(|ticks| *ticks = (*ticks).max(delta.ticks))
+            .or_insert(delta.ticks);
+    }
+    let entries: Vec<_> = merged.into_iter().collect();
+    let mut claimed = vec![false; entries.len()];
+    let mut attributed = vec![0i64; sessions.len()];
+    for (index, session) in sessions.iter().enumerate() {
+        // Claim [started, min(ended + grace, next_start - 1)]. The upper bound
+        // keeps a delta recorded during a later run from being credited here.
+        let last = match session.next_start {
+            Some(next) => (session.ended + grace_seconds).min(next - 1),
+            None => session.ended + grace_seconds,
+        };
+        for (slot, ((root, _, observed), ticks)) in entries.iter().enumerate() {
+            if claimed[slot] || *root != session.game_root.as_str() {
+                continue;
+            }
+            if *observed >= session.started && *observed <= last {
+                claimed[slot] = true;
+                attributed[index] = attributed[index].saturating_add(*ticks);
+            }
+        }
+    }
+    attributed
+}
+
+/// Pseudo-server time per instance: observed running, but its worlds did not
+/// progress.
+///
+/// This is the case for a server client, where the statistics live on the
+/// server so the local `saves/` directory stays empty and world tracking sees
+/// nothing at all.
+#[derive(Serialize)]
+pub struct InstancePseudo {
+    pub game_root: String,
+    pub instance_name: String,
+    /// Decimal seconds. Not ticks: the value is a wall-clock measurement, and
+    /// seconds keep the arithmetic in one unit from SQL through to the UI.
+    pub seconds: String,
+    pub week_seconds: String,
+    pub month_seconds: String,
+    pub sessions: usize,
+    /// Sessions for this instance whose end was never observed. Their time is
+    /// unknown, so it is excluded rather than guessed.
+    pub unknown_sessions: usize,
+}
+
 #[derive(Serialize)]
 pub struct PlayerTracking {
     pub uuid: String,
@@ -26,6 +131,9 @@ pub struct TrackingSummary {
     pub rollback_count: i64,
     pub observations: i64,
     pub started_at: Option<String>,
+    /// Per-instance time observed running with no world progress, i.e. play
+    /// whose statistics live somewhere this archive cannot see (a server).
+    pub pseudo: Vec<InstancePseudo>,
 }
 impl Repository {
     pub fn tracking_enabled(&self) -> DbResult<bool> {
@@ -98,7 +206,7 @@ impl Repository {
             });
         }
         Ok(TrackingSummary {
-            sessions: self.observed_sessions()?,
+            sessions: self.observed_sessions_with_pseudo()?,
             players,
             rollbacks,
             rollback_count: self.connection.query_row(
@@ -116,6 +224,320 @@ impl Repository {
                 [],
                 |r| r.get(0),
             )?,
+            pseudo: self.pseudo_server_time()?,
         })
+    }
+
+    /// Time each instance was observed running without its worlds progressing.
+    ///
+    /// Reads the sessions and deltas, then hands them to `attribute_deltas`,
+    /// which owns the grace-window rule. Splitting it this way keeps the rule
+    /// testable with synthetic data, because the reference archive cannot
+    /// exercise it (no recorded delta falls inside a session there).
+    ///
+    /// Sessions with no observed end are counted but contribute no time: an
+    /// interrupted observation cannot attest to when the game stopped, which is
+    /// the same position `interrupt_observed_sessions` already takes.
+    pub fn pseudo_server_time(&self) -> DbResult<Vec<InstancePseudo>> {
+        Ok(self.pseudo_parts()?.0)
+    }
+
+    /// Pseudo time per instance, plus the same figure per session row.
+    ///
+    /// One computation serves both: the session table shows each run's own
+    /// number, and the instance totals must agree with those rows, so deriving
+    /// them separately would risk the two drifting apart.
+    pub fn pseudo_attribution(&self) -> DbResult<(Vec<InstancePseudo>, BTreeMap<i64, i64>)> {
+        self.pseudo_parts()
+    }
+
+    fn pseudo_parts(&self) -> DbResult<(Vec<InstancePseudo>, BTreeMap<i64, i64>)> {
+        // Epoch seconds keep the arithmetic in one unit. `strftime` returns TEXT
+        // in SQLite, so it is read as a string and parsed; an unparseable
+        // timestamp yields NULL and those rows are counted as unknown rather
+        // than silently becoming 0 (which would read as a zero-length session).
+        let mut windows = Vec::new();
+        let mut unknown: BTreeMap<String, usize> = BTreeMap::new();
+        let mut names: BTreeMap<String, String> = BTreeMap::new();
+        // The key is for comparison; this keeps the original path for display,
+        // so the frontend still shows the instance's real directory.
+        let mut display: BTreeMap<String, String> = BTreeMap::new();
+        // Session id -> pseudo seconds, so the session list can show the figure
+        // per row without the frontend re-deriving the attribution rule.
+        let mut per_session: BTreeMap<i64, i64> = BTreeMap::new();
+        let mut query = self.connection.prepare(
+            "SELECT id, game_root, instance_name, \
+             strftime('%s', started_at), strftime('%s', ended_at), \
+             lead(strftime('%s', started_at)) OVER (PARTITION BY game_root ORDER BY started_at) \
+             FROM observed_sessions ORDER BY game_root, started_at",
+        )?;
+        for row in query.query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<String>>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, Option<String>>(5)?,
+            ))
+        })? {
+            let (id, game_root, instance_name, started, ended, next_start) = row?;
+            // Sessions and deltas reach the archive in different path forms (the
+            // scanner canonicalises, the process probe does not), so both sides
+            // are compared through the same key. Joining on the raw string would
+            // silently match nothing and report zero pseudo time.
+            let key = crate::scanner::path_identity::comparison_key(&game_root);
+            names.entry(key.clone()).or_insert(instance_name);
+            display.entry(key.clone()).or_insert(game_root);
+            let (Some(started), Some(ended)) = (
+                started.and_then(|v| v.parse::<i64>().ok()),
+                ended.and_then(|v| v.parse::<i64>().ok()),
+            ) else {
+                *unknown.entry(key).or_default() += 1;
+                continue;
+            };
+            // A clock change could store an end before the start; treat it as
+            // zero-length rather than subtracting into negative time.
+            if ended < started {
+                continue;
+            }
+            windows.push(SessionWindow {
+                id,
+                game_root: key,
+                started,
+                ended,
+                next_start: next_start.and_then(|v| v.parse::<i64>().ok()),
+            });
+        }
+        let mut deltas = Vec::new();
+        let mut query = self.connection.prepare(
+            "SELECT g.path, d.world_id, strftime('%s', d.observed_at), d.delta_ticks \
+             FROM tracked_deltas d \
+             JOIN worlds w ON w.id = d.world_id \
+             JOIN game_roots g ON g.id = w.game_root_id",
+        )?;
+        for row in query.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, i64>(3)?,
+            ))
+        })? {
+            let (game_root, world_id, observed, ticks) = row?;
+            let Some(observed) = observed.and_then(|v| v.parse::<i64>().ok()) else {
+                continue;
+            };
+            deltas.push(DeltaAt {
+                game_root: crate::scanner::path_identity::comparison_key(&game_root),
+                world_id,
+                observed,
+                ticks,
+            });
+        }
+        let attributed = attribute_deltas(&windows, &deltas, DELTA_GRACE_SECONDS);
+
+        // Week and month windows reuse the same local-date rule as the player
+        // totals, so both figures agree on what "this week" means.
+        //
+        // SQLite's dynamic typing means `strftime` yields TEXT for a single
+        // call but INTEGER once the values are subtracted, so the column is
+        // read as a `Value` and converted either way.
+        let epoch_of = |sql: &str| -> DbResult<i64> {
+            let value: rusqlite::types::Value = self.connection.query_row(sql, [], |r| r.get(0))?;
+            Ok(match value {
+                rusqlite::types::Value::Integer(number) => number,
+                rusqlite::types::Value::Text(text) => text.parse().unwrap_or(0),
+                _ => 0,
+            })
+        };
+        let mut week_start = epoch_of(
+            "SELECT strftime('%s','now','localtime','start of day', \
+             printf('-%d days',(cast(strftime('%w','now','localtime') as integer)+6)%7))",
+        )?;
+        let mut month_start = epoch_of("SELECT strftime('%s','now','localtime','start of month')")?;
+        // SQLite computes those in local time; the session timestamps are stored
+        // in UTC, so the bounds are shifted by the same offset before comparing.
+        let offset = epoch_of("SELECT strftime('%s','now','localtime') - strftime('%s','now')")?;
+        week_start -= offset;
+        month_start -= offset;
+
+        let mut totals: BTreeMap<String, (i64, i64, i64, usize, usize)> = BTreeMap::new();
+        for (index, session) in windows.iter().enumerate() {
+            let entry = totals.entry(session.game_root.clone()).or_default();
+            let observed = session.ended - session.started;
+            let pseudo = (observed - attributed[index] / 20).max(0);
+            // Kept so the session table can show the same figure per row rather
+            // than re-deriving it in the frontend.
+            per_session.insert(session.id, pseudo);
+            entry.0 += pseudo;
+            if session.started >= week_start {
+                entry.1 += pseudo;
+            }
+            if session.started >= month_start {
+                entry.2 += pseudo;
+            }
+            entry.3 += 1;
+        }
+        for (game_root, count) in unknown {
+            totals.entry(game_root).or_default().4 = count;
+        }
+        Ok((
+            totals
+                .into_iter()
+                .map(
+                    |(key, (seconds, week, month, sessions, unknown_sessions))| {
+                        let instance_name = names.remove(&key).unwrap_or_default();
+                        // Fall back to the key when a session had no display path
+                        // (only possible if every session for it was unreadable).
+                        let game_root = display.remove(&key).unwrap_or_else(|| key.clone());
+                        InstancePseudo {
+                            game_root,
+                            instance_name,
+                            seconds: seconds.to_string(),
+                            week_seconds: week.to_string(),
+                            month_seconds: month.to_string(),
+                            sessions,
+                            unknown_sessions,
+                        }
+                    },
+                )
+                .collect(),
+            per_session,
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicI64, Ordering};
+
+    /// Session ids are only used to key the per-session result, so the tests
+    /// assign them sequentially.
+    static NEXT_ID: AtomicI64 = AtomicI64::new(1);
+
+    fn session(root: &str, started: i64, ended: i64, next: Option<i64>) -> SessionWindow {
+        SessionWindow {
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            game_root: root.into(),
+            started,
+            ended,
+            next_start: next,
+        }
+    }
+
+    fn delta(root: &str, world: i64, observed: i64, ticks: i64) -> DeltaAt {
+        DeltaAt {
+            game_root: root.into(),
+            world_id: world,
+            observed,
+            ticks,
+        }
+    }
+
+    #[test]
+    fn a_session_with_no_world_progress_attributes_nothing() {
+        let sessions = [session("root", 1000, 4600, None)];
+        let attributed = attribute_deltas(&sessions, &[], DELTA_GRACE_SECONDS);
+        assert_eq!(attributed, vec![0]);
+    }
+
+    #[test]
+    fn a_delta_inside_the_window_is_attributed() {
+        let sessions = [session("root", 1000, 4600, None)];
+        let deltas = [delta("root", 1, 2000, 600)];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(attributed, vec![600]);
+    }
+
+    /// The case the whole grace window exists for: the watcher scans after the
+    /// process exits, so the delta is stamped after `ended`.
+    #[test]
+    fn a_delta_after_the_session_end_is_still_attributed() {
+        let sessions = [session("root", 1000, 4600, None)];
+        // Five minutes after the end, inside the 15-minute grace.
+        let deltas = [delta("root", 1, 4900, 600)];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(
+            attributed,
+            vec![600],
+            "the post-exit scan must be credited to the run that caused it"
+        );
+    }
+
+    #[test]
+    fn a_delta_beyond_the_grace_is_not_attributed() {
+        let sessions = [session("root", 1000, 4600, None)];
+        // Twenty minutes after the end, outside the 15-minute grace.
+        let deltas = [delta("root", 1, 5800, 600)];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(attributed, vec![0]);
+    }
+
+    /// Without the cap, a long idle gap would let an earlier run claim progress
+    /// that actually happened during a later one.
+    #[test]
+    fn the_next_session_caps_the_grace_window() {
+        // Session 1 ends at 4600; session 2 starts 120 s later. A delta at 4700
+        // is inside session 1's grace but before session 2 begins, so session 1
+        // claims it. A delta at 4730 belongs to session 2.
+        let sessions = [
+            session("root", 1000, 4600, Some(4720)),
+            session("root", 4720, 9000, None),
+        ];
+        let deltas = [delta("root", 1, 4700, 600), delta("root", 1, 4730, 900)];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(attributed, vec![600, 900]);
+    }
+
+    #[test]
+    fn a_delta_is_claimed_by_only_one_session() {
+        // Overlapping windows: the delta must not be counted twice.
+        let sessions = [
+            session("root", 1000, 4600, None),
+            session("root", 1000, 4600, None),
+        ];
+        let deltas = [delta("root", 1, 2000, 600)];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(attributed.iter().sum::<i64>(), 600);
+    }
+
+    /// Two players in one world record the same wall-clock progress twice.
+    #[test]
+    fn simultaneous_players_are_counted_once() {
+        let sessions = [session("root", 1000, 4600, None)];
+        let deltas = [
+            delta("root", 1, 2000, 600),
+            delta("root", 1, 2000, 590),
+            delta("root", 1, 2000, 20),
+        ];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(attributed, vec![600], "take the largest, not the sum");
+    }
+
+    /// Two different worlds progressing at the same instant are independent.
+    #[test]
+    fn separate_worlds_at_the_same_instant_both_count() {
+        let sessions = [session("root", 1000, 4600, None)];
+        let deltas = [delta("root", 1, 2000, 600), delta("root", 2, 2000, 400)];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(attributed, vec![1000]);
+    }
+
+    #[test]
+    fn another_instances_delta_is_ignored() {
+        let sessions = [session("root-a", 1000, 4600, None)];
+        let deltas = [delta("root-b", 1, 2000, 600)];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(attributed, vec![0]);
+    }
+
+    #[test]
+    fn a_delta_before_the_session_started_is_ignored() {
+        let sessions = [session("root", 1000, 4600, None)];
+        let deltas = [delta("root", 1, 999, 600)];
+        let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
+        assert_eq!(attributed, vec![0]);
     }
 }

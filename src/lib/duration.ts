@@ -32,3 +32,24 @@ export function formatCompactTicks(ticks: string): string {
     (seconds % 3600n) / 60n ? ` ${(seconds % 3600n) / 60n}m` : ''
   }`;
 }
+
+/**
+ * Format a duration already expressed in seconds.
+ *
+ * Observed sessions are wall-clock measurements, so they are stored in seconds
+ * rather than ticks. Converting to ticks here would mean multiplying by 20 only
+ * to divide it back out, and would put a value that can legitimately be large
+ * through a counter type it does not belong to.
+ */
+export function formatSeconds(seconds: string): string {
+  if (!/^\d+$/.test(seconds)) throw new Error('Seconds must be non-negative');
+  const value = BigInt(seconds);
+  const hours = value / 3600n;
+  const minutes = (value % 3600n) / 60n;
+  const rest = value % 60n;
+  const parts = [];
+  if (hours) parts.push(`${hours} 小时`);
+  if (minutes) parts.push(`${minutes} 分钟`);
+  if (rest || !parts.length) parts.push(`${rest} 秒`);
+  return parts.join(' ');
+}

@@ -4,6 +4,25 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// A comparable key for a path string, independent of the form it was stored in.
+///
+/// The same directory reaches the archive written several ways: the scanner
+/// stores `fs::canonicalize` output (`\\?\C:\...` on Windows), the running-game
+/// probe builds paths from process arguments, and the frontend lowercases and
+/// slashes them. Comparing raw strings therefore misses matches that a human
+/// would call identical - and a missed match reads as "no data" rather than as
+/// an error, which is the dangerous kind of wrong.
+///
+/// This is the comparison used by `match_instances`, extracted so other joins
+/// use the same rule instead of inventing their own.
+pub fn comparison_key(value: &str) -> String {
+    value
+        .trim_start_matches(r"\\?\")
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .to_lowercase()
+}
+
 /// Keep the handle open for the scan, so a removed directory's ID cannot be
 /// reused while deduplication is still in progress. Never compare lossy strings.
 #[derive(Debug)]

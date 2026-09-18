@@ -2,10 +2,14 @@ import { lazy, Suspense, useId, useMemo, useState } from 'react';
 import type { ScanSummary } from '../lib/scan';
 import { summarize } from '../lib/dashboard';
 import type { Ranking } from '../lib/dashboard';
-import { formatTickTotal, formatCompactTicks } from '../lib/duration';
+import {
+  formatTickTotal,
+  formatCompactTicks,
+  formatSeconds,
+} from '../lib/duration';
 import { displayPath } from '../lib/path';
 import { groupIssues } from '../lib/issues';
-import { trackingTotals } from '../lib/tracking';
+import { trackingTotals, pseudoTotals } from '../lib/tracking';
 import type { TrackingSummary } from '../lib/tracking';
 import type { HealthSummary } from '../lib/health';
 import {
@@ -136,6 +140,10 @@ export default function Dashboard({
     report.issues.filter((i) => i.kind !== 'EMPTY_STATS'),
   );
   const tracked = trackingTotals(tracking, playersNone ? null : players);
+  // Not filtered by player: observed sessions record which instance ran, not
+  // who played, so there is no uuid to filter on. Presenting it as an
+  // instance-level figure keeps that honest.
+  const pseudo = pseudoTotals(tracking);
   const rollbacks =
     tracking?.rollbacks.filter((r) =>
       selectedPlayer(r.uuid, playersNone ? null : players),
@@ -293,6 +301,14 @@ export default function Dashboard({
             {tracking?.rollback_count ?? 0} 次回档记录 · {data.unreadable}{' '}
             条当前读数不可用
           </p>
+          {pseudo.seconds > 0n ? (
+            <p>
+              伪服务器时长 {formatSeconds(pseudo.seconds.toString())}
+              {pseudo.instances ? ` · ${pseudo.instances} 个实例` : ''}
+              {pseudo.unknown ? ` · ${pseudo.unknown} 次会话未观测到结束` : ''}
+              ；指实例在运行、但本地世界统计没有增长的时间（连服务器游玩）。
+            </p>
+          ) : null}
           {health?.confirmed_lineages ? (
             <p>
               已确认 {health.confirmed_lineages}{' '}
