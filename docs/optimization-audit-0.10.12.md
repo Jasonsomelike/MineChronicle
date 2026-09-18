@@ -4,7 +4,67 @@
 
 每一项固定给出：严重度、位置、现状、证据、改法。工作量用 S（半天内）、M（1–2 天）、L（3 天以上或需设计取舍）标注。
 
-**进度**：第 1–5 批已完成，见下方各节。**仍未处理的是 A6/A7/A9/A10/A12/A13/A14 七项**，见文末"清单状态"。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
+**进度**：第 1–6 批已完成，见下方各节。**仍未处理的是 A7 与 A12 两项**（都需要设计取舍），见文末"清单状态"。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
+
+---
+
+## 已完成（第 6 批：A 类剩余项）
+
+五项先实测再动手。**其中三项的原始判断是错的**，改动因此比原计划小。
+
+### A13 —— 不是性能问题，是**死代码**
+
+原文说 `cropOpaquePortrait` 在主线程逐像素扫描 512×512 皮肤（262,144 次迭代）。实际这个函数**根本不可达**：它只在 `job.kind === 'portrait'` 时调用，而**没有任何地方产生这个值**。
+
+提交 `7307155`（"Stop inventing icons for custom Java UV skins"）删掉了 Rust 侧的 `"kind": "portrait"`，却漏了前端两处消费者，于是这条分支从那时起就是死的。核查过：Rust 与渲染脚本里每一个 job 构造点（只产出 `frame`，以及不带 `kind` 的模型任务）；图标缓存 `read_icon_cache` 恒返回 `job: None`，所以旧缓存也不会带出 `portrait`。两处消费者（`runtimeResources.ts`、`stat-icon-renderer.mjs`）一并删除，渲染器保留 frame / model / layer 三条活路径。
+
+### A6 —— 一半是对的，另一半**改法反而更慢**
+
+**日期过滤是真的。** `date(observed_at,'localtime')` 把函数套在列上，SQLite 无法用 `snapshots_by_time` 做范围查找（执行计划 `SCAN`，可 sargable 时是 `SEARCH`），实测 0.047 ms → 0.007 ms。改法：时区换算移到参数侧，上界改为半开区间。两个坑：`%f` 必须带（存储值有毫秒，不带毫秒的界在字符串比较中会排到同一时刻之后）；上界要取次日 00:00。等价性在真实档案上跑了 **62 个下界 + 62 个上界，零差异**，并加了测试钉住"首尾两天都包含"——已验证把上界改成闭区间该测试会失败。
+
+**合并 CTE 是错的，我原来的建议会让它变慢 3–5 倍。**
+
+| 快照行数 | 现在的两次查询 | `count(*) OVER ()` 合并 |
+| -------- | -------------- | ----------------------- |
+| 412      | 0.50 ms        | 1.25 ms                 |
+| 3,547    | 2.18 ms        | 7.61 ms                 |
+| 10,891   | 6.91 ms        | 26.12 ms                |
+| 30,891   | 20.46 ms       | 98.35 ms                |
+
+原因是窗口函数会强制 `CO-ROUTINE` + `USE TEMP B-TREE FOR ORDER BY`，丢掉两次查询形式本来白拿的索引有序扫描。**CTE 保持跑两遍**，并在代码里注明原因。日期改写端到端只省了 2.4 ms 里的约 0.3 ms。
+
+### A9 —— 实测后不改，而且**原文瞄准的目标是错的**
+
+原文说 watcher 每轮序列化整个 summary 算指纹。实测：**0.163 ms**，对比同轮的发现扫描 **407 ms** —— 占 **0.04%**。
+
+原文顺带提到的 `watch_paths` 才是真开销：**18 ms/次，每轮调两次 = 36 ms**。但它不可省：64 root / 97 world 对应 516 次 `safe_dir`，**去重后仍是 516 次**（没有冗余）。
+
+我试着优化过（提升重复 join、把父目录检查提前），结果**我自己写的断言抓到了错误**：原实现即使 `saves` 不存在也会插入 `root.path`，我的版本跳过了。**原实现是对的**，因此保持不动，只留 `bench_watch_paths` 记录这 18 ms，免得下一个人重新推导一遍。
+
+### A10 —— 已修复
+
+`read_stats` 最多重试 4 次、每次间隔 100 ms。实测：**失败一次 ~300 ms，健康文件 ~1 ms**。扫描会遍历它能看到的每个统计文件，所以每个文件白付 300 ms 是真实的扫描时间。
+
+三种情况等待没有意义，现在首次即返回：
+
+| 情况                         | 改前     | 改后       |
+| ---------------------------- | -------- | ---------- |
+| 文件不存在                   | 301.7 ms | **0.5 ms** |
+| 陈旧空文件                   | ~300 ms  | 立即返回   |
+| 截断的 JSON（超过 5 秒未变） | ~300 ms  | 立即返回   |
+
+重试循环对**它真正存在的理由**照旧生效：文件为空或无法解析、**且 5 秒内被修改过**（正是 Minecraft 正在写入的样子）。改后实测这种情况仍然花 ~300 ms 重试，符合预期。
+
+这不削弱"内容判断不信任 mtime"的保证——那条针对的是解析缓存，它仍然对每个字节做哈希；mtime 只用来判断"等待是否有意义"。两个测试钉住两个方向，并已验证删掉"文件不存在"的提前返回后第一个测试会失败（`missing took 301.869ms`）。
+
+### A14 —— 实测否定
+
+原文说"四个独立定时器各自轮询"、`SessionPage` 永久挂载导致子页 effect 空转。**实测不成立**：
+
+- 四个 `setInterval` **全都**已经带守卫：`InstanceObservation` 3s、`ScanPanel` 5s/3s 都有 `document.hidden` **和** `active`/`pageActive`；`ScanPanel` 的 60s 那个**根本不发 IPC**，只比较本地日期字符串，跨天才刷新。
+- `ScanPanel` 挂在 `SessionPage` 之外是**有意的**：它的 `trackingStatus`/`pclStatus` 驱动**常驻可见**的顶部状态条（`ScanPanel.tsx:459-500`），所以无论在哪一页都必须继续轮询。
+- 稳态成本：约 32 次/分钟的亚毫秒读取，`loadLibrary` 还只在 PCL revision 变化时才调。
+- `SessionPage` 保留已访问页面确实是**写在注释里的设计意图**（"Keep visited pages in memory for this process"）。
 
 ---
 
@@ -281,7 +341,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：`roots` 改 `HashSet<PathBuf>`（保留插入顺序可另存一个 `Vec`）；把解析好的 Setup.ini 结果按 launcher 路径 memo 一次，传给本轮所有容器。
 - **风险/工作量**：S。
 
-### A6（中）`timeline` 每请求跑两遍 CTE，日期过滤让索引失效
+### A6（中）`timeline` 每请求跑两遍 CTE，日期过滤让索引失效 —— 日期已修，CTE 保留（第 6 批）
 
 - **位置**：`src-tauri/src/database/activity.rs:276-281`（count 与 page 各跑一次 `EVENTS`）、`:197-209`（CTE 定义与 `FILTER`）。
 - **现状**：`EVENTS` 内含两个 `EXISTS`/`NOT EXISTS` 相关子查询，`total` 与当前页各执行一次完整 CTE。`FILTER` 里 `date(observed_at,'localtime')>=?4` 对列施加函数，无法走 `snapshots_by_time` 索引（`005_activity.sql:2`）。
@@ -289,7 +349,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：日期条件改写为 `observed_at >= ?` 的半开区间（把 `localtime` 换算放在参数侧）；`total` 改用 `count(*) OVER ()` 窗口函数与页面查询合并成一次。
 - **风险/工作量**：M。需覆盖本地时区边界，`activity_contract.rs` 有日期用例。
 
-### A7（中）20.6 MB JSON 编入二进制，逐行克隆进 IPC
+### A7（中）20.6 MB JSON 编入二进制，逐行克隆进 IPC —— 未处理
 
 - **位置**：`src-tauri/src/minecraft/translations.rs:26-32` 与 `:175-181`（`include_str!`）、`:34-48`（`stat_resources`）、`database/activity.rs:58-70`（`StatisticRow.resources`）。
 - **现状**：`stat-resources.json` 18,105,863 字节 + `stat-translations.json` 2,417,350 字节经 `include_str!` 进二进制，首次使用时解析；`stat_resources()` 对每行 `format!("{category}|{key}")` 查表并 `.cloned()` 整个 `Vec<StatResource>`，随后整份进 IPC。
@@ -305,7 +365,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：为 observation 行做保留策略（例如同 (world,player) 只保留最近 N 条 + 全部有 delta 的行）；或把 `stats` 存为压缩 blob（zstd/flate2，仓库已依赖 `flate2`）；或在时长未变时只存差分。**属于需要设计取舍**的改动，因为时间线（A6）会读这些快照。
 - **风险/工作量**：L。
 
-### A9（中）watcher 每轮序列化整个 summary 计算指纹，`watch_paths` 重复调用
+### A9（中）watcher 每轮序列化整个 summary 计算指纹 —— 实测后决定不改（第 6 批）
 
 - **位置**：`src-tauri/src/tracker/watcher.rs:496-499`（指纹）、`:412` 与 `:516`（两次 `watch_paths`）、`:136-166`（`safe_dir` 反复 stat）。
 - **现状**：`blake3::hash(&serde_json::to_vec(&(&summary, stats))?)` 把包含所有玩家标准化统计的整个 summary 序列化一遍，只为了判断"内容是否变化"；`roots.clone()` 再分配一次。`watch_paths` 每轮调用两次，内部对同一批路径重复 `symlink_metadata`。
@@ -313,7 +373,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：指纹改为对每个 (world, player) 的 `normalized_hash` 已存值求和/哈希（`tracking_cursors` 已有该字段），避免重新序列化统计体；`watch_paths` 结果在 `library` 未变时缓存复用。
 - **风险/工作量**：M。
 
-### A10（中）统计文件读取的重试与缓存策略
+### A10（中）统计文件读取的重试与缓存策略 —— 已修复（第 6 批）
 
 - **位置**：`src-tauri/src/scanner/stable_stats.rs:39-60`（重试）、`:14-35`（缓存）。
 - **现状**：`read_stats` 最多 4 次尝试，每次之间 `std::thread::sleep(100ms)`，即最坏 **300 ms/文件**，且发生在扫描热循环内（`scanner/world.rs:116`）。缓存以整文件 BLAKE3 为键，命中仍需完整读取并哈希整个文件。淘汰时 `values.values().map(|v| v.0).sum::<usize>()` 每次插入重算一遍。
@@ -329,7 +389,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：确认不使用后移除 `@tailwindcss/vite`、`tailwindcss`、`styles.css` 的 `@import`，构建时间预计下降约 30 秒；若想保留，需真正改用工具类。属于**需要你确认方向**的取舍。
 - **风险/工作量**：S（移除）／L（迁移到工具类）。
 
-### A12（低）产物与依赖体积
+### A12（低）产物与依赖体积 —— 未处理
 
 - **位置**：`dist/`、`package.json`。
 - **现状**：`dist` 71.7 MB，其中 10,710 个图标 PNG 全量复制（73.7 MB，实测 0 个未被引用，所以不是垃圾，但每次构建都整份拷贝）；`RankingChart` chunk 471.96 kB、`stat-icon-renderer` 566.34 kB、主 `index` 373.72 kB。
@@ -337,7 +397,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：图标改为按需从磁盘缓存加载（A4 已有运行时缓存机制），或对 PNG 做无损再压缩；`stat-icon-renderer` 已是动态 `import()`，可进一步确认它只在需要时下载。
 - **风险/工作量**：M。
 
-### A13（低）前端逐像素扫描整图
+### A13（低）前端逐像素扫描整图 —— 不是性能问题，是死代码（第 6 批）
 
 - **位置**：`src/lib/runtimeResources.ts:110-163`（`cropOpaquePortrait`）、`:125-134`（双重循环）。
 - **现状**：对整张皮肤 PNG 逐像素找不透明包围盒，512×512 即 262,144 次迭代，且在主线程。
@@ -345,7 +405,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：降采样后再找包围盒（例如每 4 像素采样），或移到 OffscreenCanvas/Worker。
 - **风险/工作量**：S。
 
-### A14（低）三套轮询与常驻挂载
+### A14（低）三套轮询与常驻挂载 —— 实测否定（第 6 批）
 
 - **位置**：`src/components/ScanPanel.tsx:154`（5s）、`:211`（3s）、`:291`（60s）；`src/components/SessionPage.tsx:17-24`；`src/components/InstanceObservation.tsx:39`（3s）。
 - **现状**：`SessionPage` 一旦被访问就永久挂载（`visited` 只置真不置假），只靠 `hidden` 隐藏；其中 `Statistics`/`Timeline`/`Dashboard` 的 effect 仍会因 `pageActive` 之外的依赖变化而运行。四个独立定时器各自轮询。
@@ -701,19 +761,16 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - ~~**C4/C5** 领域模型取舍、分类分类法合并。~~ 已完成：C4 删除死代码，C5 改为漂移守卫（详见第 4 批）。
 - ~~**A1 / A8 / A11** 第 4 批三项。~~ 已完成（详见第 4 批）。
 
-**清单状态**：第 1–5 批处理了大部分条目（A1–A5、A8、A11、B1–B12、C1–C11、D1–D9）。**仍未处理的是 A6、A7、A9、A10、A12、A13、A14 共七项**，都是"中/低优先、需要设计取舍或改动面较大"的：
+**清单状态**：第 1–6 批已处理 A/B/C/D 全部条目，**只剩 A7 与 A12 两项未做**，两者都需要设计取舍：
 
-| 项  | 内容                                                                    | 为什么还没做                                                               |
-| --- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| A6  | `timeline` 每请求跑两遍 CTE；`date(observed_at,'localtime')` 让索引失效 | 需覆盖本地时区边界，`activity_contract.rs` 有日期用例                      |
-| A7  | 18,882 键的资源表随每页 IPC 重复传输同一批 pack 名                      | 需同步改前端类型与渲染，收益要实测                                         |
-| A9  | watcher 每轮序列化整个 summary 只为算指纹                               | 可改用 `tracking_cursors.normalized_hash`，但需确认语义等价                |
-| A10 | 统计文件读取最坏 300 ms/文件，且落在扫描热循环内                        | 改动不能破坏"不信任 mtime"的既有保证（`scan_optimization_contract.rs:75`） |
-| A12 | `dist` 71.7 MB，10,710 个图标 PNG 每次构建整份拷贝                      | 需改为按需加载或再压缩                                                     |
-| A13 | 前端逐像素扫描整张皮肤 PNG 找包围盒（512² = 262,144 次迭代，在主线程）  | 可用 `createImageBitmap` + 降采样，收益需实测                              |
-| A14 | 三套轮询与常驻挂载                                                      | 需统一生命周期设计                                                         |
+| 项  | 内容                                               | 为什么还没做                                                                       |
+| --- | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| A7  | 18,882 键的资源表随每页 IPC 重复传输同一批 pack 名 | 需同步改前端类型与渲染（`activity.ts`、`Statistics.tsx`），收益要实测              |
+| A12 | `dist` 71.7 MB，10,710 个图标 PNG 每次构建整份拷贝 | 需改为按需加载或无损再压缩；仓库已有运行时缓存机制（A4）可复用，但要确认离线可用性 |
 
-唯一**实测后决定不改**的是 B9（`setup` 阻塞 IO，稳态仅 2.3 ms）。
+**实测后决定不改的有三项**：B9（`setup` 阻塞 IO，稳态仅 2.3 ms）、A9（指纹仅 0.163 ms，占一轮 407 ms 扫描的 0.04%）、A14（四个定时器本来就都有守卫，常驻轮询是在喂常驻状态条）。
+
+**审计原文被实测推翻的共九处**：A3（迁移事务的理由被夸大）、A4（未观察到锁竞争）、A5（是线性不是 O(n²)）、A6（合并 CTE 反而慢 3–5 倍）、A8（无噪音行，保留策略会删真实历史）、A9（瞄准的目标占 0.04%）、A11（Tailwind 的 preflight 是承重的）、A13（是死代码不是性能问题）、A14（定时器本来就有守卫），另有 C7（"36 处重复"实为 5 处真 no-op）。
 
 ---
 
