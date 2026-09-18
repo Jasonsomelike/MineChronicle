@@ -4,13 +4,51 @@
 
 每一项固定给出：严重度、位置、现状、证据、改法。工作量用 S（半天内）、M（1–2 天）、L（3 天以上或需设计取舍）标注。
 
-**进度**：第 1–6 批已完成，见下方各节。**仍未处理的是 A7 与 A12 两项**（都需要设计取舍），见文末"清单状态"。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
+**进度**：第 1–6 批已完成，**清单全部条目已处理完毕**（含五项实测后决定不改），见文末"清单状态"。审计期间还提交了两个改动（Java 实体模型 UV 画布修正、统计页全量重查），不在清单内，其中引入的新风险记为 B11（第 3 批已加固）。
 
 ---
 
 ## 已完成（第 6 批：A 类剩余项）
 
-五项先实测再动手。**其中三项的原始判断是错的**，改动因此比原计划小。
+七项先实测再动手。**其中五项的最后一项都没有改**（三项原文判断错误，两项量级被高估），实际只改了 A6 的日期过滤与 A10 的重试。
+
+### A7 —— 量级被高估，改法收益太小，不改
+
+原文称最重页面 **872 KB**，且"每行都带 `source_packs` 与 `resources[].packs`"是主因。实测：
+
+| 项                       | 实测                                                                 |
+| ------------------------ | -------------------------------------------------------------------- |
+| 最重页面                 | **255 KB**（`current/interaction`，41 行 / 405 个候选），不是 872 KB |
+| `current/all` 页面       | 82.8 KB                                                              |
+| `source_packs` 数组      | 占 **2.6–3.9%**                                                      |
+| `resources[].packs` 数组 | 占 **2.9–3.9%**                                                      |
+| 两者重复的 pack 名       | 166–934 个                                                           |
+
+也就是说，**原文点名的那个改法（pack 名去重）最多只能省 2.6–10.6%**，却要改前端类型与渲染（`activity.ts`、`Statistics.tsx`）——不划算。
+
+真正占大头的是 `resources[]`（**53.5%**）与 `resource_roots[]`（**15.3%**）。我把两者都量化过：
+
+- `resource_roots` 提到页级：23–57 个不同列表，最多省 **5.1–12.5%**
+- `resources[]` 内部：`translation_source` 占 18.8%、`packs` 9.9%、`label` 5.8%、`origin` 4.8%；而前端**确实渲染每一项**（`Statistics.tsx:706-720` 在折叠面板里列出所有候选）
+
+没有任何单项改动能省下可观比例，而 255 KB 对本地 IPC 完全可接受。**结论：不改**，并把量级修正记在这里，避免以后有人照着 872 KB 去做无用功。
+
+### A12 —— 量级与"整份拷贝"都被高估，不改
+
+原文称 `dist` 71.7 MB、10,710 个图标"每次构建整份拷贝"。实测：
+
+| 项                                | 实测                                                           |
+| --------------------------------- | -------------------------------------------------------------- |
+| 10,710 个 PNG 是否都被引用        | **全部 10,710 个都被 `stat-resources.json` 引用**，0 个死文件  |
+| 256×256 的图标                    | 4,866 个 / **64.8 MB（87.9%）**，而 CSS 里显示尺寸是 **56×56** |
+| 降到 112px（2× 显示尺寸）实测节省 | **3.3 MB（4.5%）**                                             |
+| 降到 128px 实测                   | **反而变大 7%**                                                |
+
+降采样收益极小，原因是这些是**纯色像素画**：PNG 已经把它们压得很紧，重采样反而引入渐变，压缩率更差。所以"降到显示尺寸"这个直觉在这里不成立。
+
+构建侧：整份拷贝耗时包含在 **14.2 s** 的完整构建里（public 复制是 vite 的本地文件拷贝，不是瓶颈）。
+
+**结论：不改**——既没有死文件可删，降采样也换不来实质收益，却要牺牲图像质量。
 
 ### A13 —— 不是性能问题，是**死代码**
 
@@ -349,7 +387,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：日期条件改写为 `observed_at >= ?` 的半开区间（把 `localtime` 换算放在参数侧）；`total` 改用 `count(*) OVER ()` 窗口函数与页面查询合并成一次。
 - **风险/工作量**：M。需覆盖本地时区边界，`activity_contract.rs` 有日期用例。
 
-### A7（中）20.6 MB JSON 编入二进制，逐行克隆进 IPC —— 未处理
+### A7（中）20.6 MB JSON 编入二进制，逐行克隆进 IPC —— 实测否定（第 6 批）
 
 - **位置**：`src-tauri/src/minecraft/translations.rs:26-32` 与 `:175-181`（`include_str!`）、`:34-48`（`stat_resources`）、`database/activity.rs:58-70`（`StatisticRow.resources`）。
 - **现状**：`stat-resources.json` 18,105,863 字节 + `stat-translations.json` 2,417,350 字节经 `include_str!` 进二进制，首次使用时解析；`stat_resources()` 对每行 `format!("{category}|{key}")` 查表并 `.cloned()` 整个 `Vec<StatResource>`，随后整份进 IPC。
@@ -389,7 +427,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：确认不使用后移除 `@tailwindcss/vite`、`tailwindcss`、`styles.css` 的 `@import`，构建时间预计下降约 30 秒；若想保留，需真正改用工具类。属于**需要你确认方向**的取舍。
 - **风险/工作量**：S（移除）／L（迁移到工具类）。
 
-### A12（低）产物与依赖体积 —— 未处理
+### A12（低）产物与依赖体积 —— 实测否定（第 6 批）
 
 - **位置**：`dist/`、`package.json`。
 - **现状**：`dist` 71.7 MB，其中 10,710 个图标 PNG 全量复制（73.7 MB，实测 0 个未被引用，所以不是垃圾，但每次构建都整份拷贝）；`RankingChart` chunk 471.96 kB、`stat-icon-renderer` 566.34 kB、主 `index` 373.72 kB。
@@ -417,7 +455,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 
 ## B. 稳定性：主线程阻塞与错误兜底
 
-### B1（高）若干 Tauri 命令跑在主线程
+### B1（高）若干 Tauri 命令跑在主线程 —— 已修复（第 1 批）
 
 - **位置**：`src-tauri/src/commands/runtime.rs:16`（`runtime_info`）、`commands/preferences.rs:5` 与 `:12`（`self_player_identity` / `set_self_player_identity`）、`commands/mod.rs:28`（`phase_status`）、`commands/startup.rs:88` 与 `:112`。
 - **现状**：这些命令**没有** `async`，按 Tauri 语义在**主线程**执行；每个都新开 SQLite 连接并（`runtime_info`）跑一次完整 `load()`。同目录的 `library.rs`、`tracking.rs`、`activity.rs`、`health.rs` 都已经用了 `async` + `spawn_blocking`。
@@ -433,7 +471,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：加一个 ErrorBoundary 包住 `<App/>`（以及各 `SessionPage` 内部，避免单页崩溃拖垮整个壳），显示错误摘要与"重新加载"按钮。可顺带接 `window.onerror` / `unhandledrejection`（当前 0 处全局处理）。
 - **风险/工作量**：S。
 
-### B3（高）watcher 在互斥锁中毒时静默丢弃文件事件
+### B3（高）watcher 在互斥锁中毒时静默丢弃文件事件 —— 已修复（第 1 批）
 
 - **位置**：`src-tauri/src/tracker/watcher.rs:236-246`（事件回调）、`:398-401`（取用）。
 - **现状**：回调里 `if let Ok(mut paths) = event_paths.lock()` —— 若锁中毒则**整个事件被丢弃**，但下一行 `changed.store(true, …)` 仍执行；`:400` 的 `changed_paths.lock().map(…).unwrap_or_default()` 同样在中毒时静默返回空集合。
@@ -517,7 +555,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 
 ## C. 可维护性
 
-### C1（高）`runtime_resources.rs` 2205 行且不内聚
+### C1（高）`runtime_resources.rs` 2205 行且不内聚 —— 已拆分（第 3 批清理）
 
 - **位置**：`src-tauri/src/minecraft/runtime_resources.rs` 全文。
 - **现状**：单文件混装至少七类职责：图标磁盘缓存与 PNG 头解析（`:105-192`）、全局索引与归档互斥锁（`:36-47`、`:312-396`）、资源包来源发现含 `options.txt` 解析（`:204-282`）、Minecraft 模型父子链解析（`:407-471`）、**约 450 行硬编码 per-mod 实体别名**（`:579-652`）、Java `.class` 常量池解析（`:908-956`）、Bedrock 几何与 vanilla 模板 JSON 字面量（`:733-857`）、两个 `#[tauri::command]`（`:1651`、`:1713`），外加 430 行测试（`:1830-2263`）。
@@ -541,7 +579,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：抽成 `fn reconcile_watches(watcher, desired, &mut registered) -> usize`（返回失败数），内部先收集差集到 `Vec` 再插入，去掉克隆。
 - **风险/工作量**：S。
 
-### C4（中）整套领域模型只被一个测试使用
+### C4（中）整套领域模型只被一个测试使用 —— 已删除死代码（第 4 批）
 
 - **位置**：`src-tauri/src/domain/models.rs` 全文（`LauncherInstallation`、`Instance`、`GameRoot`、`World`、`Player`、`AccountType` 与 4 个 `id_type!` newtype）。
 - **现状**：持久层实际用裸 `i64` 主键 + JSON payload（`database/mod.rs`），这些类型仅被 `src-tauri/tests/location_contract.rs` 引用。同理 `minecraft/stats_location.rs:55-77` 的 `FutureStatsLocation` / `InvalidStatsLocation` 只服务 `tests/location_contract.rs`；`launcher/mod.rs:25-31` 的 `LauncherAdapter` trait 只有一个实现者。
@@ -549,7 +587,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：要么让持久层真正使用这些类型（较大改动），要么删除并同步删掉 `location_contract.rs`。属于**需要你决策**的方向。
 - **风险/工作量**：M。
 
-### C5（中）同一套分类分类法被编码三次
+### C5（中）同一套分类分类法被编码三次 —— 改为漂移守卫（第 4 批）
 
 - **位置**：`src-tauri/src/database/activity.rs:87-99`（`STATISTICS_CATEGORIES`）与 `:101-195`（`statistic_group`，95 行 match + 大段硬编码字符串表）；`src-tauri/src/minecraft/translations.rs:50-173`（`stat_unit`，约 120 行 match）与 `:182-197`（`category_label`）。
 - **现状**：分类 id、中文标签、单位、以及 legacy 前缀到分组的映射分散在三处，各自维护。`statistic_group` 还在 `activity.rs:504-509` 与 `:521` 对同一批行重复调用。
@@ -557,7 +595,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：抽一张统一的分类表（例如 `resources/stat-categories.json` 或一个 `const` 表），由三处共用；`statistic_group` 的结果在遍历时算一次并随行携带。
 - **风险/工作量**：M。
 
-### C6（中）迁移有两套并行机制
+### C6（中）迁移有两套并行机制 —— 已合并为单一列表（第 2 批）
 
 - **位置**：`src-tauri/src/database/mod.rs:58-83`。
 - **现状**：先 `match version` 处理 0/1/2..=6，紧接着又用 `if version < 3/4/5/6` 链补执行。version 2 先被 `2..=6 => {}` 吞掉，再由 `if` 链处理。新增一个迁移要同时改两处，容易漏。
@@ -597,7 +635,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：`wide()` 提到一个共用模块；INSERT 改用 `RETURNING id` 或 `last_insert_rowid()`（同时消掉 A2/M11 的部分开销）；锁错误串抽成常量或 `From` 实现。
 - **风险/工作量**：S。
 
-### C9（低）魔法数字未命名
+### C9（低）魔法数字未命名 —— 关键上限已具名（第 3 批清理）
 
 - **位置**：多处。代表性清单：`tracker/watcher.rs:238`（1024 事件上限）、`:370`（2 s 防抖）、`:321`（3 s 探测）；`scanner/discovery.rs:54`（10,000 预算）、`:122`（256）、`:158`（深度 6）；`runtime_resources.rs:269`（深度 16 / 200,000）、`:339`（`take(200_000)`）、`:374`（8 个归档）、`:996`（64）、`:1142`（1.5 MB）；`commands/scan.rs:90`（15 s）、`:104`（75 ms）；`stable_stats.rs:28-29`（512 / 32 MiB）；`database/activity.rs:281`（LIMIT 50）、`:540`（take 100）、`:213`（4096 / 32768）、`:230`（1024）。
 - **现状**：部分已具名（`RECONCILE`、`EXIT_DRAIN`、`MAX_PAIRS`、`MIN_CLONE_TICKS`、`MAX_JAVA_ATTEMPTS`），其余散落为字面量。
@@ -649,7 +687,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：改用 `std::f32::consts::FRAC_PI_4` / `FRAC_PI_8`。注意这些值进入的是 Minecraft 模型 JSON 字面量，替换后需确认序列化结果与原来一致（f32 精度下应当相同），建议跑一次实体图标 QA 比对。
 - **风险/工作量**：S。
 
-### D4（中）没有 CI，clippy 的 deny 没有门禁
+### D4（中）没有 CI，clippy 的 deny 没有门禁 —— 已加 workflow（第 3 批清理）
 
 - **位置**：仓库根（无 `.github`、无 `azure-pipelines.yml`）。
 - **现状**：`src-tauri/Cargo.toml:40-42` 声明 `unwrap_used = "deny"`、`expect_used = "deny"`，但只有在开发者本地手动跑 clippy 时才生效。实测这三项检查（lint / format / clippy）当前都是红的，说明本地流程没有真正执行它们。
@@ -665,7 +703,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：加 `rust:fmt`、`rust:clippy`、`rust:test`、`verify`（串联全部检查），把 `--jobs 1` 的说明留在 README。
 - **风险/工作量**：S。
 
-### D6（低）没有性能回归门禁
+### D6（低）没有性能回归门禁 —— 已加语句计数门禁（第 3 批清理）
 
 - **位置**：`src-tauri/examples/benchmark_scan.rs`。
 - **现状**：它输出 `discovery_ms=…` 等指标，但只是 `examples/` 下的可执行文件，不是 `#[bench]` 或 criterion target，没有基线也没有阈值。A1/A2/A4 这类改动因此没有任何自动化的"变慢了"信号。
@@ -673,7 +711,7 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - **改法**：把它升级为 `benches/` 下的 criterion 基准（至少覆盖 `load()`、`statistics()`、`timeline()` 三条路径），或在 CI 里跑一次并比对阈值。
 - **风险/工作量**：M。
 
-### D7（中）测试覆盖缺口
+### D7（中）测试覆盖缺口 —— 已补齐（第 3 批清理）
 
 - **位置**：见下。
 - **现状**：131 个 Rust 用例覆盖不错，但有明确空洞：
@@ -761,16 +799,19 @@ B10 的回归脚本 `scripts/qa-player-persistence.mjs` 与 B2 的 `scripts/qa-e
 - ~~**C4/C5** 领域模型取舍、分类分类法合并。~~ 已完成：C4 删除死代码，C5 改为漂移守卫（详见第 4 批）。
 - ~~**A1 / A8 / A11** 第 4 批三项。~~ 已完成（详见第 4 批）。
 
-**清单状态**：第 1–6 批已处理 A/B/C/D 全部条目，**只剩 A7 与 A12 两项未做**，两者都需要设计取舍：
+**清单状态：全部条目已处理完毕。** 第 1–6 批覆盖 A/B/C/D 的每一条，A7 与 A12 是最后两项，实测后同样决定不改（理由见上）。
 
-| 项  | 内容                                               | 为什么还没做                                                                       |
-| --- | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| A7  | 18,882 键的资源表随每页 IPC 重复传输同一批 pack 名 | 需同步改前端类型与渲染（`activity.ts`、`Statistics.tsx`），收益要实测              |
-| A12 | `dist` 71.7 MB，10,710 个图标 PNG 每次构建整份拷贝 | 需改为按需加载或无损再压缩；仓库已有运行时缓存机制（A4）可复用，但要确认离线可用性 |
+**实测后决定不改的有五项**：
 
-**实测后决定不改的有三项**：B9（`setup` 阻塞 IO，稳态仅 2.3 ms）、A9（指纹仅 0.163 ms，占一轮 407 ms 扫描的 0.04%）、A14（四个定时器本来就都有守卫，常驻轮询是在喂常驻状态条）。
+| 项  | 实测数据                                  | 为什么不动                                             |
+| --- | ----------------------------------------- | ------------------------------------------------------ |
+| B9  | `setup` 稳态 2.3 ms（仅首次建档 23 ms）   | 收益低于改动风险                                       |
+| A7  | 最重页 255 KB，pack 去重仅省 2.6–10.6%    | 要改前端类型与渲染，换不来实质收益                     |
+| A9  | 指纹 0.163 ms，占一轮 407 ms 扫描的 0.04% | 真正的 18 ms 在 `watch_paths`，但 516 个目录无冗余可去 |
+| A12 | 降采样 112px 仅省 3.3 MB，128px 反而 +7%  | 纯色像素画已压得很紧，重采样引入渐变反而更差           |
+| A14 | 四个定时器本来就都有守卫，稳态 32 次/分钟 | 常驻轮询是在喂常驻可见的状态条，属有意设计             |
 
-**审计原文被实测推翻的共九处**：A3（迁移事务的理由被夸大）、A4（未观察到锁竞争）、A5（是线性不是 O(n²)）、A6（合并 CTE 反而慢 3–5 倍）、A8（无噪音行，保留策略会删真实历史）、A9（瞄准的目标占 0.04%）、A11（Tailwind 的 preflight 是承重的）、A13（是死代码不是性能问题）、A14（定时器本来就有守卫），另有 C7（"36 处重复"实为 5 处真 no-op）。
+**审计原文被实测推翻或修正的共十一处**：A3（迁移事务的理由被夸大）、A4（未观察到锁竞争）、A5（是线性不是 O(n²)）、A6（合并 CTE 反而慢 3–5 倍）、A7（872 KB 实为 255 KB，且点名的改法只省 2.6–10.6%）、A8（无噪音行，保留策略会删真实历史）、A9（瞄准的目标占 0.04%）、A11（Tailwind 的 preflight 是承重的）、A12（图标无死文件，降采样收益 4.5% 且可能变大）、A13（是死代码不是性能问题）、A14（定时器本来就有守卫），另有 C7（"36 处重复"实为 5 处真 no-op）。
 
 ---
 
