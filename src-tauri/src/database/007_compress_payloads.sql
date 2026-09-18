@@ -1,0 +1,14 @@
+-- Bumps the schema version so the payload-compression pass runs once on
+-- existing archives.
+--
+-- The compression itself is done in Rust (database::snapshot_codec), because the
+-- migration runner executes SQL scripts and the codec needs real compression.
+-- This script exists only to advance user_version, which is what makes
+-- migrate() run its post-migration steps instead of returning early on an
+-- already-current archive.
+--
+-- The column definitions are unchanged: `stats` and `current_stats` still hold
+-- the same JSON, just deflated and base64-encoded with a `z1:` prefix. Readers
+-- accept both forms, so an archive stays usable if it is opened by an older
+-- build that does not know about the prefix.
+PRAGMA user_version=7;

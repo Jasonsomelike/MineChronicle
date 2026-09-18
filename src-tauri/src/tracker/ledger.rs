@@ -37,7 +37,7 @@ pub fn observe(
     {
         return Ok(());
     }
-    tx.execute("INSERT INTO stat_snapshots(world_id,player_uuid,kind,play_ticks,stats,normalized_hash) VALUES (?,?,'observation',?,?,?)",params![world,uuid,ticks,stats,hash])?;
+    tx.execute("INSERT INTO stat_snapshots(world_id,player_uuid,kind,play_ticks,stats,normalized_hash) VALUES (?,?,'observation',?,?,?)",params![world,uuid,ticks,crate::database::snapshot_codec::encode(stats),hash])?;
     let snapshot = tx.last_insert_rowid();
     if let Some((old, _)) = previous {
         if ticks > old {

@@ -35,7 +35,7 @@ fn legacy_archive_upgrades_from_initial_schema_to_latest() -> TestResult {
     let connection = rusqlite::Connection::open(&path)?;
     assert_eq!(
         connection.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-        6
+        7
     );
     for table in [
         "instances",
@@ -67,6 +67,117 @@ fn legacy_archive_upgrades_from_initial_schema_to_latest() -> TestResult {
     Ok(())
 }
 
+/// Snapshot payloads are stored compressed, but rows written by an earlier build
+/// hold plain JSON. Opening such an archive must convert them without changing
+/// what any reader sees, and must leave an already-converted archive alone.
+#[test]
+fn opening_an_archive_compresses_legacy_payloads_once() -> TestResult {
+    let temp = tempfile::tempdir()?;
+    let path = temp.path().join("legacy-payloads.sqlite3");
+    // Realistic size: a stats payload is ~10 KB in practice, and the codec
+    // deliberately leaves very small values plain because base64 would grow them.
+    let plain = {
+        let mut object = serde_json::Map::new();
+        for i in 0..300 {
+            object.insert(format!("minecraft:counter_{i}"), serde_json::json!(i));
+        }
+        serde_json::json!({
+            "stats": {"minecraft:custom": object},
+            "play_ticks": 4800
+        })
+        .to_string()
+    };
+    assert!(
+        plain.len() > 256,
+        "fixture must exceed the codec's threshold"
+    );
+    {
+        // Build an archive at the previous version and write an uncompressed
+        // payload directly, the way the older build did.
+        let connection = rusqlite::Connection::open(&path)?;
+        for script in [
+            include_str!("../src/database/001_initial.sql"),
+            include_str!("../src/database/002_pcl_instances.sql"),
+            include_str!("../src/database/003_tracking.sql"),
+            include_str!("../src/database/004_health.sql"),
+            include_str!("../src/database/005_activity.sql"),
+            include_str!("../src/database/006_sessions.sql"),
+        ] {
+            connection.execute_batch(script)?;
+        }
+        connection.execute(
+            "INSERT INTO game_roots(id,path,payload) VALUES (1,'root','{}')",
+            [],
+        )?;
+        connection.execute(
+            "INSERT INTO worlds(id,game_root_id,path,status,payload) \
+             VALUES (1,1,'w','Present','{}')",
+            [],
+        )?;
+        connection.execute(
+            "INSERT INTO players(uuid) VALUES ('00000000-0000-4000-8000-000000000001')",
+            [],
+        )?;
+        connection.execute(
+            "INSERT INTO stat_snapshots(world_id,player_uuid,kind,play_ticks,stats) \
+             VALUES (1,'00000000-0000-4000-8000-000000000001','initial_import',4800,?)",
+            [&plain],
+        )?;
+        connection.execute(
+            "INSERT INTO world_players(world_id,player_uuid,current_ticks,current_stats,payload) \
+             VALUES (1,'00000000-0000-4000-8000-000000000001',4800,?,'{}')",
+            [&plain],
+        )?;
+        assert_eq!(
+            connection.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
+            6
+        );
+    }
+
+    let repo = db(Repository::open(&path))?;
+    let connection = rusqlite::Connection::open(&path)?;
+    for (table, column) in [
+        ("stat_snapshots", "stats"),
+        ("world_players", "current_stats"),
+    ] {
+        let stored: String =
+            connection.query_row(&format!("SELECT {column} FROM {table}"), [], |r| r.get(0))?;
+        assert!(
+            stored.starts_with("z1:"),
+            "{table}.{column} should have been compressed, got: {}",
+            &stored[..stored.len().min(24)]
+        );
+        // And it must decode back to exactly what was stored before.
+        let decoded = minechronicle_lib::database::snapshot_codec::decode(&stored)
+            .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+        assert_eq!(decoded, plain, "{table}.{column} must round-trip");
+    }
+
+    // Reopening must not rewrite or re-vacuum: the row is already encoded.
+    drop(repo);
+    drop(db(Repository::open(&path))?);
+    let connection = rusqlite::Connection::open(&path)?;
+    let stored: String =
+        connection.query_row("SELECT stats FROM stat_snapshots", [], |r| r.get(0))?;
+    assert!(stored.starts_with("z1:"));
+    let decoded = minechronicle_lib::database::snapshot_codec::decode(&stored)
+        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+    assert_eq!(decoded, plain, "reopening must not corrupt the payload");
+
+    // The archive must still pass SQLite's own integrity check after the
+    // rewrite and vacuum, which is the real risk of rewriting rows in place.
+    assert_eq!(
+        connection.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0))?,
+        "ok"
+    );
+    let violations: i64 =
+        connection.query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |r| {
+            r.get(0)
+        })?;
+    assert_eq!(violations, 0, "foreign keys must still hold");
+    Ok(())
+}
+
 #[test]
 fn migrations_are_versioned_and_reopening_preserves_settings() -> TestResult {
     let temp = tempfile::tempdir()?;
@@ -82,7 +193,7 @@ fn migrations_are_versioned_and_reopening_preserves_settings() -> TestResult {
     let conn = rusqlite::Connection::open(&path)?;
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-        6
+        7
     );
     for table in [
         "launcher_installations",
@@ -164,6 +275,9 @@ fn first_import_is_immutable_across_repeats_increases_and_rollbacks() -> TestRes
         [],
         |r| r.get(0),
     )?;
+    // The column holds a compressed payload; decode before inspecting it.
+    let stored = minechronicle_lib::database::snapshot_codec::decode(&stored)
+        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&stored)?["play_ticks"],
         72000

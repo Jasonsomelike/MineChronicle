@@ -385,6 +385,9 @@ impl Repository {
                 unavailable += 1;
                 continue;
             };
+            // Payloads are stored compressed; decode is a no-op for rows written
+            // before compression existed.
+            let raw = crate::database::snapshot_codec::decode(&raw)?;
             let stats: NormalizedPlayerStats = serde_json::from_str(&raw)?;
             sources += 1;
             for (key, value) in [
