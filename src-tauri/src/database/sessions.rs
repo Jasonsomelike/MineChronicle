@@ -46,7 +46,7 @@ impl Repository {
         for (id, root, pids) in existing {
             let previous: Vec<u32> = serde_json::from_str(&pids)?;
             let current = active.iter().enumerate().find(|(_, a)| {
-                super::path_key(&a.game_root).is_ok_and(|key| key == root)
+                super::path_key(&a.game_root).is_some_and(|key| key == root)
                     && a.pids.iter().any(|pid| previous.contains(pid))
             });
             if let Some((index, instance)) = current {
@@ -64,9 +64,14 @@ impl Repository {
         }
         for (index, instance) in active.iter().enumerate() {
             if !matched.contains(&index) {
+                // An instance whose root path cannot be stored is skipped rather
+                // than failing the whole session update.
+                let Some(game_root) = super::path_key(&instance.game_root) else {
+                    continue;
+                };
                 tx.execute(
                     "INSERT INTO observed_sessions(game_root,instance_name,pids,started_at,status) VALUES(?,?,?,?,'running')",
-                    params![super::path_key(&instance.game_root)?, instance.name, serde_json::to_string(&instance.pids)?, now],
+                    params![game_root, instance.name, serde_json::to_string(&instance.pids)?, now],
                 )?;
             }
         }

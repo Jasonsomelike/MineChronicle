@@ -69,18 +69,51 @@ pub fn game() -> Result<(TempDir, PathBuf), std::io::Error> {
     Ok((directory, root))
 }
 
+/// Creates a directory junction, used to test that the scanner resolves path
+/// aliases and does not follow links below a root.
+///
+/// Implemented with `mklink /J` rather than PowerShell. The previous version
+/// shelled out to `pwsh -CommandWithArgs`, which requires PowerShell 7+ and was
+/// never declared as a prerequisite - so the test suite silently depended on a
+/// tool the README did not mention. `cmd`'s `mklink` is present on every
+/// supported Windows and needs no extra setup.
+///
+/// A junction (not a symlink) is used deliberately: it is what Minecraft
+/// launchers actually create, it needs no elevation or developer mode, and
+/// `std::fs::symlink_dir` would require the latter.
+///
+/// `mklink` is a `cmd` builtin, so the command line is assembled by hand and
+/// appended with `raw_arg`. Passing it as a normal argument lets Rust escape the
+/// inner quotes with backslashes, which `cmd` does not understand - that
+/// produced `Invalid switch - "linked"` and, for other paths, a spurious
+/// "filename, directory name, or volume label syntax is incorrect".
 #[cfg(windows)]
 pub fn directory_link(alias: &Path, target: &Path) -> TestResult {
-    // Both arguments must stay inside a temporary fixture tree. Pass paths as
-    // native arguments rather than interpolating them into PowerShell source.
+    use std::os::windows::process::CommandExt;
+
+    // Both arguments must stay inside a temporary fixture tree.
     if !alias.is_absolute() || !target.is_absolute() {
         return Err("fixture paths must be absolute".into());
     }
-    let output = std::process::Command::new("pwsh")
-        .args(["-NoLogo", "-NoProfile", "-NonInteractive", "-CommandWithArgs", "New-Item -ItemType Junction -Path $args[0] -Target $args[1] -ErrorAction Stop | Out-Null"])
-        .arg(alias).arg(target).output()?;
+    // A quote cannot appear in a valid Windows path, so this cannot break the
+    // quoting below; reject it rather than building an ambiguous command line.
+    let (Some(alias_text), Some(target_text)) = (alias.to_str(), target.to_str()) else {
+        return Err("fixture paths must be valid UTF-8".into());
+    };
+    if alias_text.contains('"') || target_text.contains('"') {
+        return Err("fixture paths must not contain quotes".into());
+    }
+    let output = std::process::Command::new("cmd")
+        .arg("/C")
+        .raw_arg(format!("mklink /J \"{alias_text}\" \"{target_text}\""))
+        .output()?;
     if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).into_owned().into());
+        return Err(format!(
+            "mklink /J failed: {}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        )
+        .into());
     }
     Ok(())
 }

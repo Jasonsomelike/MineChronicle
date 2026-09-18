@@ -95,9 +95,21 @@ pub fn acquire_instance_mutex(name: &str) -> std::io::Result<(InstanceGuard, boo
     }
 }
 
+/// Outcome of the second-instance check.
+#[cfg(windows)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecondLaunch {
+    /// This is the only instance; keep the guard for the process lifetime.
+    Primary,
+    /// Another instance was found and its window was brought to the front.
+    Focused,
+    /// Another instance holds the mutex but no window appeared in time.
+    Unresponsive,
+}
+
 /// A second launch restores the resident window, avoiding duplicate trackers.
 #[cfg(windows)]
-pub fn single_instance() -> std::io::Result<Option<InstanceGuard>> {
+pub fn single_instance() -> std::io::Result<(InstanceGuard, SecondLaunch)> {
     use std::{ffi::c_void, ptr::null};
     #[link(name = "user32")]
     extern "system" {
@@ -107,21 +119,58 @@ pub fn single_instance() -> std::io::Result<Option<InstanceGuard>> {
     }
     let (guard, already_exists) = acquire_instance_mutex("Local\\MineChronicle.Desktop.Instance")?;
     if !already_exists {
-        return Ok(Some(guard));
+        return Ok((guard, SecondLaunch::Primary));
     }
+    // 10 x 100 ms rather than 30: the resident process is already running, so a
+    // window that is not up within a second is not coming, and the extra two
+    // seconds were pure delay before an unexplained exit.
     let title: Vec<_> = "MineChronicle".encode_utf16().chain(Some(0)).collect();
-    for _ in 0..30 {
+    for _ in 0..10 {
         let window = unsafe { FindWindowW(null(), title.as_ptr()) };
         if !window.is_null() {
             unsafe {
                 ShowWindow(window, 9);
                 SetForegroundWindow(window);
             }
-            break;
+            return Ok((guard, SecondLaunch::Focused));
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
-    Ok(None)
+    // The mutex is held but nothing could be focused. Reported rather than
+    // returning a bare None, because the caller used to exit with code 0 and no
+    // message at all - a double-click that appeared to do nothing.
+    Ok((guard, SecondLaunch::Unresponsive))
+}
+
+/// Tells the user why a second launch did nothing, instead of exiting silently.
+///
+/// `MessageBoxW` is used because this runs before the Tauri window exists, so
+/// there is no UI to report through yet.
+#[cfg(windows)]
+pub fn report_second_launch(outcome: SecondLaunch) {
+    use std::ffi::c_void;
+    if outcome != SecondLaunch::Unresponsive {
+        return;
+    }
+    #[link(name = "user32")]
+    extern "system" {
+        fn MessageBoxW(
+            window: *mut c_void,
+            text: *const u16,
+            caption: *const u16,
+            kind: u32,
+        ) -> i32;
+    }
+    // MB_ICONINFORMATION | MB_SETFOREGROUND (MB_OK is 0)
+    const KIND: u32 = 0x40 | 0x10000;
+    let text: Vec<u16> = "MineChronicle 已在运行，但未能找到它的窗口。\n\n请从任务栏打开，或在任务管理器中结束 MineChronicle 后重试。"
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let caption: Vec<u16> = "MineChronicle".encode_utf16().chain(Some(0)).collect();
+    unsafe {
+        MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), KIND);
+    }
 }
 
 #[cfg(all(test, windows))]

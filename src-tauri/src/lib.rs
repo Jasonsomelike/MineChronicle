@@ -10,6 +10,7 @@ pub mod domain;
 pub mod launcher;
 pub mod minecraft;
 pub mod scanner;
+mod shutdown;
 pub mod tracker;
 #[cfg(windows)]
 mod wide;
@@ -53,10 +54,15 @@ pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
 pub fn run() -> tauri::Result<()> {
     use tauri::Manager;
     #[cfg(windows)]
-    let Some(_instance) = desktop::single_instance()?
-    else {
+    let (_instance, outcome) = desktop::single_instance()?;
+    #[cfg(windows)]
+    if outcome != desktop::SecondLaunch::Primary {
+        // Another instance owns the mutex. Say so when its window could not be
+        // raised - previously this path returned Ok(()) with no message, so a
+        // second double-click looked like nothing happened at all.
+        desktop::report_second_launch(outcome);
         return Ok(());
-    };
+    }
     configure(tauri::Builder::default())
         .setup(|app| {
             desktop::install(app)?;

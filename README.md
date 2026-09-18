@@ -44,6 +44,8 @@ npm run desktop:build
 npm run verify
 ```
 
+Rust 测试在 Windows 上用 `cmd /C mklink /J` 创建目录联接来验证扫描器不会跟随链接。这是系统自带的 `cmd` 内建命令，不需要 PowerShell，也不需要开发者模式或管理员权限（联接与符号链接不同）。
+
 需要 `cargo` 在 PATH 上（Rust 默认安装位置为 `%USERPROFILE%\.cargo\bin`）。单项也可单独运行：
 
 ```powershell

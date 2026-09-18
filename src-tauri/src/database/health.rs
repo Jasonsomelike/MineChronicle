@@ -45,6 +45,9 @@ pub struct HealthSummary {
     pub pending_count: usize,
     pub confirmed_lineages: i64,
     pub analysis_limited: bool,
+    /// How many candidate groups were skipped because the pair cap was reached.
+    /// Zero when `analysis_limited` is false.
+    pub analysis_skipped_groups: i64,
 }
 
 /// Candidate evidence never changes baselines or tracked deltas.
@@ -69,28 +72,7 @@ pub(super) fn detect_candidates(tx: &Transaction<'_>) -> DbResult<()> {
                 .push((id, ticks));
         }
     }
-    let mut pairs: BTreeMap<(i64, i64), Vec<CloneEvidence>> = BTreeMap::new();
-    let mut limited = false;
-    'groups: for ((uuid, hash, metadata), worlds) in groups {
-        for (i, (a, ticks)) in worlds.iter().enumerate() {
-            for (b, other_ticks) in &worlds[i + 1..] {
-                if a == b || ticks != other_ticks {
-                    continue;
-                }
-                let key = (*a.min(b), *a.max(b));
-                if !pairs.contains_key(&key) && pairs.len() >= MAX_PAIRS {
-                    limited = true;
-                    break 'groups;
-                }
-                pairs.entry(key).or_default().push(CloneEvidence {
-                    uuid: uuid.clone(),
-                    ticks: ticks.to_string(),
-                    stats_hash: hash.clone(),
-                    metadata_fingerprint: metadata.clone(),
-                });
-            }
-        }
-    }
+    let (pairs, limited, skipped_groups) = collect_pairs(groups, MAX_PAIRS);
     for ((a, b), evidence) in pairs {
         tx.execute("INSERT INTO clone_candidates(world_a,world_b) VALUES (?,?) ON CONFLICT(world_a,world_b) DO NOTHING",params![a,b])?;
         let id: i64 = tx.query_row(
@@ -101,7 +83,63 @@ pub(super) fn detect_candidates(tx: &Transaction<'_>) -> DbResult<()> {
         tx.execute("INSERT INTO clone_evidence(candidate_id,evidence) VALUES (?,?) ON CONFLICT(candidate_id) DO UPDATE SET last_seen=strftime('%Y-%m-%dT%H:%M:%fZ','now')",params![id,serde_json::to_string(&evidence)?])?;
     }
     tx.execute("INSERT INTO analysis_status(key,value) VALUES ('clone_limit',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[if limited{"true"}else{"false"}])?;
+    tx.execute("INSERT INTO analysis_status(key,value) VALUES ('clone_limit_groups',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[skipped_groups.to_string()])?;
     Ok(())
+}
+
+/// Groups worlds that share a player, statistics hash and metadata fingerprint,
+/// then pairs the worlds inside each group.
+///
+/// Split out of `detect_candidates` so the pair cap can be tested directly: the
+/// real cap is 2000 pairs and a normal archive produces none, so an integration
+/// test cannot reach the behaviour that matters.
+///
+/// Returns the pairs with their evidence, whether the cap was hit, and how many
+/// groups could not contribute because of it.
+///
+/// Once the cap is reached no NEW pair can be added, so the resulting pair set
+/// is the same whether the outer loop breaks or continues. Continuing still
+/// matters for EVIDENCE: the guard only rejects a key that is not already
+/// present, so a later group contributes corroborating evidence to pairs found
+/// earlier. Breaking out of the outer loop discarded that, leaving detected
+/// candidates with thinner evidence than the same data would give in a
+/// different group order.
+fn collect_pairs(
+    groups: BTreeMap<(String, String, String), Vec<(i64, i64)>>,
+    max_pairs: usize,
+) -> (BTreeMap<(i64, i64), Vec<CloneEvidence>>, bool, usize) {
+    let mut pairs: BTreeMap<(i64, i64), Vec<CloneEvidence>> = BTreeMap::new();
+    let mut limited = false;
+    let mut skipped_groups = 0usize;
+    for ((uuid, hash, metadata), worlds) in groups {
+        let mut group_limited = false;
+        for (i, (a, ticks)) in worlds.iter().enumerate() {
+            for (b, other_ticks) in &worlds[i + 1..] {
+                if a == b || ticks != other_ticks {
+                    continue;
+                }
+                let key = (*a.min(b), *a.max(b));
+                if !pairs.contains_key(&key) && pairs.len() >= max_pairs {
+                    limited = true;
+                    group_limited = true;
+                    break;
+                }
+                pairs.entry(key).or_default().push(CloneEvidence {
+                    uuid: uuid.clone(),
+                    ticks: ticks.to_string(),
+                    stats_hash: hash.clone(),
+                    metadata_fingerprint: metadata.clone(),
+                });
+            }
+            if group_limited {
+                break;
+            }
+        }
+        if group_limited {
+            skipped_groups += 1;
+        }
+    }
+    (pairs, limited, skipped_groups)
 }
 
 impl Repository {
@@ -272,6 +310,16 @@ impl Repository {
                 )
                 .optional()?
                 .unwrap_or(false),
+            analysis_skipped_groups: self
+                .connection
+                .query_row(
+                    "SELECT value FROM analysis_status WHERE key='clone_limit_groups'",
+                    [],
+                    |r| r.get::<_, String>(0),
+                )
+                .optional()?
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0),
         })
     }
     /// Records a review decision and returns the updated summary.
@@ -354,5 +402,113 @@ impl Repository {
         )?;
         tx.commit()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn group(worlds: &[(i64, i64)], tag: &str) -> ((String, String, String), Vec<(i64, i64)>) {
+        (
+            (
+                format!("uuid-{tag}"),
+                format!("hash-{tag}"),
+                format!("meta-{tag}"),
+            ),
+            worlds.to_vec(),
+        )
+    }
+
+    #[test]
+    fn pairs_worlds_that_share_ticks_within_a_group() {
+        let groups: BTreeMap<_, _> = [group(&[(1, 100), (2, 100), (3, 100)], "a")]
+            .into_iter()
+            .collect();
+        let (pairs, limited, skipped) = collect_pairs(groups, 2000);
+        assert_eq!(
+            pairs.keys().copied().collect::<Vec<_>>(),
+            vec![(1, 2), (1, 3), (2, 3)]
+        );
+        assert!(!limited);
+        assert_eq!(skipped, 0);
+    }
+
+    #[test]
+    fn worlds_with_different_ticks_are_not_paired() {
+        let groups: BTreeMap<_, _> = [group(&[(1, 100), (2, 200)], "a")].into_iter().collect();
+        let (pairs, _, _) = collect_pairs(groups, 2000);
+        assert!(pairs.is_empty(), "different playtime is not clone evidence");
+    }
+
+    /// The case the old `break` got wrong. Group A fills the cap; group B shares
+    /// a pair with A, so it cannot add a new pair but must still add evidence.
+    #[test]
+    fn a_group_after_the_cap_still_contributes_evidence() {
+        let groups: BTreeMap<_, _> = [
+            group(&[(1, 100), (2, 100), (3, 100)], "a"),
+            group(&[(1, 100), (2, 100), (4, 100)], "b"),
+        ]
+        .into_iter()
+        .collect();
+        // Cap of 2: group A adds (1,2) and (1,3), then (2,3) does not fit.
+        // Group B re-states (1,2) - which fits, because it is not a new key -
+        // and then (1,4) does not fit. So BOTH groups report as limited.
+        let (pairs, limited, skipped) = collect_pairs(groups, 2);
+        assert!(limited, "the cap should have been reached");
+        assert_eq!(
+            skipped, 2,
+            "both groups hit the cap: A on (2,3), B on (1,4)"
+        );
+
+        // Group B re-states pair (1,2), which must now carry both groups'
+        // evidence. With the old outer `break`, B was never visited at all.
+        let evidence = pairs.get(&(1, 2)).expect("pair (1,2) must exist");
+        let tags: Vec<_> = evidence
+            .iter()
+            .map(|e| e.metadata_fingerprint.clone())
+            .collect();
+        assert!(
+            tags.contains(&"meta-a".to_owned()) && tags.contains(&"meta-b".to_owned()),
+            "both groups must corroborate the pair, got {tags:?}"
+        );
+        // (1,3) came only from A, so it carries only A's evidence.
+        let solo: Vec<_> = pairs
+            .get(&(1, 3))
+            .expect("pair (1,3)")
+            .iter()
+            .map(|e| e.metadata_fingerprint.clone())
+            .collect();
+        assert_eq!(solo, vec!["meta-a".to_owned()]);
+    }
+
+    /// The pair set is frozen at the cap, so continuing cannot invent extra
+    /// candidates - only richer evidence. Asserted so the comment above cannot
+    /// drift into claiming a bigger effect than the code has.
+    #[test]
+    fn continuing_past_the_cap_adds_no_extra_pairs() {
+        let build = || -> BTreeMap<_, _> {
+            [
+                group(&[(1, 100), (2, 100), (3, 100)], "a"),
+                group(&[(1, 100), (2, 100), (4, 100)], "b"),
+                group(&[(5, 100), (6, 100)], "c"),
+            ]
+            .into_iter()
+            .collect()
+        };
+        let (pairs, limited, _) = collect_pairs(build(), 2);
+        assert!(limited);
+        assert_eq!(pairs.len(), 2, "the cap must bound the pair set");
+        // (5,6) from group C is a genuinely new pair that the cap excludes.
+        assert!(!pairs.contains_key(&(5, 6)));
+    }
+
+    #[test]
+    fn a_zero_cap_yields_no_pairs_but_reports_limiting() {
+        let groups: BTreeMap<_, _> = [group(&[(1, 100), (2, 100)], "a")].into_iter().collect();
+        let (pairs, limited, skipped) = collect_pairs(groups, 0);
+        assert!(pairs.is_empty());
+        assert!(limited);
+        assert_eq!(skipped, 1);
     }
 }

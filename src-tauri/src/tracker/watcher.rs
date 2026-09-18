@@ -69,15 +69,14 @@ impl Default for Tracker {
 }
 impl Drop for Tracker {
     fn drop(&mut self) {
-        self.state.shutdown.store(true, Ordering::Release);
-        if let Some(worker) = self.worker.take() {
-            let deadline = Instant::now() + Duration::from_millis(500);
-            while !worker.is_finished() && Instant::now() < deadline {
-                std::thread::sleep(Duration::from_millis(10));
-            }
-            if worker.is_finished() {
-                let _ = worker.join();
-            }
+        // Reports whether the worker actually stopped; a detached worker is a
+        // real (if rare) leak, so it must not be silently swallowed.
+        let outcome = crate::shutdown::shutdown_worker(&self.state.shutdown, self.worker.take());
+        if !outcome.is_clean() {
+            set_error(
+                &self.state,
+                Some("追踪线程未在退出时限内停止，已分离。".into()),
+            );
         }
     }
 }

@@ -7,7 +7,7 @@ rust-version = "1.97"
 
 [lib]
 name = "minechronicle_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

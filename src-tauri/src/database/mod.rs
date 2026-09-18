@@ -128,19 +128,29 @@ impl Repository {
             [serde_json::to_string(&report.issues)?],
         )?;
         let scan_id = tx.last_insert_rowid();
+        // Paths that cannot be stored as UTF-8 are collected here so they can be
+        // reported as anomalies once scan_id exists, instead of aborting.
+        let mut unencodable: Vec<PathBuf> = Vec::new();
         for issue in &report.issues {
+            let Some(issue_path) = path_key(&issue.path) else {
+                unencodable.push(issue.path.clone());
+                continue;
+            };
             tx.execute(
                 "INSERT INTO anomalies(scan_id,kind,path,message) VALUES (?,?,?,?)",
                 params![
                     scan_id,
                     serde_json::to_string(&issue.kind)?,
-                    path_key(&issue.path)?,
+                    issue_path,
                     issue.message
                 ],
             )?;
         }
         for root in &report.roots {
-            let root_path = path_key(&root.path)?;
+            let Some(root_path) = path_key(&root.path) else {
+                unencodable.push(root.path.clone());
+                continue;
+            };
             let mut root_payload = root.clone();
             root_payload.worlds.clear();
             tx.execute("INSERT INTO game_roots(path,payload) VALUES (?,?) ON CONFLICT(path) DO UPDATE SET payload=excluded.payload", params![root_path, serde_json::to_string(&root_payload)?])?;
@@ -156,7 +166,10 @@ impl Repository {
                 )?;
             }
             for world in &root.worlds {
-                let world_path = path_key(&world.path)?;
+                let Some(world_path) = path_key(&world.path) else {
+                    unencodable.push(world.path.clone());
+                    continue;
+                };
                 let mut world_payload = world.clone();
                 world_payload.players.clear();
                 let status = match world.status {
@@ -212,24 +225,31 @@ impl Repository {
             }
         }
         for instance in &report.instances {
-            let launcher_path = path_key(&instance.launcher_path)?;
+            // A path that cannot be stored is skipped, not fatal: one unreadable
+            // instance should not discard the whole scan's results.
+            let Some(launcher_path) = path_key(&instance.launcher_path) else {
+                continue;
+            };
             tx.execute("INSERT INTO launcher_installations(kind,path) VALUES ('Pcl',?) ON CONFLICT(path) DO NOTHING",[&launcher_path])?;
             let launcher_id: i64 = tx.query_row(
                 "SELECT id FROM launcher_installations WHERE path=?",
                 [&launcher_path],
                 |r| r.get(0),
             )?;
-            let root_id: Option<i64> = tx
-                .query_row(
-                    "SELECT id FROM game_roots WHERE path=?",
-                    [path_key(&instance.game_root)?],
-                    |r| r.get(0),
-                )
-                .optional()?;
+            let root_id: Option<i64> = match path_key(&instance.game_root) {
+                Some(root_path) => tx
+                    .query_row("SELECT id FROM game_roots WHERE path=?", [root_path], |r| {
+                        r.get(0)
+                    })
+                    .optional()?,
+                None => None,
+            };
             let Some(root_id) = root_id else {
                 continue;
             };
-            let instance_path = path_key(&instance.instance_path)?;
+            let Some(instance_path) = path_key(&instance.instance_path) else {
+                continue;
+            };
             tx.execute("INSERT INTO instances(launcher_id,game_root_id,name,path,payload) VALUES (?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET launcher_id=excluded.launcher_id,game_root_id=excluded.game_root_id,name=excluded.name,payload=excluded.payload",params![launcher_id,root_id,instance.name,instance_path,serde_json::to_string(instance)?])?;
             let id: i64 = tx.query_row(
                 "SELECT id FROM instances WHERE path=?",
@@ -240,6 +260,18 @@ impl Repository {
             tx.execute("INSERT INTO instance_world_links(instance_id,world_id) SELECT ?,id FROM worlds WHERE game_root_id=?",params![id,root_id])?;
         }
         tx.execute("INSERT INTO settings(key,value) VALUES ('scan_inputs',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [serde_json::to_string(inputs)?])?;
+        // Record what was skipped, so the loss is visible rather than silent.
+        for path in &unencodable {
+            tx.execute(
+                "INSERT INTO anomalies(scan_id,kind,path,message) VALUES (?,?,?,?)",
+                params![
+                    scan_id,
+                    serde_json::to_string(&crate::scanner::ScanIssueKind::InvalidRoot)?,
+                    path.to_string_lossy(),
+                    "路径无法以 UTF-8 保存，已跳过该条目；其余结果不受影响。"
+                ],
+            )?;
+        }
         health::detect_candidates(&tx)?;
         tx.commit()?;
         Ok(())
@@ -405,8 +437,15 @@ impl Repository {
     }
 }
 
-fn path_key(path: &Path) -> DbResult<String> {
-    Ok(path.to_str().ok_or("路径包含无法保存的字符")?.to_owned())
+/// Converts a filesystem path into the `TEXT` form stored in the archive.
+///
+/// Returns `None` for a path that is not valid UTF-8 (possible on Windows, where
+/// filenames are UTF-16 and can contain unpaired surrogates). Callers skip that
+/// entry and record it as a `ScanIssue` rather than failing: one unencodable
+/// world used to abort the entire import, so every other world in the same scan
+/// was discarded too.
+fn path_key(path: &Path) -> Option<String> {
+    path.to_str().map(str::to_owned)
 }
 
 /// Ordered migrations, applied only when the archive is older than the target.

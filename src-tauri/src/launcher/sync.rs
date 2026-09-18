@@ -45,14 +45,14 @@ pub struct PclSync {
 }
 impl Drop for PclSync {
     fn drop(&mut self) {
-        self.shutdown.store(true, Ordering::Release);
-        if let Some(worker) = self.worker.take() {
-            let deadline = Instant::now() + Duration::from_millis(500);
-            while !worker.is_finished() && Instant::now() < deadline {
-                std::thread::sleep(Duration::from_millis(10));
-            }
-            if worker.is_finished() {
-                let _ = worker.join();
+        // Reports whether the worker actually stopped; a detached worker is a
+        // real (if rare) leak, so it must not be silently swallowed.
+        let outcome = crate::shutdown::shutdown_worker(&self.shutdown, self.worker.take());
+        if !outcome.is_clean() {
+            if let Ok(mut status) = self.status.lock() {
+                status
+                    .issues
+                    .push("PCL 同步线程未在退出时限内停止，已分离。".into());
             }
         }
     }
