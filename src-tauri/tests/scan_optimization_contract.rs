@@ -88,3 +88,75 @@ fn cached_stats_detect_same_size_rewrites_with_preserved_timestamps() -> TestRes
     assert_eq!(read_stats(&path).map_err(|e| e.1)?.play_ticks, 200);
     Ok(())
 }
+
+/// A file that cannot improve by waiting must not pay the retry loop.
+///
+/// `read_stats` retries up to four times with 100 ms sleeps, which measured
+/// ~300 ms per call versus ~1 ms for a healthy file. Retrying is only useful for
+/// a write in progress, so a missing file (and a file unchanged for over five
+/// seconds) must return on the first attempt. The scan visits every stats file
+/// it can see, so a wasted 300 ms per missing file is a real scan-time cost.
+#[test]
+fn unreadable_stats_do_not_pay_the_retry_delay() -> TestResult {
+    use std::time::{Duration, Instant};
+
+    let (_temp, root) = game()?;
+    fs::create_dir_all(root.join("stats"))?;
+
+    // A missing file will not appear because we waited.
+    let missing = root.join("stats/absent.json");
+    let started = Instant::now();
+    assert!(read_stats(&missing).is_err());
+    let missing_ms = started.elapsed();
+
+    // A stable empty file: written, then aged past the settle window.
+    let empty = root.join("stats/empty.json");
+    fs::write(&empty, b"")?;
+    let old = std::time::SystemTime::now() - Duration::from_secs(60);
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&empty)?
+        .set_times(fs::FileTimes::new().set_modified(old))?;
+    let started = Instant::now();
+    let error = read_stats(&empty);
+    let empty_ms = started.elapsed();
+    let kind = match error {
+        Err((kind, _)) => kind,
+        Ok(_) => return Err("an empty file must be reported, not parsed".into()),
+    };
+    assert_eq!(
+        kind,
+        ScanIssueKind::EmptyStats,
+        "an aged empty file is still reported as empty, just not retried"
+    );
+
+    // Both must be far below one retry sleep (100 ms), let alone three.
+    for (label, elapsed) in [("missing", missing_ms), ("aged empty", empty_ms)] {
+        assert!(
+            elapsed < Duration::from_millis(100),
+            "{label} took {elapsed:?}; it should not have entered the retry loop"
+        );
+    }
+    Ok(())
+}
+
+/// A recently written, still-empty file IS worth retrying: that is a Minecraft
+/// write in progress, which is what the loop exists for.
+#[test]
+fn a_freshly_written_empty_file_still_retries() -> TestResult {
+    use std::time::{Duration, Instant};
+
+    let (_temp, root) = game()?;
+    fs::create_dir_all(root.join("stats"))?;
+    let fresh = root.join("stats/fresh.json");
+    fs::write(&fresh, b"")?;
+
+    let started = Instant::now();
+    let _ = read_stats(&fresh);
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed >= Duration::from_millis(250),
+        "a fresh empty file should still be retried, took {elapsed:?}"
+    );
+    Ok(())
+}
