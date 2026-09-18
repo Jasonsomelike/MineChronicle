@@ -425,3 +425,70 @@ fn activity_commands_are_registered_and_serialize_exact_values() -> TestResult {
     }
     Ok(())
 }
+
+/// The timeline's date bounds are compared against the raw `observed_at` column
+/// so the range can use `snapshots_by_time`, instead of wrapping the column in
+/// `date(observed_at,'localtime')` which forced a full scan.
+///
+/// That rewrite is only safe if it selects exactly the same events, so this pins
+/// the two things that could silently break it: the bounds are inclusive of the
+/// named days on both ends, and the millisecond precision of stored timestamps
+/// does not push an event across a boundary.
+#[test]
+fn timeline_date_bounds_include_both_named_days() -> TestResult {
+    let (temp, root) = game()?;
+    let world = root.join("saves/world");
+    level(&world, "Dates")?;
+    stats(&world, "stats", PLAYER, 1200)?;
+    let mut repo = db(Repository::open(&temp.path().join("db")))?;
+    import(&mut repo, &root)?;
+
+    // The import stamps events with "now", so read the actual day back rather
+    // than assuming it.
+    let all = db(repo.timeline(&ActivityFilter::default()))?;
+    let observed = all
+        .events
+        .first()
+        .ok_or("expected at least one event")?
+        .observed_at
+        .clone();
+    let day = observed
+        .split('T')
+        .next()
+        .ok_or("observed_at is not a timestamp")?
+        .to_owned();
+
+    let with_bounds = |from: &str, to: &str| -> Result<usize, Box<dyn std::error::Error>> {
+        let page = db(repo.timeline(&ActivityFilter {
+            from: from.into(),
+            to: to.into(),
+            ..Default::default()
+        }))?;
+        Ok(page.events.len())
+    };
+
+    // The event's own day must be included from either side.
+    assert_eq!(
+        with_bounds(&day, &day)?,
+        1,
+        "a single-day range must include that day's event"
+    );
+    assert_eq!(
+        with_bounds("", &day)?,
+        1,
+        "an upper bound alone must be inclusive"
+    );
+    assert_eq!(
+        with_bounds(&day, "")?,
+        1,
+        "a lower bound alone must be inclusive"
+    );
+
+    // And a range that ends before it must exclude it.
+    assert_eq!(
+        with_bounds("2000-01-01", "2000-01-02")?,
+        0,
+        "an earlier range must not match"
+    );
+    Ok(())
+}

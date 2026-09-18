@@ -108,69 +108,6 @@ async function cropFirstFrame(dataUrl: string, frameHeight: number) {
   };
 }
 
-/** Crop opaque content from a UV skin into a square portrait (no fake 3D). */
-async function cropOpaquePortrait(dataUrl: string) {
-  const image = new Image();
-  image.src = dataUrl;
-  await image.decode();
-  const source = document.createElement('canvas');
-  source.width = image.naturalWidth;
-  source.height = image.naturalHeight;
-  const sctx = source.getContext('2d', { willReadFrequently: true });
-  if (!sctx) throw new Error('Canvas unavailable');
-  sctx.drawImage(image, 0, 0);
-  const { data, width, height } = sctx.getImageData(
-    0,
-    0,
-    source.width,
-    source.height,
-  );
-  let minX = width;
-  let minY = height;
-  let maxX = -1;
-  let maxY = -1;
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      if (data[(y * width + x) * 4 + 3] > 8) {
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-  if (maxX < 0) {
-    minX = 0;
-    minY = 0;
-    maxX = width - 1;
-    maxY = height - 1;
-  }
-  const pad = Math.max(
-    1,
-    Math.floor(Math.max(maxX - minX, maxY - minY) * 0.08),
-  );
-  minX = Math.max(0, minX - pad);
-  minY = Math.max(0, minY - pad);
-  maxX = Math.min(width - 1, maxX + pad);
-  maxY = Math.min(height - 1, maxY + pad);
-  const side = Math.max(maxX - minX + 1, maxY - minY + 1);
-  const outSize = 512;
-  const out = document.createElement('canvas');
-  out.width = outSize;
-  out.height = outSize;
-  const octx = out.getContext('2d');
-  if (!octx) throw new Error('Canvas unavailable');
-  octx.imageSmoothingEnabled = false;
-  const ox = minX - Math.floor((side - (maxX - minX + 1)) / 2);
-  const oy = minY - Math.floor((side - (maxY - minY + 1)) / 2);
-  octx.drawImage(source, ox, oy, side, side, 0, 0, outSize, outSize);
-  return {
-    image: out.toDataURL('image/png'),
-    width: outSize,
-    height: outSize,
-    kind: 'item',
-  };
-}
 async function persistRenderedIcon(
   job: RenderJob,
   rendered: { image: string; width: number; height: number; kind?: string },
@@ -281,17 +218,6 @@ export async function discoverIcons(
                 entry,
                 await cropFirstFrame(job.layers[0], job.frameHeight),
               );
-            } else if (job.kind === 'portrait' && job.layers?.[0]) {
-              Object.assign(entry, await cropOpaquePortrait(job.layers[0]));
-              if (entry.image && entry.width && entry.height) {
-                await persistRenderedIcon(job, {
-                  image: entry.image,
-                  width: entry.width,
-                  height: entry.height,
-                  kind: 'item',
-                });
-                renderedIds.add(id);
-              }
             } else {
               const { renderRuntime } = await import(
                 '../../scripts/stat-icon-renderer.mjs'

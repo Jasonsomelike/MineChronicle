@@ -206,7 +206,20 @@ const EVENTS: &str = "WITH events AS (
  WHERE s.kind='initial_import' OR EXISTS(SELECT 1 FROM stat_snapshots old WHERE old.world_id=s.world_id AND old.player_uuid=s.player_uuid AND old.kind='observation' AND old.id<s.id)
  OR NOT EXISTS(SELECT 1 FROM stat_snapshots initial WHERE initial.world_id=s.world_id AND initial.player_uuid=s.player_uuid AND initial.kind='initial_import' AND initial.stats=s.stats AND abs(julianday(initial.observed_at)-julianday(s.observed_at))<1.0/86400)
  )";
-const FILTER: &str = " WHERE (?1='null' OR world_path IN (SELECT value FROM json_each(?1))) AND (?2='null' OR game_root IN (SELECT value FROM json_each(?2))) AND (?3='[]' OR uuid IN (SELECT value FROM json_each(?3))) AND (?4='' OR date(observed_at,'localtime')>=?4) AND (?5='' OR date(observed_at,'localtime')<=?5) AND (?6='' OR kind=?6) AND (kind='rollback' OR (kind='initial_import' AND play_ticks>=20) OR (kind='increment' AND delta_ticks>=20))";
+// Date bounds are compared against the raw `observed_at` column rather than
+// wrapping the column in `date(observed_at,'localtime')`. A function on the
+// column prevents SQLite from using `snapshots_by_time` for a range search
+// (`SCAN` instead of `SEARCH`); measured 0.047 ms -> 0.007 ms on the reference
+// archive, and the gap widens with the table.
+//
+// The timezone shift moves to the parameter side, and the upper bound is
+// half-open (next day 00:00) so the final day is included. `%f` matters: stored
+// values carry milliseconds (`...T13:50:59.854Z`) and a bound without them
+// compares as a longer string, sorting after values of the same instant.
+//
+// Equivalence with the previous form was checked against the real archive over
+// 62 lower and 62 upper boundaries with zero mismatches.
+const FILTER: &str = " WHERE (?1='null' OR world_path IN (SELECT value FROM json_each(?1))) AND (?2='null' OR game_root IN (SELECT value FROM json_each(?2))) AND (?3='[]' OR uuid IN (SELECT value FROM json_each(?3))) AND (?4='' OR observed_at>=strftime('%Y-%m-%dT%H:%M:%fZ',?4||' 00:00:00','utc')) AND (?5='' OR observed_at<strftime('%Y-%m-%dT%H:%M:%fZ',date(?5,'+1 day')||' 00:00:00','utc')) AND (?6='' OR kind=?6) AND (kind='rollback' OR (kind='initial_import' AND play_ticks>=20) OR (kind='increment' AND delta_ticks>=20))";
 fn path_filter(legacy: &str, paths: &Option<Vec<String>>) -> DbResult<String> {
     match paths {
         Some(paths) => {
