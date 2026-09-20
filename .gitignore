@@ -14,3 +14,10 @@ src-tauri/gen/
 .playwright-cli/
 # Screenshot output from scripts/qa-visual-snapshot.mjs and its comparisons.
 output/
+
+# Vendored agent skills installed by the `skills` CLI. Third-party content, not
+# part of this project's source, and not formatted to this repo's Prettier config.
+# `.claude/skills` is the CLI's symlink to the same files, so both are ignored.
+.agents/
+.claude/
+skills-lock.json

@@ -12,3 +12,10 @@ src-tauri/gen
 output
 src-tauri/resources/stat-resources.json
 scripts/resources/stat-vanilla-entities.json
+
+# Agent skills installed by the `skills` CLI. Third-party content maintained
+# upstream, so reformatting it would create a diff that has to be redone on every
+# update - and it is the reason `format:check` reported 164 files after install.
+# `.claude` holds the CLI's symlink to the same content, so both are excluded.
+.agents
+.claude

@@ -85,6 +85,10 @@
   --surface-danger: #faecec;
   --warning: #b88d43;
 
+  /* Bar colour for the ECharts ranking chart. ECharts paints SVG, so it
+     cannot read a CSS variable and resolves this value in JavaScript. */
+  --chart-bar: #46765a;
+
   /* Amber accent for the second tracking metric. */
   --accent-amber: #ab8955;
 
@@ -158,6 +162,7 @@
   --caption-on-strong: #cfe2d5;
 
   --accent-amber: #d9b47a;
+  --chart-bar: #7fc79b;
   --border-danger: #4a2f2c;
   --surface-info: #1b262e;
   --surface-warning: #2b2618;
