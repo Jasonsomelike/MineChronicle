@@ -75,9 +75,14 @@ body {
   transition: background-color 160ms ease, border-color 160ms ease,
     box-shadow 160ms ease;
 }
+/* Uses the shared token rather than its own colour. This rule was #789b62 at
+   2px, which measured ~2.7:1 against the surfaces it appears on - below the 3:1
+   that WCAG 2.2 SC 1.4.11 requires for a focus indicator - and because this file
+   loads after styles.css it was the rule that actually applied inside
+   .scan-panel. The token is the value that clears 3:1 everywhere. */
 .scan-panel :is(button, input, select, textarea, summary):focus-visible {
-  outline: 2px solid #789b62;
-  outline-offset: 3px;
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 .scan-panel :is(input, select, textarea) {
   border-color: #cdd8c7;

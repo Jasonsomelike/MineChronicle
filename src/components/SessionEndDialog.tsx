@@ -39,6 +39,7 @@ export default function SessionEndDialog({
   onSaved: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const field = useRef<HTMLInputElement>(null);
   const [bounds, setBounds] = useState<ManualEndBounds | null>(null);
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
@@ -90,32 +91,45 @@ export default function SessionEndDialog({
     ? new Date(bounds.max_ended_at).toLocaleString('zh-CN', { hour12: false })
     : null;
 
+  /**
+   * Report a validation failure and put the caret back in the field.
+   *
+   * The error is rendered next to the input, but without moving focus a keyboard
+   * user stays on the 保存 button and has to tab backwards to find what to fix.
+   * The skill's `focus-management` rule asks for exactly this. Every failure path
+   * goes through here so none of them can forget it.
+   */
+  function fail(message: string) {
+    setError(message);
+    field.current?.focus();
+  }
+
   async function save() {
     if (busy) return;
     setError('');
     if (!value) {
-      setError('请填写结束时间');
+      fail('请填写结束时间');
       return;
     }
     if (!local) {
-      setError('结束时间格式无法识别');
+      fail('结束时间格式无法识别');
       return;
     }
     // Client-side checks exist only to answer quickly; the backend re-validates
     // and its message is the authoritative one.
     if (preview === null) {
-      setError('结束时间必须晚于开始时间');
+      fail('结束时间必须晚于开始时间');
       return;
     }
     if (Date.parse(local) > Date.now()) {
-      setError('结束时间不能晚于当前时间');
+      fail('结束时间不能晚于当前时间');
       return;
     }
     if (
       bounds?.max_ended_at &&
       Date.parse(local) > Date.parse(bounds.max_ended_at)
     ) {
-      setError(`不能晚于下一次会话开始时间 ${upperLabel}`);
+      fail(`不能晚于下一次会话开始时间 ${upperLabel}`);
       return;
     }
     setBusy(true);
@@ -127,7 +141,7 @@ export default function SessionEndDialog({
       userClosed.current = true;
       dialog.current?.close();
     } catch (cause: unknown) {
-      setError(String(cause));
+      fail(String(cause));
     } finally {
       setBusy(false);
     }
@@ -212,10 +226,15 @@ export default function SessionEndDialog({
         <label className="session-end-field">
           结束时间
           <input
+            ref={field}
             type="datetime-local"
             step={1}
             value={value}
             disabled={busy}
+            // Ties the message below to this field for screen readers, and
+            // marks it invalid so the state is announced rather than only seen.
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? 'session-end-error' : undefined}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') void save();
@@ -234,7 +253,7 @@ export default function SessionEndDialog({
           </p>
         ) : null}
         {error ? (
-          <p className="session-end-error" role="alert">
+          <p className="session-end-error" id="session-end-error" role="alert">
             {error}
           </p>
         ) : null}

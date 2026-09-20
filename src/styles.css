@@ -12,6 +12,16 @@
   background: #f7f9fa;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+
+  /* The one colour every focus indicator uses.
+     WCAG 2.2 SC 1.4.11 wants non-text UI (focus rings, borders, icons) at 3:1
+     against its surroundings. The value previously used here, #79a982, measured
+     2.15-2.69:1 against every surface it appeared on, so even the controls that
+     did show a ring showed an inadequate one. #2f6a4f is the lightest on-brand
+     green that clears 3:1 against all six surfaces (worst case 5.09). */
+  --focus-ring: #2f6a4f;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
 }
 * {
   box-sizing: border-box;
@@ -503,9 +513,20 @@ button:hover {
   background: #dce9e1;
   color: #244e39;
 }
-button:focus-visible {
-  outline: 3px solid #79a982;
-  outline-offset: 3px;
+/* One focus indicator for every interactive control.
+   This used to cover `button` alone, so form fields fell back to the browser
+   default and, where a rule set `outline: 0`, showed nothing at all: measured on
+   the settings and statistics pages, a focused text input reported
+   `outline-style: none` with no box-shadow, i.e. invisible keyboard focus. The
+   page announces nothing to a keyboard user about where they are.
+
+   `:focus-visible` keeps the ring off mouse clicks while guaranteeing it for
+   keyboard navigation, which is the behaviour the skill's `focus-states` rule
+   asks for. `:focus-within` on a wrapping label is handled separately below,
+   because there the ring belongs on the wrapper. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 button:disabled {
   opacity: 0.65;
@@ -551,8 +572,9 @@ button:disabled {
   color: #20352e;
   font: 13px/1.8 'Consolas', 'Microsoft YaHei', monospace;
 }
+/* Covered by the shared :focus-visible rule above; this only overrides the
+   offset so the ring clears the textarea's own border. */
 .scan-panel textarea:focus-visible {
-  outline: 2px solid #79a982;
   outline-offset: 2px;
 }
 .scan-panel textarea:disabled {
@@ -1748,15 +1770,21 @@ button.stat-icon:hover {
   background: #fff;
   color: #6e8379;
 }
+/* The input inside this wrapper drops its own outline so the ring can wrap the
+   whole search box. That only works if the wrapper's ring is actually visible:
+   it was #d7eae2, about 1.2:1 against white, so a keyboard user saw the same
+   faint border as before. The token colour is used instead. */
 .scan-panel .statistics-toolbar label:focus-within {
-  border-color: #4d9481;
-  outline: 2px solid #d7eae2;
+  border-color: var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 .scan-panel .statistics-toolbar label > input {
   min-width: 0;
   height: 38px;
   border: 0;
   padding: 7px 0;
+  /* Suppressed here only because the wrapper draws the ring; see above. */
   outline: 0;
   background: transparent;
   font-size: 13px;
@@ -2190,7 +2218,11 @@ button.stat-icon:hover {
 }
 .observed-sessions summary span {
   margin-left: 14px;
-  color: #6b7b72;
+  /* Was #6b7b72, which measured 4.47:1 on white and 4.23:1 on the page
+     background - just under the 4.5:1 AA threshold for normal text at 12px.
+     #627268 is already used elsewhere in this file, so this removes a
+     near-duplicate colour rather than adding one. Worst case is now 4.55:1. */
+  color: #627268;
   font-size: 12px;
   font-weight: 400;
 }
@@ -2576,7 +2608,9 @@ button.stat-icon:hover {
   gap: 10px;
 }
 .session-end-facts dt {
-  color: #6b7b72;
+  /* Same AA fix as .observed-sessions summary span: #6b7b72 failed at 4.23:1
+     against the dialog's white surface. */
+  color: #627268;
 }
 .session-end-facts dd {
   margin: 0;

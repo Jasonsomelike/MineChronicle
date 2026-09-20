@@ -9,6 +9,9 @@
  */
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright-core';
+// Reads the app version from package.json; a literal here goes stale on every
+// release and makes runtime_info look like a version mismatch.
+import { APP_VERSION } from './qa-fixtures.mjs';
 
 const base = 'http://127.0.0.1:1420';
 
@@ -81,7 +84,7 @@ const page = await browser.newPage();
 
 // Stub the Tauri IPC surface the app touches on this path.
 await page.addInitScript(
-  ([libraryJson, uuidA, uuidB]) => {
+  ([libraryJson, uuidA, uuidB, appVersion]) => {
     const library = JSON.parse(libraryJson);
     // isTauri() tests window.isTauri, not __TAURI_INTERNALS__ alone.
     window.isTauri = true;
@@ -93,7 +96,7 @@ await page.addInitScript(
             return library;
           case 'runtime_info':
             return {
-              version: '0.10.12',
+              version: appVersion,
               executable: 'D:\\QA\\minechronicle.exe',
               database_path: 'D:\\QA\\archive.sqlite3',
               embedded_assets: true,
@@ -153,7 +156,7 @@ await page.addInitScript(
       },
     };
   },
-  [JSON.stringify(library), UUID_A, UUID_B],
+  [JSON.stringify(library), UUID_A, UUID_B, APP_VERSION],
 );
 
 await page.goto(`${base}/#/dashboard`, { waitUntil: 'domcontentloaded' });

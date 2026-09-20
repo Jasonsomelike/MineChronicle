@@ -61,7 +61,10 @@ try {
       if (command === 'archive_status')
         return {
           database_path: 'D:\\QA\\archive.sqlite3',
-          version: '0.10.14',
+          // Read from the shared fixture so it tracks package.json; a literal
+          // here goes stale on every release and makes runtime_info look like a
+          // version mismatch.
+          version: table.runtime_info.version,
           policy,
           pending_restore: q.pending,
         };

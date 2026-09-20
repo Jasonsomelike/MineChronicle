@@ -1,4 +1,23 @@
 // Synthetic local fixtures for Playwright. No user archive is read.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+/**
+ * The version the frontend expects, read from package.json rather than copied.
+ *
+ * `runtimeInfo()` in src/lib/scan.ts throws when the backend reports a different
+ * version than FRONTEND_VERSION, which is correct behaviour - it catches a stale
+ * binary. A literal here breaks that on every release: bumping the app to 0.10.16
+ * left this fixture reporting 0.10.15, so the settings page rendered an error
+ * instead of the archive block and qa-reliability-flow failed on an element that
+ * could never appear. Reading the real value removes the whole failure mode.
+ */
+const here = dirname(fileURLToPath(import.meta.url));
+export const APP_VERSION = JSON.parse(
+  readFileSync(join(here, '..', 'package.json'), 'utf8'),
+).version;
+
 const UUID_A = 'b0e9bd79-52ec-45c0-ad53-d92995098e1d';
 const UUID_B = '00000000-0000-4000-8000-000000000001';
 
@@ -354,7 +373,7 @@ const pclStatus = {
 export const backend = {
   load_library: library,
   runtime_info: {
-    version: '0.10.15',
+    version: APP_VERSION,
     executable: 'D:\\QA\\minechronicle.exe',
     database_path: 'D:\\QA\\archive.sqlite3',
     embedded_assets: true,

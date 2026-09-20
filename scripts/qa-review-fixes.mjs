@@ -1,6 +1,6 @@
 /* global window, document */
 import { chromium } from 'playwright-core';
-import { backend } from './qa-fixtures.mjs';
+import { backend, APP_VERSION } from './qa-fixtures.mjs';
 import { installObservationFixture } from './qa-observation-fixture.mjs';
 import assert from 'node:assert/strict';
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -11,12 +11,12 @@ try {
   });
   await context.addInitScript(installObservationFixture, backend);
   const page = await context.newPage();
-  await page.addInitScript(() => {
+  await page.addInitScript((version) => {
     const old = window.__TAURI_INTERNALS__.invoke;
     window.__TAURI_INTERNALS__.invoke = async (command, args) => {
       if (command === 'archive_status')
         return {
-          version: '0.10.15',
+          version,
           database_path: 'D:\\QA\\archive.sqlite3',
           pending_restore: !!window.__qa.pending,
           pending: window.__qa.pending
@@ -59,7 +59,7 @@ try {
       if (command === 'choose_archive_backup') return 'D:\\QA\\chosen.sqlite3';
       return old(command, args);
     };
-  });
+  }, APP_VERSION);
   await page.goto('http://127.0.0.1:1420/#/settings');
   const section = page.locator('#settings-archive');
   await section.getByText('选择备份并恢复', { exact: true }).click();
