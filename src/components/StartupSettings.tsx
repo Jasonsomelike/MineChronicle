@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { Power, MonitorCog } from 'lucide-react';
 import { displayPath } from '../lib/path';
+import ThemeSetting from './ThemeSetting';
 interface StartupStatus {
   supported: boolean;
   enabled: boolean;
@@ -82,6 +83,7 @@ export default function StartupSettings() {
           {error}
         </p>
       ) : null}
+      <ThemeSetting />
       <div className="setting-row">
         <div>
           <strong>页面操作记忆</strong>

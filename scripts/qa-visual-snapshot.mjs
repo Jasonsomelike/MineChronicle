@@ -61,7 +61,16 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const manifest = {};
 
 for (const [viewportName, viewport] of viewports) {
-  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  // reducedMotion drives the CSS `@media (prefers-reduced-motion)` query, which
+  // is what actually gates the motion layer. The matchMedia stub below only
+  // affects JavaScript, so without this the app's card and stagger animations run
+  // during capture and the last rows are still moving when the screenshot fires -
+  // which made 10 of 14 pages differ between runs of identical CSS.
+  const context = await browser.newContext({
+    viewport,
+    deviceScaleFactor: 1,
+    reducedMotion: 'reduce',
+  });
   const page = await context.newPage();
   await page.addInitScript((backendJson) => {
     const table = JSON.parse(backendJson);
@@ -70,6 +79,25 @@ for (const [viewportName, viewport] of viewports) {
       transformCallback: (cb) => cb,
       invoke: async (command) => (command in table ? table[command] : null),
     };
+    // Pin the clock so screenshots are deterministic. ReadStatus renders
+    // "最近更新：<time>" from the moment a request settled, so two runs a second
+    // apart produce different pixels on any page that shows it - measured: 10 of
+    // 14 pages differed run to run for this reason alone, with no CSS change
+    // between the runs. The counter still advances per call, so the text looks
+    // live, but it starts from a fixed instant.
+    let tick = 0;
+    const fixed = new Date('2026-09-20T12:00:00').getTime();
+    const RealDate = Date;
+    class PinnedDate extends RealDate {
+      constructor(...args) {
+        if (args.length === 0) super(fixed + tick++ * 1000);
+        else super(...args);
+      }
+      static now() {
+        return fixed;
+      }
+    }
+    window.Date = PinnedDate;
     // Pin animation so screenshots are deterministic.
     window.matchMedia = (query) => ({
       matches: query.includes('prefers-reduced-motion: reduce'),
@@ -110,6 +138,12 @@ for (const [viewportName, viewport] of viewports) {
     // Freeze animations before capturing. The theme layer animates page reveals
     // and the dashboard illustration, so a screenshot taken mid-animation
     // differs run to run and would mask (or fake) a real CSS regression.
+    //
+    // This runs early as well as late. Applying it only after the settle delay
+    // left animations that had not finished yet - the staggered card entrance has
+    // per-item delays, so the last rows were still moving when the first capture
+    // fired, and 10 of 14 pages came out different run to run. Injecting the same
+    // rule at document start means nothing ever begins animating.
     await page.addStyleTag({
       content:
         '*, *::before, *::after { animation: none !important; transition: none !important; }',

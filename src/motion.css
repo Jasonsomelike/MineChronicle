@@ -1,0 +1,170 @@
+/* ---------------------------------------------------------------------------
+   Motion.
+   ---------------------------------------------------------------------------
+   Everything here uses the duration and easing tokens in :root, so the whole app
+   shares one rhythm instead of the 120/150/160/180/280ms mix that preceded it.
+   Three rules govern what is here:
+
+   1. Motion explains a change. A card rises because it appeared; a button
+      compresses because it was pressed. Nothing animates for decoration, which
+      the ui-ux-pro-max guidance warns against and which makes a data-dense page
+      tiring to use.
+   2. Only transform and opacity animate. Animating width/height/layout forces a
+      reflow per frame and is what makes interfaces feel janky.
+   3. Every effect is optional: the global prefers-reduced-motion rule already
+      disables all of this, and nothing here is required to understand the page.
+   --------------------------------------------------------------------------- */
+
+/* Press feedback. A 1px compression reads as a physical response without moving
+   surrounding content, so nothing reflows and nothing jitters. */
+button:not(:disabled):active,
+.secondary-button:not(:disabled):active,
+.text-button:not(:disabled):active {
+  transform: translateY(1px);
+}
+button:not(:disabled),
+.secondary-button:not(:disabled) {
+  transition: background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+/* Cards settle in rather than snapping. The delay is per-item and capped, so a
+   long list does not leave the last row arriving noticeably late. */
+@keyframes card-settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.settings-card,
+.metric-grid article,
+.ranking li {
+  animation: card-settle var(--motion-base) var(--ease-standard) backwards;
+}
+.metric-grid article:nth-child(2) {
+  animation-delay: calc(var(--stagger-step) * 1);
+}
+.metric-grid article:nth-child(3) {
+  animation-delay: calc(var(--stagger-step) * 2);
+}
+.metric-grid article:nth-child(4) {
+  animation-delay: calc(var(--stagger-step) * 3);
+}
+.ranking li:nth-child(1) {
+  animation-delay: calc(var(--stagger-step) * 1);
+}
+.ranking li:nth-child(2) {
+  animation-delay: calc(var(--stagger-step) * 2);
+}
+.ranking li:nth-child(3) {
+  animation-delay: calc(var(--stagger-step) * 3);
+}
+.ranking li:nth-child(4) {
+  animation-delay: calc(var(--stagger-step) * 4);
+}
+.ranking li:nth-child(5) {
+  animation-delay: calc(var(--stagger-step) * 5);
+}
+/* Past the fifth row the delay stops growing: beyond about 140ms it stops reading
+   as one gesture and starts reading as lag. */
+.ranking li:nth-child(n + 6) {
+  animation-delay: calc(var(--stagger-step) * 5);
+}
+
+/* A row under the pointer lifts very slightly. Kept to 0.5px so it hints at
+   interactivity without the list appearing to wobble as the mouse crosses it. */
+.ranking li {
+  transition: background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+.ranking li:hover {
+  transform: translateY(-0.5px);
+}
+
+/* Disclosure arrows rotate instead of swapping glyphs, so the state change reads
+   as one continuous movement. */
+details > summary::marker,
+details > summary::-webkit-details-marker {
+  transition: transform var(--motion-base) var(--ease-standard);
+}
+
+/* Save confirmation: a brief lift rather than a colour flash, which would fight
+   the palette in dark mode. */
+@keyframes saved-pulse {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.save-feedback,
+.setting-badge {
+  animation: saved-pulse var(--motion-slow) var(--ease-spring);
+}
+
+/* ---------------------------------------------------------------------------
+   Page transitions.
+   ---------------------------------------------------------------------------
+   SessionPage keeps every visited page mounted and toggles the `hidden`
+   attribute, so a mount animation cannot replay on revisit. `@starting-style`
+   plus `transition-behavior: allow-discrete` animates the display change itself,
+   which is the modern way to do this and is available in the WebView2 runtime
+   (Chromium 153) this app targets.
+
+   The direction carries meaning: entering content rises, so "new content" reads
+   as coming forward. Exit is faster than entry, which is what makes a transition
+   feel responsive rather than sluggish.
+   --------------------------------------------------------------------------- */
+.session-page {
+  transition: opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard),
+    display var(--motion-fast) allow-discrete;
+}
+.session-page:not([hidden]) {
+  opacity: 1;
+  transform: translateY(0);
+}
+@starting-style {
+  .session-page:not([hidden]) {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* The sidebar/tab switch inside settings gets the same treatment so navigating
+   between panels feels like the same surface changing, not a fresh page. */
+.settings-layout > section {
+  transition: opacity var(--motion-base) var(--ease-standard),
+    transform var(--motion-base) var(--ease-standard);
+}
+
+/* Respect the OS setting explicitly for the pieces above, in case a more specific
+   rule ever wins over the global reset. */
+@media (prefers-reduced-motion: reduce) {
+  .settings-card,
+  .metric-grid article,
+  .ranking li,
+  .save-feedback,
+  .setting-badge {
+    animation: none !important;
+  }
+  .session-page,
+  .settings-layout > section {
+    transition: none !important;
+  }
+  button:active,
+  .ranking li:hover {
+    transform: none !important;
+  }
+}
