@@ -63,23 +63,37 @@ pub(crate) fn attribute_deltas(
             .and_modify(|ticks| *ticks = (*ticks).max(delta.ticks))
             .or_insert(delta.ticks);
     }
-    let entries: Vec<_> = merged.into_iter().collect();
-    let mut claimed = vec![false; entries.len()];
+    // Group by root and time; each delta is consumed at most once. Preserve
+    // the original caller order when windows overlap (first claim wins).
+    let mut by_root: BTreeMap<&str, BTreeMap<(i64, i64), i64>> = BTreeMap::new();
+    for ((root, world, observed), ticks) in merged {
+        by_root
+            .entry(root)
+            .or_default()
+            .insert((observed, world), ticks);
+    }
     let mut attributed = vec![0i64; sessions.len()];
     for (index, session) in sessions.iter().enumerate() {
-        // Claim [started, min(ended + grace, next_start - 1)]. The upper bound
-        // keeps a delta recorded during a later run from being credited here.
-        let last = match session.next_start {
-            Some(next) => (session.ended + grace_seconds).min(next - 1),
-            None => session.ended + grace_seconds,
-        };
-        for (slot, ((root, _, observed), ticks)) in entries.iter().enumerate() {
-            if claimed[slot] || *root != session.game_root.as_str() {
-                continue;
-            }
-            if *observed >= session.started && *observed <= last {
-                claimed[slot] = true;
-                attributed[index] = attributed[index].saturating_add(*ticks);
+        let last = session
+            .next_start
+            .map_or(session.ended.saturating_add(grace_seconds), |next| {
+                session
+                    .ended
+                    .saturating_add(grace_seconds)
+                    .min(next.saturating_sub(1))
+            });
+        if last < session.started {
+            continue;
+        }
+        if let Some(entries) = by_root.get_mut(session.game_root.as_str()) {
+            let keys: Vec<_> = entries
+                .range((session.started, i64::MIN)..=(last, i64::MAX))
+                .map(|(key, _)| *key)
+                .collect();
+            for key in keys {
+                if let Some(ticks) = entries.remove(&key) {
+                    attributed[index] = attributed[index].saturating_add(ticks);
+                }
             }
         }
     }
@@ -105,7 +119,16 @@ pub struct InstancePseudo {
     /// Sessions for this instance whose end was never observed. Their time is
     /// unknown, so it is excluded rather than guessed.
     pub unknown_sessions: usize,
+    pub baseline_sessions: usize,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct SessionEstimate {
+    pub seconds: i64,
+    pub missing_baseline: bool,
+}
+
+type Attribution = (Vec<InstancePseudo>, BTreeMap<i64, SessionEstimate>);
 
 #[derive(Serialize)]
 pub struct PlayerTracking {
@@ -205,8 +228,16 @@ impl Repository {
                 detected_at,
             });
         }
+        let (pseudo, estimates) = self.pseudo_attribution()?;
+        let mut sessions = self.observed_sessions()?;
+        for session in &mut sessions {
+            if let Some(estimate) = estimates.get(&session.id) {
+                session.pseudo_seconds = estimate.seconds.to_string();
+                session.missing_baseline = estimate.missing_baseline;
+            }
+        }
         Ok(TrackingSummary {
-            sessions: self.observed_sessions_with_pseudo()?,
+            sessions,
             players,
             rollbacks,
             rollback_count: self.connection.query_row(
@@ -224,7 +255,7 @@ impl Repository {
                 [],
                 |r| r.get(0),
             )?,
-            pseudo: self.pseudo_server_time()?,
+            pseudo,
         })
     }
 
@@ -247,11 +278,11 @@ impl Repository {
     /// One computation serves both: the session table shows each run's own
     /// number, and the instance totals must agree with those rows, so deriving
     /// them separately would risk the two drifting apart.
-    pub fn pseudo_attribution(&self) -> DbResult<(Vec<InstancePseudo>, BTreeMap<i64, i64>)> {
+    pub fn pseudo_attribution(&self) -> DbResult<Attribution> {
         self.pseudo_parts()
     }
 
-    fn pseudo_parts(&self) -> DbResult<(Vec<InstancePseudo>, BTreeMap<i64, i64>)> {
+    fn pseudo_parts(&self) -> DbResult<Attribution> {
         // Epoch seconds keep the arithmetic in one unit. `strftime` returns TEXT
         // in SQLite, so it is read as a string and parsed; an unparseable
         // timestamp yields NULL and those rows are counted as unknown rather
@@ -264,7 +295,7 @@ impl Repository {
         let mut display: BTreeMap<String, String> = BTreeMap::new();
         // Session id -> pseudo seconds, so the session list can show the figure
         // per row without the frontend re-deriving the attribution rule.
-        let mut per_session: BTreeMap<i64, i64> = BTreeMap::new();
+        let mut per_session = BTreeMap::new();
         let mut query = self.connection.prepare(
             "SELECT id, game_root, instance_name, \
              strftime('%s', started_at), strftime('%s', ended_at), \
@@ -337,6 +368,30 @@ impl Repository {
         }
         let attributed = attribute_deltas(&windows, &deltas, DELTA_GRACE_SECONDS);
 
+        // A first local observation establishes a cursor; it is not a delta.
+        // We cannot infer how much of that world's initial history belongs to
+        // this run. Keep the entire run out of the numeric residual total.
+        let mut first_observations: BTreeMap<String, Vec<i64>> = BTreeMap::new();
+        let mut query = self.connection.prepare(
+            "SELECT g.path, strftime('%s', min(s.observed_at)) FROM stat_snapshots s \
+             JOIN worlds w ON w.id=s.world_id JOIN game_roots g ON g.id=w.game_root_id \
+             WHERE s.kind='observation' GROUP BY s.world_id,s.player_uuid",
+        )?;
+        for row in query.query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+        })? {
+            let (root, first) = row?;
+            if let Some(first) = first.and_then(|v| v.parse::<i64>().ok()) {
+                first_observations
+                    .entry(crate::scanner::path_identity::comparison_key(&root))
+                    .or_default()
+                    .push(first);
+            }
+        }
+
+        for times in first_observations.values_mut() {
+            times.sort_unstable();
+        }
         // Week and month windows reuse the same local-date rule as the player
         // totals, so both figures agree on what "this week" means.
         //
@@ -362,14 +417,43 @@ impl Repository {
         week_start -= offset;
         month_start -= offset;
 
-        let mut totals: BTreeMap<String, (i64, i64, i64, usize, usize)> = BTreeMap::new();
+        let mut totals: BTreeMap<String, (i64, i64, i64, usize, usize, usize)> = BTreeMap::new();
         for (index, session) in windows.iter().enumerate() {
             let entry = totals.entry(session.game_root.clone()).or_default();
+            let last = session
+                .next_start
+                .map_or(session.ended + DELTA_GRACE_SECONDS, |next| {
+                    (session.ended + DELTA_GRACE_SECONDS).min(next - 1)
+                });
+            let missing_baseline =
+                first_observations
+                    .get(&session.game_root)
+                    .is_some_and(|times| {
+                        let index = times.partition_point(|first| *first < session.started);
+                        times.get(index).is_some_and(|first| *first <= last)
+                    });
+            if missing_baseline {
+                per_session.insert(
+                    session.id,
+                    SessionEstimate {
+                        seconds: 0,
+                        missing_baseline: true,
+                    },
+                );
+                entry.5 += 1;
+                continue;
+            }
             let observed = session.ended - session.started;
             let pseudo = (observed - attributed[index] / 20).max(0);
             // Kept so the session table can show the same figure per row rather
             // than re-deriving it in the frontend.
-            per_session.insert(session.id, pseudo);
+            per_session.insert(
+                session.id,
+                SessionEstimate {
+                    seconds: pseudo,
+                    missing_baseline: false,
+                },
+            );
             entry.0 += pseudo;
             if session.started >= week_start {
                 entry.1 += pseudo;
@@ -386,7 +470,10 @@ impl Repository {
             totals
                 .into_iter()
                 .map(
-                    |(key, (seconds, week, month, sessions, unknown_sessions))| {
+                    |(
+                        key,
+                        (seconds, week, month, sessions, unknown_sessions, baseline_sessions),
+                    )| {
                         let instance_name = names.remove(&key).unwrap_or_default();
                         // Fall back to the key when a session had no display path
                         // (only possible if every session for it was unreadable).
@@ -399,6 +486,7 @@ impl Repository {
                             month_seconds: month.to_string(),
                             sessions,
                             unknown_sessions,
+                            baseline_sessions,
                         }
                     },
                 )
@@ -539,5 +627,108 @@ mod tests {
         let deltas = [delta("root", 1, 999, 600)];
         let attributed = attribute_deltas(&sessions, &deltas, DELTA_GRACE_SECONDS);
         assert_eq!(attributed, vec![0]);
+    }
+}
+
+#[cfg(test)]
+mod optimized_attribution_tests {
+    use super::*;
+    fn reference(sessions: &[SessionWindow], deltas: &[DeltaAt]) -> Vec<i64> {
+        let mut merged = BTreeMap::new();
+        for d in deltas {
+            merged
+                .entry((&d.game_root, d.world_id, d.observed))
+                .and_modify(|v: &mut i64| *v = (*v).max(d.ticks))
+                .or_insert(d.ticks);
+        }
+        let entries: Vec<_> = merged.into_iter().collect();
+        let mut claimed = vec![false; entries.len()];
+        let mut result = vec![0i64; sessions.len()];
+        for (i, s) in sessions.iter().enumerate() {
+            let last = s
+                .next_start
+                .map_or(s.ended + 900, |next| (s.ended + 900).min(next - 1));
+            for (j, ((root, _, time), ticks)) in entries.iter().enumerate() {
+                if !claimed[j] && **root == s.game_root && *time >= s.started && *time <= last {
+                    claimed[j] = true;
+                    result[i] = result[i].saturating_add(*ticks);
+                }
+            }
+        }
+        result
+    }
+    fn fixtures(n: usize) -> (Vec<SessionWindow>, Vec<DeltaAt>) {
+        let sessions = (0..n)
+            .map(|i| SessionWindow {
+                id: i as i64,
+                game_root: format!("root{}", i % 10),
+                started: i as i64 * 1000,
+                ended: i as i64 * 1000 + 100,
+                next_start: Some(i as i64 * 1000 + 10000),
+            })
+            .collect();
+        let deltas = (0..n * 5)
+            .map(|i| DeltaAt {
+                game_root: format!("root{}", (i / 5) % 10),
+                world_id: (i % 3) as i64,
+                observed: (i / 5) as i64 * 1000 + (i % 5) as i64 * 80,
+                ticks: 40,
+            })
+            .collect();
+        (sessions, deltas)
+    }
+    #[test]
+    fn randomized_overlap_and_duplicate_claims_match_reference() {
+        let mut seed = 42u64;
+        let mut next = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (seed >> 32) as i64
+        };
+        for _ in 0..60 {
+            let sessions: Vec<_> = (0..50)
+                .map(|id| {
+                    let started = next() % 5000;
+                    SessionWindow {
+                        id,
+                        game_root: format!("root{}", next() % 3),
+                        started,
+                        ended: started + next() % 1000,
+                        next_start: if next() % 2 == 0 {
+                            Some(started + next() % 2000)
+                        } else {
+                            None
+                        },
+                    }
+                })
+                .collect();
+            let deltas: Vec<_> = (0..400)
+                .map(|_| DeltaAt {
+                    game_root: format!("root{}", next() % 3),
+                    world_id: next() % 4,
+                    observed: next() % 7000,
+                    ticks: next() % 100000,
+                })
+                .collect();
+            assert_eq!(
+                attribute_deltas(&sessions, &deltas, 900),
+                reference(&sessions, &deltas)
+            );
+        }
+    }
+    #[test]
+    #[ignore = "same-machine performance report; run explicitly with --release --ignored --nocapture"]
+    fn attribution_scale_report() {
+        for n in [10, 1000, 10000] {
+            let (sessions, deltas) = fixtures(n);
+            let start = std::time::Instant::now();
+            let old = reference(&sessions, &deltas);
+            let old_ms = start.elapsed().as_secs_f64() * 1000.;
+            let start = std::time::Instant::now();
+            let new = attribute_deltas(&sessions, &deltas, 900);
+            let new_ms = start.elapsed().as_secs_f64() * 1000.;
+            assert_eq!(old, new);
+            println!("working_set_bytes={}", super::super::working_set_bytes());
+            println!("sessions={n} deltas={} reference_ms={old_ms:.3} optimized_ms={new_ms:.3} input_struct_bytes={}",deltas.len(),sessions.capacity()*std::mem::size_of::<SessionWindow>()+deltas.capacity()*std::mem::size_of::<DeltaAt>());
+        }
     }
 }

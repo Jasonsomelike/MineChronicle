@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useResource } from '../lib/useResource';
+import ReadStatus from './ReadStatus';
+import { useEffect, useState } from 'react';
 import { ArrowUpRight, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { loadTimeline, eventNames, emptyScope } from '../lib/activity';
 import type { ActivityScope, TimelinePage } from '../lib/activity';
@@ -30,45 +32,30 @@ export default function Timeline({
   const [data, setData] = useState<TimelinePage | null>(null),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
-  const loadedQuery = useRef('');
   useEffect(() => {
     setOffset(0);
   }, [scope.uuids, scope.players_none]);
-  useEffect(() => {
-    if (!pageActive) return;
-    const signature = JSON.stringify({
-      scope,
-      from,
-      to,
-      kind,
-      offset,
-      scan: report.last_scan,
+  const request = useResource(
+    () => loadTimeline({ ...scope, from, to, kind, offset }),
+    JSON.stringify({ scope, from, to, kind, offset, scan: report.last_scan }),
+    pageActive,
+  );
+  const clearFilters = () => {
+    setFrom('');
+    setTo('');
+    setKind('');
+    setOffset(0);
+    onScope?.({
+      ...emptyScope,
+      uuids: scope.uuids,
+      players_none: scope.players_none,
     });
-    if (signature === loadedQuery.current) {
-      setLoading(false);
-      setError('');
-      return;
-    }
-    let active = true;
-    setLoading(true);
-    setError('');
-    void loadTimeline({ ...scope, from, to, kind, offset })
-      .then((d) => {
-        if (active) {
-          loadedQuery.current = signature;
-          setData(d);
-        }
-      })
-      .catch((e) => {
-        if (active) setError(String(e));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [scope, from, to, kind, offset, report.last_scan, pageActive]);
+  };
+  useEffect(() => {
+    if (request.data) setData(request.data);
+    setError(request.error);
+    setLoading(request.loading);
+  }, [request.data, request.error, request.loading]);
   return (
     <section
       className={compact ? 'timeline compact-timeline' : 'timeline'}
@@ -144,17 +131,19 @@ export default function Timeline({
           </p>
         </>
       ) : null}
-      {error ? (
-        <p role="alert" className="scan-error">
-          {error}
-        </p>
-      ) : null}
+      <ReadStatus {...request} />
+      <div className="filter-summary">
+        <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
+        <button type="button" className="text-button" onClick={clearFilters}>
+          清除本页筛选
+        </button>
+      </div>
       {loading ? (
         <p role="status">正在读取时间线…</p>
       ) : !error && !data?.events.length ? (
-        <p>暂无符合条件的记录。</p>
+        <p>暂无符合条件的记录。可清除本页筛选，或调整统计玩家。</p>
       ) : null}
-      {!loading && !error ? (
+      {data ? (
         <ol className="timeline-events">
           {data?.events.slice(0, compact ? 5 : 50).map((e) => (
             <li key={e.id} className={`event-${e.kind}`}>

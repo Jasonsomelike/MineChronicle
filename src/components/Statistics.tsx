@@ -1,3 +1,6 @@
+import { emptyScope } from '../lib/activity';
+import { useResource } from '../lib/useResource';
+import ReadStatus from './ReadStatus';
 import { useEffect, useRef, useState } from 'react';
 import {
   BarChart3,
@@ -210,10 +213,9 @@ export default function Statistics({
   const categoryTotal =
     data?.categories.reduce((total, category) => total + category.count, 0) ??
     0;
-  const loadedQuery = useRef('');
-  useEffect(() => {
-    if (!pageActive) return;
-    const signature = JSON.stringify({
+  const request = useResource(
+    () => loadStatistics({ ...scope, mode, query, offset, sort, group }),
+    JSON.stringify({
       scope,
       mode,
       query,
@@ -221,39 +223,35 @@ export default function Statistics({
       sort,
       group,
       scan: report.last_scan,
+    }),
+    pageActive,
+    150,
+  );
+  const clearFilters = () => {
+    setQuery('');
+    setOffset(0);
+    setGroup('all');
+    setSort('default');
+    setMode('current');
+    onScope({
+      ...emptyScope,
+      uuids: scope.uuids,
+      players_none: scope.players_none,
     });
-    if (signature === loadedQuery.current) {
-      setLoading(false);
-      setError('');
-      return;
+  };
+  useEffect(() => {
+    if (request.data) {
+      const lastOffset =
+        Math.max(
+          0,
+          Math.ceil(request.data.total / request.data.page_size) - 1,
+        ) * request.data.page_size;
+      if (offset > lastOffset) setOffset(lastOffset);
+      else setData(request.data);
     }
-    let active = true;
-    setLoading(true);
-    setError('');
-    const timer = setTimeout(() => {
-      void loadStatistics({ ...scope, mode, query, offset, sort, group })
-        .then((d) => {
-          if (!active) return;
-          const lastOffset =
-            Math.max(0, Math.ceil(d.total / d.page_size) - 1) * d.page_size;
-          if (offset > lastOffset) setOffset(lastOffset);
-          else {
-            loadedQuery.current = signature;
-            setData(d);
-          }
-        })
-        .catch((e) => {
-          if (active) setError(String(e));
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-    }, 150);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [scope, mode, query, offset, sort, group, report.last_scan, pageActive]);
+    setError(request.error);
+    setLoading(request.loading);
+  }, [request.data, request.error, request.loading, offset]);
   return (
     <section className="statistics" aria-label="更多统计">
       <div className="library-heading">
@@ -401,11 +399,13 @@ export default function Statistics({
           </table>
         </div>
       ) : null}
-      {error ? (
-        <p role="alert" className="scan-error">
-          {error}
-        </p>
-      ) : null}
+      <ReadStatus {...request} />
+      <div className="filter-summary">
+        <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
+        <button type="button" className="text-button" onClick={clearFilters}>
+          清除本页筛选
+        </button>
+      </div>
       <details className="statistics-overview">
         <summary>
           <ChevronDown size={16} />
@@ -525,7 +525,7 @@ export default function Statistics({
             : `${data?.total.toLocaleString('zh-CN') ?? 0} 项`}
         </span>
       </div>
-      {!error && data ? (
+      {data ? (
         <div
           className={`statistics-table${loading ? ' is-loading' : ''}`}
           aria-busy={loading}
@@ -725,7 +725,11 @@ export default function Statistics({
               })}
             </tbody>
           </table>
-          {!data?.rows.length ? <p>没有匹配的统计。</p> : null}
+          {!data?.rows.length ? (
+            <p>
+              没有匹配的统计。可清除本页筛选，或检查所选玩家是否有对应读数。
+            </p>
+          ) : null}
         </div>
       ) : null}
       {data && data.total > data.page_size ? (

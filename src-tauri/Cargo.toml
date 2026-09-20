@@ -1,6 +1,6 @@
 [package]
 name = "minechronicle"
-version = "0.10.12"
+version = "0.10.16"
 description = "Offline Minecraft career statistics"
 edition = "2021"
 rust-version = "1.97"
@@ -28,10 +28,10 @@ base64 = "0.22"
 walkdir = "2"
 notify = "8.2"
 blake3 = "1.8"
-rusqlite = { version = "0.38", features = ["bundled", "trace"] }
+rusqlite = { version = "0.38", features = ["bundled", "trace", "backup"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_Registry", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading", "Win32_UI_Shell"] }
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_Registry", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_Controls_Dialogs"] }
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }

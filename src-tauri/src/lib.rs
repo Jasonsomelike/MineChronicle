@@ -18,9 +18,19 @@ mod wide;
 pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
         .manage(commands::ScanControl::default())
+        .manage(commands::ObservationService::default())
         .manage(minecraft::runtime_resources::IconCacheDir::default())
         .invoke_handler(tauri::generate_handler![
             commands::phase_status,
+            commands::archive_status,
+            commands::configure_backups,
+            commands::create_archive_backup,
+            commands::inspect_archive_backup,
+            commands::schedule_archive_restore,
+            commands::cancel_archive_restore,
+            commands::choose_archive_backup,
+            commands::restart_after_restore,
+            commands::open_archive_folder,
             commands::scan_game_roots,
             commands::discover_pcl_folders,
             commands::scan_pcl_roots,
@@ -33,6 +43,10 @@ pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
             commands::set_tracking_enabled,
             commands::tracking_summary,
             commands::observed_sessions,
+            commands::observed_sessions_page,
+            commands::observed_session_bounds,
+            commands::set_observed_session_end,
+            commands::clear_observed_session_end,
             commands::self_player_identity,
             commands::set_self_player_identity,
             commands::health_summary,
@@ -72,7 +86,12 @@ pub fn run() -> tauri::Result<()> {
                 .set(Some(directory.join("stat-icon-cache")));
             let path = database::storage::archive_path(&directory)
                 .map_err(|e| std::io::Error::other(e.to_string()))?;
+            let backup_store = database::backup::BackupStore {app_data: directory.clone(), database: path.clone()};
+            backup_store.apply_pending().map_err(|e| std::io::Error::other(e.to_string()))?;
             database::Repository::open(&path).map_err(|e| std::io::Error::other(e.to_string()))?;
+            let archive_service = commands::ArchiveService::new(backup_store);
+            app.manage(archive_service.start());
+            app.manage(archive_service);
             let state=database::DatabaseState {path};
             let startup=serde_json::json!({"version":env!("CARGO_PKG_VERSION"),"executable":std::env::current_exe()?,"database_path":state.path,"embedded_assets":!tauri::is_dev()});
             if let Some(parent)=state.path.parent() {std::fs::write(parent.join("last-startup.json"),serde_json::to_vec_pretty(&startup)?)?;}

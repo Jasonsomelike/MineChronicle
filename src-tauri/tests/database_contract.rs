@@ -35,7 +35,7 @@ fn legacy_archive_upgrades_from_initial_schema_to_latest() -> TestResult {
     let connection = rusqlite::Connection::open(&path)?;
     assert_eq!(
         connection.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-        7
+        minechronicle_lib::database::latest_version()
     );
     for table in [
         "instances",
@@ -193,7 +193,7 @@ fn migrations_are_versioned_and_reopening_preserves_settings() -> TestResult {
     let conn = rusqlite::Connection::open(&path)?;
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-        7
+        minechronicle_lib::database::latest_version()
     );
     for table in [
         "launcher_installations",

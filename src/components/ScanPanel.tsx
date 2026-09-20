@@ -56,6 +56,9 @@ import StartupSettings from './StartupSettings';
 import SelfPlayerSettings from './SelfPlayerSettings';
 import InstanceObservation from './InstanceObservation';
 import ZoomControls from './ZoomControls';
+import { useResource } from '../lib/useResource';
+import ReadStatus from './ReadStatus';
+import ArchiveSettings from './ArchiveSettings';
 
 const pages = [
   'dashboard',
@@ -129,24 +132,18 @@ export default function ScanPanel() {
   const [pclStatus, setPclStatus] = useState<PclSyncStatus | null>(null);
   useEffect(() => {
     let active = true,
-      running = false,
-      revision = -1;
+      running = false;
     async function refresh() {
       if (running) return;
       running = true;
       try {
         const status = await loadPclSync();
         if (!active || !status) return;
-        setBackgroundErrors((old) => ({ ...old, pcl: '' }));
         setPclStatus((old) =>
           JSON.stringify(old) === JSON.stringify(status) ? old : status,
         );
-        if (status.revision !== revision) {
-          revision = status.revision;
-          if (status.link) setPcl(status.link);
-          const library = await loadLibrary();
-          if (active && library) setReport(library.report);
-        }
+        if (status.link) setPcl(status.link);
+        if (active) setBackgroundErrors((old) => ({ ...old, pcl: '' }));
       } catch (e) {
         if (active)
           setBackgroundErrors((old) => ({
@@ -187,23 +184,17 @@ export default function ScanPanel() {
   );
   useEffect(() => {
     let active = true,
-      running = false,
-      revision = -1;
+      running = false;
     const refresh = async () => {
       if (running) return;
       running = true;
       try {
         const status = await loadTrackingStatus();
         if (!active || !status) return;
-        setBackgroundErrors((old) => ({ ...old, tracking: '' }));
         setTrackingStatus((old) =>
           JSON.stringify(old) === JSON.stringify(status) ? old : status,
         );
-        if (status.revision !== revision) {
-          revision = status.revision;
-          const library = await loadLibrary();
-          if (active && library) setReport(library.report);
-        }
+        if (active) setBackgroundErrors((old) => ({ ...old, tracking: '' }));
       } catch (cause) {
         if (active)
           setBackgroundErrors((old) => ({
@@ -259,54 +250,23 @@ export default function ScanPanel() {
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [report, setReport] = useState<ScanSummary | null>(null);
   const [health, setHealth] = useState<HealthSummary | null>(null);
+  const [today, setToday] = useState(() => new Date().toDateString());
   useEffect(() => {
-    let active = true;
-    let date = new Date().toDateString();
-    const refreshTotals = () => {
-      void loadTrackingSummary()
-        .then((value) => {
-          if (active) {
-            setTracking(value);
-            setBackgroundErrors((old) => ({ ...old, totals: '' }));
-          }
-        })
-        .catch((e) => {
-          if (active)
-            setBackgroundErrors((old) => ({
-              ...old,
-              totals: `统计读取暂不可用：${String(e)}`,
-            }));
-        });
-    };
-    if (report) {
-      refreshTotals();
-      void loadHealth()
-        .then((value) => {
-          if (active) {
-            setHealth(value);
-            setBackgroundErrors((old) => ({ ...old, health: '' }));
-          }
-        })
-        .catch((e) => {
-          if (active)
-            setBackgroundErrors((old) => ({
-              ...old,
-              health: `数据健康读取暂不可用：${String(e)}`,
-            }));
-        });
-    }
-    const timer = setInterval(() => {
-      const today = new Date().toDateString();
-      if (report && today !== date) {
-        date = today;
-        refreshTotals();
-      }
-    }, 60000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [report]);
+    const timer = setInterval(() => setToday(new Date().toDateString()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+  const totalsRead = useResource(
+    loadTrackingSummary,
+    `${report?.last_scan}:${trackingStatus?.revision}:${today}`,
+    !!report,
+  );
+  const healthRead = useResource(loadHealth, report, !!report);
+  useEffect(() => {
+    if (totalsRead.data) setTracking(totalsRead.data);
+  }, [totalsRead.data]);
+  useEffect(() => {
+    if (healthRead.data) setHealth(healthRead.data);
+  }, [healthRead.data]);
   const [error, setError] = useState('');
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
   const [pcl, setPcl] = useState<PclLink | null>(null);
@@ -319,6 +279,7 @@ export default function ScanPanel() {
       const link = await discoverPclFolders();
       setPcl(link);
       setLauncher(link.launchers.length === 1 ? link.launchers[0] : '');
+      inputDirty.current = true;
       setInput(link.folders.map((f) => displayPath(f.path)).join('\n'));
       if (!link.folders.length)
         setError('PCL 没有已保存的游戏文件夹，请先打开 PCL 或手动添加目录。');
@@ -330,46 +291,38 @@ export default function ScanPanel() {
   }
 
   const [loading, setLoading] = useState(true);
+  const inputDirty = useRef(false);
+  const inputInitialized = useRef(false);
+  // All refresh sources share one request generation and stale-response guard.
+  const initialLibrary = useResource(
+    loadLibrary,
+    `${pclStatus?.revision}:${trackingStatus?.revision}`,
+  );
+  const initialRuntime = useResource(runtimeInfo, 'runtime');
+  const initialPcl = useResource(discoverPclFolders, 'pcl-discovery');
   useEffect(() => {
-    let active = true;
-    Promise.all([
-      runtimeInfo(),
-      loadLibrary(),
-      discoverPclFolders().catch(() => null),
-    ])
-      .then(([info, library, link]) => {
-        if (active) setRuntime(info);
-        if (active && link) {
-          setPcl(link);
-          const key = (path: string) =>
-            displayPath(path)
-              .replace(/\\/g, '/')
-              .replace(/\/$/, '')
-              .toLowerCase();
-          if (
-            link.launchers.length === 1 &&
-            library?.inputs.length &&
-            library.inputs.every((path) =>
-              link.folders.some((folder) => key(folder.path) === key(path)),
-            )
-          )
-            setLauncher(link.launchers[0]);
-        }
-        if (active && library) {
-          setReport(library.report);
-          setInput(library.inputs.map(displayPath).join('\n'));
-        }
-      })
-      .catch((cause) => {
-        if (active) setError(String(cause));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (initialRuntime.data) setRuntime(initialRuntime.data);
+  }, [initialRuntime.data]);
+  useEffect(() => {
+    if (initialPcl.data) setPcl(initialPcl.data);
+  }, [initialPcl.data]);
+  useEffect(() => {
+    const library = initialLibrary.data;
+    if (library) {
+      setReport(library.report);
+      if (!inputDirty.current && !inputInitialized.current) {
+        setInput(library.inputs.map(displayPath).join('\n'));
+        inputInitialized.current = true;
+      }
+    }
+  }, [initialLibrary.data]);
+  useEffect(() => {
+    setLoading(initialLibrary.loading && !initialLibrary.data);
+  }, [initialLibrary.loading, initialLibrary.data]);
+  function applySavedReport(next: ScanSummary) {
+    initialLibrary.refresh();
+    setReport(next);
+  }
 
   useEffect(() => {
     if (!report || !runtime) return;
@@ -402,7 +355,7 @@ export default function ScanPanel() {
       if (result.cancelled) {
         setError('扫描已取消，已保存的世界与实例保持不变。');
       } else {
-        setReport(result);
+        applySavedReport(result);
       }
     } catch (cause) {
       setError(String(cause instanceof Error ? cause.message : cause));
@@ -508,14 +461,39 @@ export default function ScanPanel() {
             </p>
           ))}
       </details>
+      {view === 'settings' && (
+        <nav className="settings-jump" aria-label="设置分区">
+          {[
+            ['settings-identity', '身份'],
+            ['settings-startup', '启动与显示'],
+            ['settings-import', '导入与联动'],
+            ['settings-archive', '档案与备份'],
+            ['settings-health', '数据健康'],
+          ].map(([id, label]) => (
+            <button
+              className="text-button"
+              key={id}
+              onClick={() =>
+                document.getElementById(id)?.scrollIntoView({ block: 'start' })
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
       <div hidden={view !== 'settings'} className="settings-layout">
         <div
           className="settings-column"
           role="group"
           aria-label="个人与界面设置"
         >
-          <SelfPlayerSettings report={report} />
-          <StartupSettings />
+          <div id="settings-identity">
+            <SelfPlayerSettings report={report} />
+          </div>
+          <div id="settings-startup">
+            <StartupSettings />
+          </div>
           <section className="settings-card">
             <h2>窗口与显示</h2>
             <p>
@@ -529,6 +507,7 @@ export default function ScanPanel() {
         </div>
         <div
           className="settings-column"
+          id="settings-import"
           role="group"
           aria-label="联动与存档导入"
         >
@@ -548,7 +527,10 @@ export default function ScanPanel() {
                   MineChronicle {runtime.version} ·{' '}
                   {runtime.embedded_assets ? '独立桌面版' : '开发服务器模式'}
                 </strong>
-                <p>当前档案：{displayPath(runtime.database_path)}</p>
+                <details>
+                  <summary>当前档案位置</summary>
+                  <p>当前档案：{displayPath(runtime.database_path)}</p>
+                </details>
                 <p>
                   PCL 配置适配已启用 · 已保存{' '}
                   {report?.instances.length ?? runtime.pcl_instances} 个实例
@@ -617,6 +599,7 @@ export default function ScanPanel() {
                 id="game-roots"
                 value={input}
                 onChange={(event) => {
+                  inputDirty.current = true;
                   setInput(event.target.value);
                   setLauncher('');
                 }}
@@ -648,8 +631,28 @@ export default function ScanPanel() {
           </section>
         </div>
       </div>
+      <SessionPage active={view === 'settings'} label="档案与备份">
+        <ArchiveSettings />
+      </SessionPage>
+      {view === 'settings' && (
+        <>
+          {initialLibrary.error && <ReadStatus {...initialLibrary} />}
+          {initialRuntime.error && <ReadStatus {...initialRuntime} />}
+          {initialPcl.error && <ReadStatus {...initialPcl} />}
+        </>
+      )}
+      {(view === 'dashboard' || view === 'settings') && (
+        <>
+          {(view === 'dashboard' || totalsRead.error) && (
+            <ReadStatus {...totalsRead} />
+          )}
+          {healthRead.error && <ReadStatus {...healthRead} />}
+        </>
+      )}
       <SessionPage active={view === 'observation'} label="实例观测">
-        <InstanceObservation>
+        <InstanceObservation
+          revision={`${trackingStatus?.revision}:${report?.last_scan}`}
+        >
           {trackingStatus ? (
             <div className="watch-status">
               <span
@@ -760,6 +763,7 @@ export default function ScanPanel() {
               }
               health={health}
               onTimeline={() => openActivity('timeline')}
+              onObservation={() => navigate('observation')}
               onSettings={() => {
                 navigate('settings');
                 setTimeout(
@@ -815,7 +819,7 @@ export default function ScanPanel() {
               query={worldQuery}
               onQuery={setWorldQuery}
               busy={busy}
-              onSaved={setReport}
+              onSaved={applySavedReport}
               onActivity={openActivity}
             />
           </SessionPage>

@@ -1,6 +1,8 @@
 //! SQLite storage owned by MineChronicle. Minecraft inputs are never opened for writing.
 pub mod activity;
+pub mod backup;
 pub mod health;
+pub mod observation_cache;
 pub mod read_models;
 pub mod sessions;
 pub mod snapshot_codec;
@@ -459,10 +461,16 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (5, include_str!("005_activity.sql")),
     (6, include_str!("006_sessions.sql")),
     (7, include_str!("007_compress_payloads.sql")),
+    (8, include_str!("008_session_edits.sql")),
 ];
 
 /// Current schema version supported by this build.
-fn latest_version() -> i64 {
+///
+/// Public so tests can assert that an upgrade reaches the latest migration
+/// rather than a number copied by hand: a hardcoded literal turns every future
+/// migration into a test failure that has to be edited, which invites editing
+/// the assertion without checking the upgrade actually happened.
+pub fn latest_version() -> i64 {
     MIGRATIONS.last().map_or(0, |(version, _)| *version)
 }
 
@@ -540,4 +548,43 @@ fn compress_existing_payloads(transaction: &Transaction<'_>) -> DbResult<bool> {
         }
     }
     Ok(rewrote)
+}
+
+#[cfg(all(test, windows))]
+fn working_set_bytes() -> usize {
+    #[repr(C)]
+    struct Counters {
+        size: u32,
+        faults: u32,
+        values: [usize; 8],
+    }
+    #[link(name = "psapi")]
+    extern "system" {
+        fn GetProcessMemoryInfo(
+            process: *mut std::ffi::c_void,
+            counters: *mut Counters,
+            size: u32,
+        ) -> i32;
+    }
+    let mut c = Counters {
+        size: std::mem::size_of::<Counters>() as u32,
+        faults: 0,
+        values: [0; 8],
+    };
+    if unsafe {
+        GetProcessMemoryInfo(
+            -1isize as *mut std::ffi::c_void,
+            &mut c,
+            std::mem::size_of::<Counters>() as u32,
+        )
+    } != 0
+    {
+        c.values[1]
+    } else {
+        0
+    }
+}
+#[cfg(all(test, not(windows)))]
+fn working_set_bytes() -> usize {
+    0
 }

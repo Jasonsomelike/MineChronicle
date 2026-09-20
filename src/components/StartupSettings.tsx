@@ -69,9 +69,10 @@ export default function StartupSettings() {
         </label>
       </div>
       {status?.executable ? (
-        <p className="setting-path" title={displayPath(status.executable)}>
-          启动程序：{displayPath(status.executable)}
-        </p>
+        <details>
+          <summary>启动程序位置</summary>
+          <p className="setting-path">{displayPath(status.executable)}</p>
+        </details>
       ) : null}
       {!status?.supported && status ? (
         <p className="scan-note">请在 Windows 桌面版中设置。</p>

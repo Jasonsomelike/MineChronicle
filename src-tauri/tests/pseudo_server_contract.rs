@@ -127,6 +127,12 @@ fn a_delta_recorded_after_the_session_offsets_its_time() -> TestResult {
     // Back-date the session to one hour so there is time to subtract from.
     {
         let connection = rusqlite::Connection::open(&archive)?;
+        // This fixture represents an established baseline from BEFORE the run.
+        // The run is backdated below, so its baseline must be backdated too.
+        connection.execute(
+            "UPDATE stat_snapshots SET observed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 hours')",
+            [],
+        )?;
         connection.execute(
             "UPDATE observed_sessions \
              SET started_at = strftime('%Y-%m-%dT%H:%M:%SZ','now','-1 hour'), \

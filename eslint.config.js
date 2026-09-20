@@ -8,6 +8,7 @@ export default [
   {
     ignores: [
       'dist',
+      'output',
       'node_modules',
       'src-tauri/target',
       'src-tauri/gen',

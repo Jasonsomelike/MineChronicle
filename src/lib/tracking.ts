@@ -20,6 +20,14 @@ export interface TrackingSummary {
     status: 'running' | 'closed' | 'interrupted';
     /** Seconds of this run with no world progress. Absent on older archives. */
     pseudo_seconds?: string;
+    missing_baseline?: boolean;
+    /**
+     * `'manual'` when the end time was typed by the user rather than observed.
+     * A typed value is an estimate, so the table marks it and offers an undo.
+     */
+    ended_source?: string | null;
+    /** When a manual edit was made; an audit trail, never used in totals. */
+    edited_at?: string | null;
   }[];
   players: {
     uuid: string;
@@ -51,6 +59,7 @@ export interface TrackingSummary {
     month_seconds: string;
     sessions: number;
     unknown_sessions: number;
+    baseline_sessions?: number;
   }[];
 }
 export async function loadTracking() {
@@ -71,10 +80,83 @@ export function loadObservedSessions() {
     ? invoke<NonNullable<TrackingSummary['sessions']>>('observed_sessions')
     : Promise.resolve([]);
 }
+export interface ObservedSessionsPage {
+  sessions: NonNullable<TrackingSummary['sessions']>;
+  total: number;
+  history_total?: number;
+  filtered_seconds?: string;
+  boundary?: number;
+  new_records?: number;
+  snapshot?: string;
+  history_changed?: boolean;
+  instances?: { game_root: string; name: string }[];
+  page: number;
+  page_size: number;
+  total_seconds: string;
+  unknown_sessions: number;
+  baseline_sessions: number;
+  running_sessions: number;
+}
+export interface ObservationQuery {
+  game_root: string;
+  from: string;
+  to: string;
+  status: string;
+  boundary?: number;
+  snapshot?: string;
+}
+export function loadObservedSessionsPage(
+  page: number,
+  query?: ObservationQuery,
+) {
+  return isTauri()
+    ? invoke<ObservedSessionsPage>('observed_sessions_page', { page, query })
+    : Promise.resolve<ObservedSessionsPage>({
+        sessions: [],
+        total: 0,
+        page: 1,
+        page_size: 20,
+        total_seconds: '0',
+        unknown_sessions: 0,
+        baseline_sessions: 0,
+        running_sessions: 0,
+      });
+}
 export function loadTrackingSummary() {
   return isTauri()
     ? invoke<TrackingSummary>('tracking_summary')
     : Promise.resolve(null);
+}
+
+/** The range a manual end time may fall in, for one session. */
+export interface ManualEndBounds {
+  started_at: string;
+  /**
+   * Start of the next session for the same instance. Sessions of one instance
+   * cannot overlap, or the same minutes would be counted twice.
+   */
+  max_ended_at: string | null;
+  status: string;
+}
+
+export function loadSessionBounds(id: number) {
+  return invoke<ManualEndBounds>('observed_session_bounds', { id });
+}
+
+/**
+ * Record a user-supplied end time.
+ *
+ * The value must already be the stored form (`YYYY-MM-DDTHH:MM:SSZ`, UTC); the
+ * dialog converts from the local time the user typed. The backend re-validates
+ * regardless, because a form hint is not a guarantee.
+ */
+export function setSessionEnd(id: number, endedAt: string) {
+  return invoke<void>('set_observed_session_end', { id, ended_at: endedAt });
+}
+
+/** Undo a manual end time, returning the session to 观测中断. */
+export function clearSessionEnd(id: number) {
+  return invoke<void>('clear_observed_session_end', { id });
 }
 export function setTrackingEnabled(enabled: boolean) {
   return invoke<TrackingStatus>('set_tracking_enabled', { enabled });
@@ -113,6 +195,7 @@ export function pseudoTotals(summary: TrackingSummary | null) {
       month: sum.month + BigInt(entry.month_seconds),
       sessions: sum.sessions + entry.sessions,
       unknown: sum.unknown + entry.unknown_sessions,
+      baseline: sum.baseline + (entry.baseline_sessions ?? 0),
       instances: sum.instances + (BigInt(entry.seconds) > 0n ? 1 : 0),
     }),
     {
@@ -121,6 +204,7 @@ export function pseudoTotals(summary: TrackingSummary | null) {
       month: 0n,
       sessions: 0,
       unknown: 0,
+      baseline: 0,
       instances: 0,
     },
   );

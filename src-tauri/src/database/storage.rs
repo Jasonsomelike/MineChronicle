@@ -22,7 +22,18 @@ pub fn archive_path(app_data: &Path) -> DbResult<PathBuf> {
         return Err("档案位置配置过大".into());
     }
     let location: Location = serde_json::from_slice(&fs::read(locator)?)?;
-    if !location.database_path.is_absolute() || !location.database_path.is_file() {
+    let pending = app_data.join("pending-restore.json");
+    let recoverable = pending.is_file()
+        && location
+            .database_path
+            .with_extension("restore-previous.sqlite3")
+            .is_file()
+        && serde_json::from_slice::<serde_json::Value>(&fs::read(&pending)?)?
+            .get("target")
+            .and_then(|p| p.as_str())
+            .is_some_and(|p| Path::new(p) == location.database_path);
+    if !location.database_path.is_absolute() || (!location.database_path.is_file() && !recoverable)
+    {
         return Err("配置的档案不可用，请检查对应磁盘。不会自动创建空档案。".into());
     }
     Ok(location.database_path)

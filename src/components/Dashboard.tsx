@@ -112,6 +112,7 @@ export default function Dashboard({
   tracking,
   health,
   onTimeline,
+  onObservation,
   players,
   onPlayers,
   playersNone = false,
@@ -122,6 +123,7 @@ export default function Dashboard({
   onOpen: (path: string) => void;
   onSettings: () => void;
   onTimeline: () => void;
+  onObservation: () => void;
   players: string[];
   playersNone?: boolean;
   onPlayers: (ids: string[], none?: boolean) => void;
@@ -301,12 +303,23 @@ export default function Dashboard({
             {tracking?.rollback_count ?? 0} 次回档记录 · {data.unreadable}{' '}
             条当前读数不可用
           </p>
-          {pseudo.seconds > 0n ? (
+          {pseudo.seconds > 0n || pseudo.unknown || pseudo.baseline ? (
             <p>
-              伪服务器时长 {formatSeconds(pseudo.seconds.toString())}
+              未归因运行时长 {formatSeconds(pseudo.seconds.toString())}
               {pseudo.instances ? ` · ${pseudo.instances} 个实例` : ''}
               {pseudo.unknown ? ` · ${pseudo.unknown} 次会话未观测到结束` : ''}
-              ；指实例在运行、但本地世界统计没有增长的时间（连服务器游玩）。
+              {pseudo.baseline
+                ? ` · ${pseudo.baseline} 次会话缺少本地基线，未计入`
+                : ''}
+              <br />
+              全部实例历史累计，不随玩家筛选。可能包含服务器游玩、加载和菜单停留，不等同于玩家游戏时长。
+              <button
+                type="button"
+                className="text-button"
+                onClick={onObservation}
+              >
+                查看实例观测
+              </button>
             </p>
           ) : null}
           {health?.confirmed_lineages ? (

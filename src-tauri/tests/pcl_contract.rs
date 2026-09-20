@@ -279,7 +279,7 @@ fn migration_from_phase3_retains_snapshots_and_aliases() -> TestResult {
     let conn = rusqlite::Connection::open(path)?;
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-        7
+        minechronicle_lib::database::latest_version()
     );
     assert_eq!(
         conn.query_row("SELECT preferred_name FROM players", [], |r| r
