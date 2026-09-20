@@ -149,9 +149,13 @@ export function loadSessionBounds(id: number) {
  * The value must already be the stored form (`YYYY-MM-DDTHH:MM:SSZ`, UTC); the
  * dialog converts from the local time the user typed. The backend re-validates
  * regardless, because a form hint is not a guarantee.
+ *
+ * The key is camelCase (`endedAt`) to match the Rust parameter `ended_at`: Tauri
+ * converts camelCase to snake_case when reading arguments, and only in that
+ * direction. Sending `ended_at` fails with "missing required key endedAt".
  */
 export function setSessionEnd(id: number, endedAt: string) {
-  return invoke<void>('set_observed_session_end', { id, ended_at: endedAt });
+  return invoke<void>('set_observed_session_end', { id, endedAt });
 }
 
 /** Undo a manual end time, returning the session to 观测中断. */

@@ -100,39 +100,55 @@ export function installObservationFixture(table) {
       // Mirrors the backend's rules, including the CHECK constraint's coupling
       // of ended_at and status, so the fixture cannot accept something the real
       // command would reject.
+      //
+      // It also mirrors the WIRE NAME: Tauri resolves each parameter with a
+      // direct lookup of the camelCase key, so `endedAt` is what arrives. The
+      // fixture once read `args.ended_at` and silently accepted the wrong key,
+      // which let a broken frontend pass the browser check while the real app
+      // failed with "missing required key endedAt". Unknown keys are now
+      // rejected rather than ignored.
       if (command === 'set_observed_session_end') {
+        const unknown = Object.keys(args).filter(
+          (key) => !['id', 'endedAt'].includes(key),
+        );
+        if (unknown.length)
+          throw Error(
+            `unexpected argument(s) ${unknown.join(
+              ', ',
+            )}; the command takes id and endedAt`,
+          );
+        if (!('endedAt' in args)) throw Error('missing required key endedAt');
+        const value = args.endedAt;
         const row = qa.rows.find((s) => s.id === args.id);
         if (!row) throw Error('找不到该观测记录');
         if (row.status === 'running')
           throw Error('正在运行的会话不能手动填写结束时间');
-        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(args.ended_at))
-          throw Error(
-            `时间格式应为 YYYY-MM-DDTHH:MM:SSZ，收到 ${args.ended_at}`,
-          );
-        if (args.ended_at <= row.started_at)
-          throw Error('结束时间必须晚于开始时间');
-        if (Date.parse(args.ended_at) > Date.now())
+        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value))
+          throw Error(`时间格式应为 YYYY-MM-DDTHH:MM:SSZ，收到 ${value}`);
+        if (value <= row.started_at) throw Error('结束时间必须晚于开始时间');
+        if (Date.parse(value) > Date.now())
           throw Error('结束时间不能晚于当前时间');
         const next = qa.rows
           .filter((s) => s.game_root === row.game_root && s.id !== row.id)
           .map((s) => s.started_at)
           .filter((t) => t > row.started_at)
           .sort()[0];
-        if (next && args.ended_at > next)
+        if (next && value > next)
           throw Error(`不能晚于下一次会话开始时间 ${next}`);
-        row.ended_at = args.ended_at;
+        row.ended_at = value;
         row.status = 'closed';
         row.ended_source = 'manual';
         row.edited_at = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
         row.pseudo_seconds = String(
-          Math.floor(
-            (Date.parse(args.ended_at) - Date.parse(row.started_at)) / 1000,
-          ),
+          Math.floor((Date.parse(value) - Date.parse(row.started_at)) / 1000),
         );
         return null;
       }
 
       if (command === 'clear_observed_session_end') {
+        const unknown = Object.keys(args).filter((key) => key !== 'id');
+        if (unknown.length)
+          throw Error(`unexpected argument(s) ${unknown.join(', ')}`);
         const row = qa.rows.find((s) => s.id === args.id);
         if (!row) throw Error('找不到该观测记录');
         if (row.ended_source !== 'manual')
