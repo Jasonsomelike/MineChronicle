@@ -18,14 +18,19 @@ export function installObservationFixture(table) {
     const id = 51 - i;
     const at = (minutes) =>
       `2026-09-01T00:${String(minutes).padStart(2, '0')}:00Z`;
+    // `i === 0` is the newest record and is left running, because the page has to
+    // render a live session: an instance that just started shows "等待实例关闭" and
+    // its duration is unknown. A fixture with no running session cannot exercise
+    // that state, nor the transition when the observer closes it.
+    const running = i === 0;
     return {
       id,
       game_root: second ? 'D:\\QA\\server' : 'D:\\QA\\root',
       instance_name: second ? '香草纪元：食旅纪行' : 'QA Instance',
       started_at: at(id),
-      ended_at: i === 2 ? null : at(id),
-      status: i === 2 ? 'interrupted' : 'closed',
-      pseudo_seconds: i === 1 || i === 2 ? '0' : '60',
+      ended_at: running || i === 2 ? null : at(id),
+      status: running ? 'running' : i === 2 ? 'interrupted' : 'closed',
+      pseudo_seconds: running || i === 1 || i === 2 ? '0' : '60',
       missing_baseline: i === 1,
     };
   });

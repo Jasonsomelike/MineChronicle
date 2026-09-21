@@ -43,13 +43,25 @@ try {
     20,
     'collapsed groups still keep their rows in the DOM',
   );
+  // The newest fixture record is a live session, so it has no measurable duration
+  // and contributes 0. That is why the page subtotals are 48/17 rather than 49/18.
+  // The summary's own figures come from the fixture's fixed values, so this asserts
+  // the page subtotal, which is computed from the rows.
   assert.match(
     await page.locator('.observation-summary').innerText(),
-    /49 分钟/,
+    /48 分钟/,
   );
   assert.match(
     await page.locator('.observation-summary').innerText(),
-    /18 分钟/,
+    /17 分钟/,
+  );
+  // A live session must be renderable: it shows as running and waits for the
+  // instance to close, rather than presenting an invented end time.
+  await openGroups();
+  assert.match(await page.locator('.observed-sessions').innerText(), /运行中/);
+  assert.match(
+    await page.locator('.observed-sessions').innerText(),
+    /等待实例关闭/,
   );
   await openGroups();
   assert.match(
@@ -104,7 +116,7 @@ try {
   );
   assert.match(
     await page.locator('.observation-summary').innerText(),
-    /49 分钟/,
+    /48 分钟/,
   );
   assert.match(
     await page.locator('.observation-summary').innerText(),

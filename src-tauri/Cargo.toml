@@ -1,6 +1,6 @@
 [package]
 name = "minechronicle"
-version = "0.10.20"
+version = "0.10.21"
 description = "Offline Minecraft career statistics"
 edition = "2021"
 rust-version = "1.97"

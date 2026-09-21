@@ -1,7 +1,7 @@
 {
   "name": "minechronicle",
   "private": true,
-  "version": "0.10.20",
+  "version": "0.10.21",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

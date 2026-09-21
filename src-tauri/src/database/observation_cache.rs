@@ -108,13 +108,26 @@ impl ObservationCache {
             .ok_or("观测查询已失效，请刷新观测")?;
         let total = snapshot.indices.len() as i64;
         let page = page.clamp(1, ((total + 19) / 20).max(1));
-        // The rows on this page.
+        // The snapshot fixes *which* sessions the page shows, not what state they are
+        // in. Rows are re-read from the live history by id, so a session that closes
+        // (or gains a manual end time) while the page is displayed updates at once.
+        //
+        // Carrying the frozen copies here was the bug: a session closed by the
+        // observer kept rendering as "运行中 / 等待实例关闭" while the summary above it,
+        // which reads the live rows, said 0 running - the page contradicted itself on
+        // one screen. Freezing membership is deliberate (the filtered set must not
+        // shift under the reader); freezing status was not.
+        //
+        // `filter_map` drops a session that is in the snapshot but no longer in the
+        // live history; it cannot be rendered, and showing a stale copy would
+        // reintroduce the same problem.
+        let live = |id: i64| current.sessions.iter().find(|s| s.id == id).cloned();
         let rows: Vec<_> = snapshot
             .indices
             .iter()
             .skip(((page - 1) * 20) as usize)
             .take(20)
-            .map(|i| snapshot.history.sessions[*i].clone())
+            .filter_map(|i| live(snapshot.history.sessions[*i].id))
             .collect();
         // Groups cover the whole filtered set so a collapsed instance reports its
         // real totals; only this page's rows are attached to each group. Built with
@@ -122,7 +135,7 @@ impl ObservationCache {
         let filtered: Vec<_> = snapshot
             .indices
             .iter()
-            .map(|i| snapshot.history.sessions[*i].clone())
+            .filter_map(|i| live(snapshot.history.sessions[*i].id))
             .collect();
         let mut groups = super::sessions::group_sessions(&filtered);
         // Attach this page's rows; the groups' own totals stay whole-history.
