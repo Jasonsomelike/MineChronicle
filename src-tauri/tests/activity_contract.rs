@@ -238,16 +238,32 @@ fn timeline_distinguishes_history_changes_rollback_and_filters_without_duplicate
         import(&mut repo, &root)?;
     }
     let all = db(repo.timeline(&ActivityFilter::default()))?;
-    assert_eq!(all.total, 3);
+    // Every event here happens within the same instant, so they form one merged
+    // row. The kinds are no longer separate rows, so the test asserts the row's
+    // composition instead - a stronger check than before, because it also proves
+    // the merge kept all three rather than collapsing them into one label.
+    assert_eq!(all.total, 1, "near-simultaneous events merge into one row");
+    let merged = &all.events[0];
+    assert_eq!(merged.kind, "mixed", "a span of several kinds says so");
+    let kinds: Vec<&str> = merged.kinds.iter().map(|k| k.kind.as_str()).collect();
+    for expected in ["initial_import", "increment", "rollback"] {
+        assert!(
+            kinds.contains(&expected),
+            "the merged row must still report {expected}: {kinds:?}"
+        );
+    }
     assert_eq!(
-        all.events
-            .iter()
-            .map(|e| e.kind.as_str())
-            .collect::<Vec<_>>(),
-        ["rollback", "increment", "initial_import"]
+        merged.merged_count, 4,
+        "import, 100->200, the rollback, then 180->183; the repeated 100 makes no event"
     );
-    assert_eq!(all.events[0].old_ticks.as_deref(), Some("200"));
-    assert_eq!(all.events[0].delta_ticks, "0");
+    // The rollback's own value survives the merge, so its 200 -> 180 drop is still
+    // readable rather than being reduced to a net delta.
+    let rollback = merged
+        .parts
+        .iter()
+        .find(|p| p.kind == "rollback")
+        .ok_or("the rollback must survive as a part of the merged row")?;
+    assert_eq!(rollback.old_ticks.as_deref(), Some("200"));
     let filter = ActivityFilter {
         kind: "increment".into(),
         world_path: fs::canonicalize(&world)?.to_string_lossy().into_owned(),

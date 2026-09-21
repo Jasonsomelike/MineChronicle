@@ -147,35 +147,77 @@ export default function Timeline({
         <ol className="timeline-events">
           {data?.events.slice(0, compact ? 5 : 50).map((e) => {
             const merged = (e.merged_count ?? 1) > 1;
+            // A span that contains an import or a rollback is more than "time
+            // grew", so the row describes what it is made of instead of claiming
+            // one kind. `kinds` is most frequent first.
+            const composition = (e.kinds ?? []).filter(
+              (k) => k.kind !== 'increment',
+            );
+            const increments = (e.kinds ?? []).find(
+              (k) => k.kind === 'increment',
+            )?.count;
+            const title = merged
+              ? composition.length
+                ? composition
+                    .map((k) => eventNames[k.kind] ?? k.kind)
+                    .join(' + ')
+                : eventNames[e.kind] ?? e.kind
+              : eventNames[e.kind] ?? e.kind;
             return (
               <li key={e.id} className={`event-${e.kind}`}>
-                <time dateTime={e.observed_at}>
+                <div className="event-when">
+                  <time dateTime={e.observed_at} className="event-date">
+                    {new Date(e.observed_at).toLocaleDateString()}
+                  </time>
                   {merged && e.first_observed_at ? (
-                    // A merged run covers a span, so the date column shows the
-                    // range rather than one instant. Without this the row looked
-                    // like a single moment that happened to add an hour.
-                    <>
-                      {new Date(e.first_observed_at).toLocaleString()}
-                      <span className="event-span-sep">→</span>
-                      {new Date(e.observed_at).toLocaleTimeString()}
-                    </>
+                    // A merged run covers a span, so the time shows the range
+                    // rather than one instant. Without this the row looked like a
+                    // single moment that happened to add an hour.
+                    <span className="event-range">
+                      <time dateTime={e.first_observed_at}>
+                        {new Date(e.first_observed_at).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </time>
+                      <span className="event-span-sep" aria-hidden="true">
+                        →
+                      </span>
+                      <time dateTime={e.observed_at}>
+                        {new Date(e.observed_at).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </time>
+                    </span>
                   ) : (
-                    new Date(e.observed_at).toLocaleString()
+                    // One instant, so a single time under the date keeps the
+                    // column's shape identical to a merged row's.
+                    <span className="event-range">
+                      <time dateTime={e.observed_at}>
+                        {new Date(e.observed_at).toLocaleTimeString()}
+                      </time>
+                    </span>
                   )}
-                </time>
-                <div>
+                </div>
+                <div className="event-body">
                   <div className="timeline-title">
-                    <strong>{eventNames[e.kind] ?? e.kind}</strong>
+                    <strong>{title}</strong>
                     {merged ? (
                       <span
                         className="event-merged-tag"
                         title={`这一段时间由 ${e.merged_count} 次观测合并`}
                       >
+                        {increments
+                          ? `${increments} 次增长${
+                              composition.length ? ' · ' : ''
+                            }`
+                          : ''}
                         {e.merged_count} 次观测
                       </span>
                     ) : null}
                     <button
-                      className="text-button"
+                      className="text-button event-world"
                       title={displayPath(e.world_path)}
                       onClick={() => onOpen(e.world_path)}
                     >
@@ -183,11 +225,18 @@ export default function Timeline({
                       <ArrowUpRight size={13} />
                     </button>
                   </div>
-                  <p>
-                    {e.player_name ?? e.uuid}
+                  <p className="event-meta">
+                    <span className="event-player">
+                      {e.player_name ?? e.uuid}
+                    </span>
                     <span className="event-duration">
                       {e.kind === 'increment'
                         ? `+ ${formatTickTotal(e.delta_ticks)}`
+                        : e.kind === 'mixed'
+                        ? // A mixed span's headline figure is the net growth, with
+                          // the rollback shown inside the breakdown so the two are
+                          // not conflated.
+                          `+ ${formatTickTotal(e.delta_ticks)}`
                         : e.kind === 'rollback'
                         ? `${formatTickTotal(
                             e.old_ticks ?? '0',
@@ -205,16 +254,39 @@ export default function Timeline({
                   ) : null}
                   {merged && e.parts?.length ? (
                     // The individual observations, so the merged total stays
-                    // auditable: a reader can see how it was built up.
+                    // auditable: a reader can see how it was built up, including
+                    // the import and rollback that opened the span.
                     <details className="event-details event-parts">
                       <summary>展开 {e.parts.length} 次观测</summary>
                       <ol>
                         {e.parts.map((part) => (
-                          <li key={part.observed_at}>
+                          <li
+                            key={part.observed_at}
+                            className={`part-${part.kind ?? 'increment'}`}
+                          >
                             <time dateTime={part.observed_at}>
-                              {new Date(part.observed_at).toLocaleTimeString()}
+                              {new Date(part.observed_at).toLocaleTimeString(
+                                [],
+                                { hour: '2-digit', minute: '2-digit' },
+                              )}
                             </time>
-                            <span>+ {formatTickTotal(part.delta_ticks)}</span>
+                            <span className="part-kind">
+                              {eventNames[part.kind ?? 'increment'] ??
+                                part.kind ??
+                                ''}
+                            </span>
+                            <span className="part-delta">
+                              {part.kind === 'rollback'
+                                ? `${formatTickTotal(
+                                    part.old_ticks ?? '0',
+                                  )} → 回档`
+                                : part.kind === 'initial_import'
+                                ? // An import's delta is always 0 - it records the
+                                  // baseline the later increments are measured
+                                  // against, so its own change is not a duration.
+                                  '建立基线'
+                                : `+ ${formatTickTotal(part.delta_ticks)}`}
+                            </span>
                           </li>
                         ))}
                       </ol>

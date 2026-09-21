@@ -1372,44 +1372,172 @@ footer {
 .timeline-filters input {
   min-width: 0;
 }
+/* ---------------------------------------------------------------------------
+   Timeline rows.
+   Each row is one observed span: a fixed date/time column and a body whose first
+   line is the headline, second line is who and how much, and whose remaining
+   lines are collapsed detail. The date column is a fixed track so the headline
+   text of every row starts at the same x, which is what makes the list scannable.
+   --------------------------------------------------------------------------- */
 .timeline-events {
   padding: 0;
   margin: 0;
   list-style: none;
 }
-.timeline-events li {
+.timeline-events > li {
   display: grid;
-  grid-template-columns: 155px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 20px;
   border-bottom: 1px solid var(--border);
-  padding: 16px 0;
+  padding: 15px 4px;
   font-size: 13px;
+  transition: background var(--motion-fast, 120ms) var(--ease-standard, ease);
 }
-.timeline-events time {
+.timeline-events > li:hover {
+  background: var(--surface-hover);
+}
+.timeline-events > li:last-child {
+  border-bottom: 0;
+}
+/* The date and the time range stack, because a span needs two clock times and
+   putting them on one line pushed the column wider than the other rows. */
+.event-when {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 1px;
+}
+.event-when time {
   font-size: 12px;
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.event-date {
+  white-space: nowrap;
+}
+.event-range {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-faint);
+}
+.event-span-sep {
+  color: var(--text-faint);
+}
+.event-body {
+  min-width: 0;
 }
 .timeline-title {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   flex-wrap: wrap;
 }
-.timeline-events p {
-  margin: 8px 0;
+.timeline-title strong {
+  /* The headline: the only element in the row that carries full text weight. */
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.event-merged-tag {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.event-world {
+  /* Sits beside the headline rather than being pushed to the far edge. Floating it
+     right left a wide empty gap that read as a broken row, and the world belongs to
+     the same sentence as the event name. */
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.event-world:hover {
+  color: var(--text-accent);
+}
+.event-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 7px 0 0;
   overflow-wrap: anywhere;
 }
+.event-player {
+  color: var(--text-muted);
+}
 .event-duration {
-  margin-left: 14px;
+  /* The figure the row exists to communicate, so it gets a filled chip. */
+  padding: 2px 9px;
+  border-radius: 6px;
+  background: var(--surface-tint);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
 }
 .event-increment .event-duration {
   color: var(--text-label);
 }
 .event-rollback .event-duration {
+  background: var(--danger-surface);
   color: var(--danger);
+}
+.event-initial_import .event-duration {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+}
+.timeline-events > li .event-details {
+  margin-top: 7px;
+  font-size: 12px;
+}
+.timeline-events > li .event-details > summary {
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.timeline-events > li .event-details > summary:hover {
+  color: var(--text-muted);
 }
 .timeline-events code {
   overflow-wrap: anywhere;
+}
+/* The expanded observation list: a compact table-like grid so the times and the
+   values line up down the column instead of drifting with each label's width. */
+.event-parts ol {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+}
+.event-parts li {
+  display: grid;
+  grid-template-columns: 62px minmax(84px, auto) minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: baseline;
+  padding: 3px 0 3px 12px;
+  color: var(--text-muted);
+}
+.event-parts time {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.part-kind {
+  font-size: 12px;
+}
+.part-delta {
+  font-variant-numeric: tabular-nums;
+}
+/* The non-increment parts opened the span, so they are marked rather than buried
+   among identical-looking rows. */
+.event-parts li.part-rollback .part-delta {
+  color: var(--danger);
+}
+.event-parts li.part-initial_import .part-delta {
+  color: var(--text-faint);
 }
 .compact-timeline {
   margin-top: 28px;
@@ -2654,59 +2782,6 @@ button.stat-icon:hover {
   white-space: nowrap;
 }
 
-/* ---------------------------------------------------------------------------
-   Merged timeline runs.
-   The observer records an increment per reconcile pass, so a session used to
-   arrive as dozens of "+ 5 分钟" rows. Close ones are merged; these styles make
-   the merge legible rather than hiding it.
-   --------------------------------------------------------------------------- */
-.event-span-sep {
-  margin: 0 4px;
-  color: var(--text-faint);
-}
-.timeline-events time {
-  /* The date column is a fixed 155px grid track, so a range needs to wrap rather
-     than push the layout. Tabular figures stop the two timestamps jittering. */
-  font-variant-numeric: tabular-nums;
-  line-height: 1.6;
-}
-.event-merged-tag {
-  padding: 1px 7px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-sunken);
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 400;
-  white-space: nowrap;
-}
-.event-parts {
-  margin-top: 6px;
-}
-.event-parts ol {
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-  /* A long run would otherwise push the page very tall; capped so the detail
-     stays a detail. */
-  max-height: 220px;
-  overflow: auto;
-}
-.event-parts li {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 10px;
-  border-bottom: 0;
-  padding: 3px 0;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.event-parts time {
-  font-size: 12px;
-}
-.event-parts span {
-  font-variant-numeric: tabular-nums;
-}
 /* ---------------------------------------------------------------------------
    Observation groups.
    The instance table listed every session as its own row, so one archive showed

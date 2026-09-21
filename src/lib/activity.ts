@@ -73,7 +73,18 @@ export interface TimelineEvent {
   /** When a merged run started. Absent for an event that stands alone. */
   first_observed_at?: string | null;
   /** The individual observations inside a merged run, oldest first. */
-  parts?: { observed_at: string; delta_ticks: string }[];
+  parts?: {
+    observed_at: string;
+    delta_ticks: string;
+    kind?: string;
+    old_ticks?: string | null;
+  }[];
+  /**
+   * What kinds a merged row is made of, most frequent first. A span can begin with
+   * an import and a rollback before the increments, and this is how the row says so
+   * instead of hiding those behind the merge.
+   */
+  kinds?: { kind: string; count: number }[];
 }
 export interface TimelinePage {
   events: TimelineEvent[];
@@ -135,9 +146,15 @@ export function loadStatistics(
       });
 }
 export const eventNames: Record<string, string> = {
+  // Every kind the backend can emit, so a row never falls back to showing a raw
+  // identifier like `stats_changed`.
   initial_import: '首次导入历史',
   increment: '观察到时长增长',
   rollback: '统计回档',
+  stats_changed: '统计数据变化',
+  tracking_started: '开始追踪',
+  // A merged row whose span contains more than one kind.
+  mixed: '观测时段',
 };
 export function formatCount(value: string) {
   return BigInt(value).toLocaleString('zh-CN');

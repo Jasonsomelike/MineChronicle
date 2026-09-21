@@ -65,6 +65,47 @@ impl Archive {
     }
 
     fn increment_for(&self, offset_seconds: i64, ticks: i64, uuid: &str) -> TestResult2<()> {
+        self.growth_for(offset_seconds, ticks, uuid)
+    }
+
+    /// Insert one raw observation of an explicit snapshot kind.
+    ///
+    /// `snapshot_kind` is the stored `stat_snapshots.kind`; the timeline derives its
+    /// own event kind from whether a delta or a rollback row exists alongside it, so
+    /// the helpers below pair this with the right side table.
+    fn observation(
+        &self,
+        offset_seconds: i64,
+        ticks: i64,
+        uuid: &str,
+        snapshot_kind: &str,
+    ) -> TestResult2<i64> {
+        let world = self.world_id()?;
+        let connection = Connection::open(&self.path)?;
+        let snapshot: i64 = connection.query_row(
+            "INSERT INTO stat_snapshots(world_id,player_uuid,kind,play_ticks,stats,normalized_hash,observed_at) \
+             VALUES(?1,?2,?3,?4,'{}','hash', \
+                    strftime('%Y-%m-%dT%H:%M:%SZ','2026-01-01',printf('+%d seconds',?5))) RETURNING id",
+            params![world, uuid, snapshot_kind, ticks, offset_seconds],
+            |r| r.get(0),
+        )?;
+        // A zero-delta row is still written for the observation kinds, matching how
+        // the importer records a session boundary.
+        connection.execute(
+            "INSERT INTO tracked_deltas(world_id,player_uuid,delta_ticks,observed_at,snapshot_id) \
+             VALUES(?1,?2,0, \
+                    strftime('%Y-%m-%dT%H:%M:%SZ','2026-01-01',printf('+%d seconds',?3)),?4)",
+            params![world, uuid, offset_seconds, snapshot],
+        )?;
+        Ok(snapshot)
+    }
+
+    /// An increment: a delta that the timeline reports as play-time growth.
+    fn growth(&self, offset_seconds: i64, ticks: i64) -> TestResult2<()> {
+        self.growth_for(offset_seconds, ticks, PLAYER)
+    }
+
+    fn growth_for(&self, offset_seconds: i64, ticks: i64, uuid: &str) -> TestResult2<()> {
         let world = self.world_id()?;
         let connection = Connection::open(&self.path)?;
         let snapshot: i64 = connection.query_row(
@@ -81,6 +122,63 @@ impl Archive {
             params![world, uuid, ticks, offset_seconds, snapshot],
         )?;
         Ok(())
+    }
+
+    /// An initial import: a baseline with no delta.
+    ///
+    /// `one_initial_import` is a unique index on (world, player) for this kind, so
+    /// an archive can only ever hold one. The fixture already created one when it
+    /// imported the scanned world, so this moves that row to the requested instant
+    /// instead of inserting a second, which the schema would reject.
+    fn import(&self, offset_seconds: i64, play_ticks: i64) -> TestResult2<()> {
+        let world = self.world_id()?;
+        let connection = Connection::open(&self.path)?;
+        let existing: Option<i64> = connection
+            .query_row(
+                "SELECT id FROM stat_snapshots WHERE world_id=?1 AND player_uuid=?2 \
+                 AND kind='initial_import'",
+                params![world, PLAYER],
+                |r| r.get(0),
+            )
+            .ok();
+        match existing {
+            Some(id) => {
+                connection.execute(
+                    "UPDATE stat_snapshots SET play_ticks=?1, observed_at= \
+                     strftime('%Y-%m-%dT%H:%M:%SZ','2026-01-01',printf('+%d seconds',?2)) \
+                     WHERE id=?3",
+                    params![play_ticks, offset_seconds, id],
+                )?;
+                // The fixture's import also wrote a delta row; drop it so this
+                // import really has no delta, as a real one does not.
+                connection.execute(
+                    "DELETE FROM tracked_deltas WHERE snapshot_id=?1",
+                    params![id],
+                )?;
+            }
+            None => {
+                self.observation(offset_seconds, play_ticks, PLAYER, "initial_import")?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A rollback: a drop from `old` to the snapshot's own value.
+    fn rollback(&self, offset_seconds: i64, play_ticks: i64, old_ticks: i64) -> TestResult2<()> {
+        let snapshot = self.observation(offset_seconds, play_ticks, PLAYER, "observation")?;
+        let connection = Connection::open(&self.path)?;
+        connection.execute(
+            "INSERT INTO stat_rollbacks(world_id,player_uuid,old_ticks,new_ticks,snapshot_id) \
+             SELECT world_id,player_uuid,?1,?2,id FROM stat_snapshots WHERE id=?3",
+            params![old_ticks, play_ticks, snapshot],
+        )?;
+        Ok(())
+    }
+
+    /// The timeline with no kind filter, so every kind is included.
+    fn timeline_all(&self) -> TestResult2<minechronicle_lib::database::activity::TimelinePage> {
+        let repo = db(Repository::open(&self.path))?;
+        db(repo.timeline(&ActivityFilter::default()))
     }
 
     fn timeline(&self) -> TestResult2<minechronicle_lib::database::activity::TimelinePage> {
@@ -238,5 +336,106 @@ fn pagination_counts_merged_rows() -> TestResult2<()> {
         second.events.iter().all(|e| !first_ids.contains(&e.id)),
         "pages must not repeat a run"
     );
+    Ok(())
+}
+
+/// Opening a session produces an import, then a rollback, then growth, seconds
+/// apart. They are one continuous event and must appear as one row - the case that
+/// motivated merging every kind rather than only increments.
+#[test]
+fn a_session_opening_merges_import_rollback_and_growth() -> TestResult2<()> {
+    let archive = open()?;
+    archive.import(0, 60)?;
+    archive.rollback(113, 4, 60)?;
+    archive.growth(131, 207)?;
+    archive.growth(426, 5980)?;
+
+    let page = archive.timeline_all()?;
+    assert_eq!(page.total, 1, "the opening is one row, not four");
+    let event = &page.events[0];
+    assert_eq!(event.kind, "mixed", "the span contains several kinds");
+    assert_eq!(event.merged_count, 4);
+    let kinds: Vec<(&str, i64)> = event
+        .kinds
+        .iter()
+        .map(|k| (k.kind.as_str(), k.count))
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![("increment", 2), ("initial_import", 1), ("rollback", 1)],
+        "most frequent kind first, so the row reads growth-first"
+    );
+    Ok(())
+}
+
+/// The rollback's own numbers must survive the merge. Reducing the span to a net
+/// delta would hide that the play time dropped, which is the thing worth noticing.
+#[test]
+fn a_merged_span_keeps_the_rollback_details() -> TestResult2<()> {
+    let archive = open()?;
+    archive.import(0, 1200)?;
+    archive.rollback(60, 300, 1200)?;
+    archive.growth(120, 400)?;
+
+    let page = archive.timeline_all()?;
+    let event = &page.events[0];
+    let rollback = event
+        .parts
+        .iter()
+        .find(|p| p.kind == "rollback")
+        .ok_or("the rollback must still be a part of the span")?;
+    assert_eq!(
+        rollback.old_ticks.as_deref(),
+        Some("1200"),
+        "the value dropped from is preserved"
+    );
+    // The part list is chronological, so the opening events come first.
+    assert_eq!(event.parts[0].kind, "initial_import");
+    assert_eq!(event.parts[1].kind, "rollback");
+    assert!(event.parts[2..].iter().all(|p| p.kind == "increment"));
+    Ok(())
+}
+
+/// Requesting one kind returns the spans that contain it, since a row is no longer
+/// a single kind. Asking for rollbacks should still surface the session opening.
+#[test]
+fn filtering_by_kind_matches_spans_that_contain_it() -> TestResult2<()> {
+    let archive = open()?;
+    archive.import(0, 60)?;
+    archive.rollback(113, 4, 60)?;
+    archive.growth(131, 207)?;
+
+    let repo = db(Repository::open(&archive.path))?;
+    for kind in ["rollback", "initial_import", "increment"] {
+        let page = db(repo.timeline(&ActivityFilter {
+            kind: kind.into(),
+            ..Default::default()
+        }))?;
+        assert_eq!(page.total, 1, "the span contains a {kind}");
+    }
+    // A kind the span does not contain must not match it.
+    let page = db(repo.timeline(&ActivityFilter {
+        kind: "stats_changed".into(),
+        ..Default::default()
+    }))?;
+    assert_eq!(page.total, 0);
+    Ok(())
+}
+
+/// A span made only of increments must not claim to be mixed, or the row would
+/// describe itself as a composition when it is one thing repeated.
+#[test]
+fn a_span_of_one_kind_is_not_marked_mixed() -> TestResult2<()> {
+    let archive = open()?;
+    for step in 0..3 {
+        archive.growth(step * 300, 100)?;
+    }
+    // The fixture's own import predates these by months, so it forms a second row;
+    // filtering to increments keeps this test about the growth span.
+    let page = archive.timeline()?;
+    assert_eq!(page.total, 1);
+    assert_eq!(page.events[0].kind, "increment");
+    assert_eq!(page.events[0].kinds.len(), 1);
+    assert_eq!(page.events[0].kinds[0].count, 3);
     Ok(())
 }

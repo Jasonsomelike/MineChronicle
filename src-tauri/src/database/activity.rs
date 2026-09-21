@@ -22,6 +22,8 @@ pub struct ActivityFilter {
 #[derive(Serialize)]
 pub struct TimelineEvent {
     pub id: i64,
+    /// The row's headline kind. A merged row that spans several kinds reports
+    /// `mixed`, so the styling does not claim the whole span was one thing.
     pub kind: String,
     pub observed_at: String,
     pub world_path: String,
@@ -46,6 +48,19 @@ pub struct TimelineEvent {
     /// an unmerged event, which already shows its own delta.
     #[serde(default)]
     pub parts: Vec<TimelinePart>,
+    /// What kinds a merged row is made of, most frequent first. A row that is
+    /// purely increments still reports its single entry, so the UI can describe a
+    /// span ("首次导入 + 统计回档 + 77 次增长") instead of hiding the opening
+    /// events behind whichever one happened to sort first.
+    #[serde(default)]
+    pub kinds: Vec<TimelineKindCount>,
+}
+
+/// How many events of one kind a merged row contains.
+#[derive(Serialize, Deserialize)]
+pub struct TimelineKindCount {
+    pub kind: String,
+    pub count: i64,
 }
 
 /// One raw observation inside a merged run.
@@ -53,6 +68,11 @@ pub struct TimelineEvent {
 pub struct TimelinePart {
     pub observed_at: String,
     pub delta_ticks: String,
+    /// The kind of this individual observation, so an expanded run shows that the
+    /// span began with an import or a rollback rather than only listing deltas.
+    pub kind: String,
+    /// Set on a rollback part: the value the play time dropped from.
+    pub old_ticks: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -256,13 +276,19 @@ const EVENTS: &str = "WITH events AS (
 /// not a tuned guess. Above it, a genuinely separate session would be swallowed.
 const MERGE_GAP_SECONDS: i64 = 600;
 
-/// Marks a new "island" of consecutive increments, per world and player.
+/// Marks a new "island" of nearby events, per world and player.
 ///
-/// Only `increment` rows merge: an initial import or a rollback is a moment, not a
-/// duration, and would mislead as the heading of a multi-minute run. A run is per
-/// (world, player), so two players in one world stay separate, and it breaks when
-/// the gap exceeds `?7`, so "this morning" and "this evening" do not collapse into
-/// a single row.
+/// Every kind merges, not just increments. Restricting it to increments left the
+/// opening of a session stranded: an import at 09:58, a rollback 113s later and the
+/// first increment 18s after that are one continuous event, but they rendered as
+/// three separate rows whose relationship the reader had to reconstruct. A run is
+/// per (world, player), so two players in one world stay separate, and it breaks
+/// when the gap exceeds `?7`, so "this morning" and "this evening" do not collapse
+/// into one row.
+///
+/// A merged row reports the kinds it contains, so nothing is hidden by the merge:
+/// a span that starts with an import and a rollback still says so, and the
+/// per-observation breakdown lists each one.
 ///
 /// The gap is compared as whole seconds via `CAST(strftime('%s', ...) AS INTEGER)`
 /// rather than by subtracting two `julianday` values. SQLite's Julian day is a
@@ -282,13 +308,11 @@ const MERGE_GAP_SECONDS: i64 = 600;
 /// all seven, so no statement has a hole.
 const EVENT_RUNS: &str = ", marked AS ( \
      SELECT e.*, \
-       LAG(observed_at) OVER (PARTITION BY world_path, uuid ORDER BY observed_at) prev_at, \
-       LAG(kind) OVER (PARTITION BY world_path, uuid ORDER BY observed_at) prev_kind \
+       LAG(observed_at) OVER (PARTITION BY world_path, uuid ORDER BY observed_at) prev_at \
      FROM events e \
    ), grouped AS ( \
      SELECT m.*, SUM(CASE \
-       WHEN kind <> 'increment' THEN 1 \
-       WHEN prev_kind IS NULL OR prev_kind <> 'increment' THEN 1 \
+       WHEN prev_at IS NULL THEN 1 \
        WHEN CAST(strftime('%s', observed_at) AS INTEGER) \
           - CAST(strftime('%s', prev_at) AS INTEGER) > ?7 THEN 1 \
        ELSE 0 END) \
@@ -306,17 +330,40 @@ const EVENT_RUNS: &str = ", marked AS ( \
 /// `min(observed_at)` is compared for the lower bound and `max(observed_at)` for
 /// the upper, so a run counts as in-range when any part of it overlaps the range.
 ///
-/// The noise floors keep their original columns: an `initial_import` is measured by
-/// `play_ticks` (its `delta_ticks` is always 0, so testing the delta would drop
-/// every import), while an `increment` keeps the delta test. Using `sum` for a run
-/// applies the floor to the run's total, which is the intended reading.
-const FILTER_GROUPED: &str = " (?1='null' OR world_path IN (SELECT value FROM json_each(?1))) AND (?2='null' OR game_root IN (SELECT value FROM json_each(?2))) AND (?3='[]' OR uuid IN (SELECT value FROM json_each(?3))) AND (?4='' OR max(observed_at)>=strftime('%Y-%m-%dT%H:%M:%fZ',?4||' 00:00:00','utc')) AND (?5='' OR min(observed_at)<strftime('%Y-%m-%dT%H:%M:%fZ',date(?5,'+1 day')||' 00:00:00','utc')) AND (?6='' OR max(kind)=?6) AND (max(kind)='rollback' OR (max(kind)='initial_import' AND max(play_ticks)>=20) OR (max(kind)='increment' AND sum(delta_ticks)>=20))";
+/// The noise floors are now expressed over a run's contents rather than its single
+/// kind, because a run can mix kinds: a session opening is an import plus a rollback
+/// plus increments. A run is kept when any member would have been kept on its own -
+/// a rollback always, an import whose `play_ticks` clears the floor, or increments
+/// whose total does. `delta_ticks` is always 0 for an import, so applying the delta
+/// test to an import would drop every one of them.
+///
+/// The kind filter matches runs that *contain* the requested kind, which is the
+/// useful reading once rows merge: asking for rollbacks should show the session
+/// opening that includes one.
+const FILTER_GROUPED: &str = " \
+ (?1='null' OR world_path IN (SELECT value FROM json_each(?1))) \
+ AND (?2='null' OR game_root IN (SELECT value FROM json_each(?2))) \
+ AND (?3='[]' OR uuid IN (SELECT value FROM json_each(?3))) \
+ AND (?4='' OR max(observed_at)>=strftime('%Y-%m-%dT%H:%M:%fZ',?4||' 00:00:00','utc')) \
+ AND (?5='' OR min(observed_at)<strftime('%Y-%m-%dT%H:%M:%fZ',date(?5,'+1 day')||' 00:00:00','utc')) \
+ AND (?6='' OR sum(CASE WHEN kind=?6 THEN 1 ELSE 0 END)>0) \
+ AND (sum(CASE WHEN kind='rollback' THEN 1 ELSE 0 END)>0 \
+      OR sum(CASE WHEN kind='initial_import' AND play_ticks>=20 THEN 1 ELSE 0 END)>0 \
+      OR sum(CASE WHEN kind='increment' THEN delta_ticks ELSE 0 END)>=20)";
 
 /// The JSON shape `json_group_array` produces, before conversion.
 #[derive(Deserialize)]
 struct RawPart {
     observed_at: String,
     delta_ticks: i64,
+    kind: String,
+    old_ticks: Option<i64>,
+}
+
+/// The minimal shape used when tallying a run's composition.
+#[derive(Deserialize)]
+struct KindOnly {
+    kind: String,
 }
 
 fn path_filter(legacy: &str, paths: &Option<Vec<String>>) -> DbResult<String> {
@@ -412,13 +459,22 @@ impl Repository {
         // ordering stays newest-first, and the run's span is reported separately.
         // `parts` carries the individual observations so the UI can expand a run
         // without a second query.
+        //
+        // The headline kind is `mixed` when a run contains more than one kind,
+        // while `kinds` always lists the composition. Reporting `max(kind)` there
+        // would label a span "首次导入" just because that happens to be the
+        // alphabetically largest, which is meaningless.
         let mut query = self.connection.prepare(&format!(
             "{EVENTS}{EVENT_RUNS} \
-             SELECT max(id), max(kind), max(observed_at), world_path, world_name, uuid, \
+             SELECT max(id), max(observed_at), world_path, world_name, uuid, \
                     max(player_name), max(play_ticks), sum(delta_ticks), max(old_ticks), \
                     count(*), min(observed_at), \
                     json_group_array(json_object('observed_at', observed_at, \
-                                                 'delta_ticks', delta_ticks)) \
+                                                 'delta_ticks', delta_ticks, \
+                                                 'kind', kind, \
+                                                 'old_ticks', old_ticks)), \
+                    count(DISTINCT kind), max(kind), \
+                    json_group_array(json_object('kind', kind)) \
              FROM grouped GROUP BY world_path, uuid, grp HAVING {FILTER_GROUPED} \
              ORDER BY max(observed_at) DESC, max(id) DESC LIMIT 50 OFFSET ?8"
         ))?;
@@ -435,11 +491,12 @@ impl Repository {
                     filter.offset
                 ],
                 |r| {
-                    let merged_count: i64 = r.get(10)?;
+                    let merged_count: i64 = r.get(9)?;
+                    let distinct_kinds: i64 = r.get(12)?;
                     // Only a merged run needs its parts; a single event already
                     // shows its own delta and the array would be noise.
                     let parts: Vec<TimelinePart> = if merged_count > 1 {
-                        let raw: String = r.get(12)?;
+                        let raw: String = r.get(11)?;
                         let mut parsed: Vec<TimelinePart> =
                             serde_json::from_str::<Vec<RawPart>>(&raw)
                                 .unwrap_or_default()
@@ -447,6 +504,8 @@ impl Repository {
                                 .map(|p| TimelinePart {
                                     observed_at: p.observed_at,
                                     delta_ticks: p.delta_ticks.to_string(),
+                                    kind: p.kind,
+                                    old_ticks: p.old_ticks.map(|v| v.to_string()),
                                 })
                                 .collect();
                         parsed.sort_by(|a, b| a.observed_at.cmp(&b.observed_at));
@@ -454,27 +513,48 @@ impl Repository {
                     } else {
                         Vec::new()
                     };
+                    // Tally the kinds so the row can describe its own composition.
+                    let mut tally: BTreeMap<String, i64> = BTreeMap::new();
+                    if merged_count > 1 {
+                        let raw: String = r.get(14)?;
+                        for entry in serde_json::from_str::<Vec<KindOnly>>(&raw).unwrap_or_default()
+                        {
+                            *tally.entry(entry.kind).or_insert(0) += 1;
+                        }
+                    }
+                    let mut kinds: Vec<TimelineKindCount> = tally
+                        .into_iter()
+                        .map(|(kind, count)| TimelineKindCount { kind, count })
+                        .collect();
+                    // Most frequent first, then by name so the order is stable.
+                    kinds.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.kind.cmp(&b.kind)));
+                    let single_kind: String = r.get(13)?;
                     Ok(TimelineEvent {
                         id: r.get(0)?,
-                        kind: r.get(1)?,
+                        kind: if distinct_kinds > 1 {
+                            "mixed".to_owned()
+                        } else {
+                            single_kind
+                        },
                         // max(observed_at) is the run's end; the run's start is
                         // reported separately so an unmerged event has no
                         // redundant second timestamp.
-                        observed_at: r.get(2)?,
-                        world_path: r.get(3)?,
-                        world_name: r.get(4)?,
-                        uuid: r.get(5)?,
-                        player_name: r.get(6)?,
-                        play_ticks: r.get::<_, i64>(7)?.to_string(),
-                        delta_ticks: r.get::<_, i64>(8)?.to_string(),
-                        old_ticks: r.get::<_, Option<i64>>(9)?.map(|v| v.to_string()),
+                        observed_at: r.get(1)?,
+                        world_path: r.get(2)?,
+                        world_name: r.get(3)?,
+                        uuid: r.get(4)?,
+                        player_name: r.get(5)?,
+                        play_ticks: r.get::<_, i64>(6)?.to_string(),
+                        delta_ticks: r.get::<_, i64>(7)?.to_string(),
+                        old_ticks: r.get::<_, Option<i64>>(8)?.map(|v| v.to_string()),
                         merged_count,
                         first_observed_at: if merged_count > 1 {
-                            Some(r.get(11)?)
+                            Some(r.get(10)?)
                         } else {
                             None
                         },
                         parts,
+                        kinds,
                     })
                 },
             )?

@@ -179,11 +179,12 @@ const timelinePage = {
       old_ticks: null,
     },
     {
-      // A merged run: the shape the backend now returns for consecutive
-      // increments. Without one in the fixture the merged UI is never rendered,
-      // so a regression in the span, the tag or the expansion would go unseen.
+      // A merged, mixed span: the shape the backend returns when a session opening
+      // (an import and a rollback) joins the increments that follow it. Without one
+      // in the fixture the mixed-row UI is never rendered, so a regression in the
+      // composition line, the span or the expansion would go unseen.
       id: 4,
-      kind: 'increment',
+      kind: 'mixed',
       observed_at: '2026-09-17T12:04:25.000Z',
       first_observed_at: '2026-09-17T11:18:18.000Z',
       world_path: 'D:\\QA\\root\\saves\\QA World',
@@ -194,11 +195,33 @@ const timelinePage = {
       delta_ticks: '55340',
       old_ticks: null,
       merged_count: 4,
+      kinds: [
+        { kind: 'increment', count: 2 },
+        { kind: 'rollback', count: 1 },
+        { kind: 'initial_import', count: 1 },
+      ],
       parts: [
-        { observed_at: '2026-09-17T11:18:18.000Z', delta_ticks: '13835' },
-        { observed_at: '2026-09-17T11:23:18.000Z', delta_ticks: '13835' },
-        { observed_at: '2026-09-17T11:28:18.000Z', delta_ticks: '13835' },
-        { observed_at: '2026-09-17T12:04:25.000Z', delta_ticks: '13835' },
+        {
+          observed_at: '2026-09-17T11:18:18.000Z',
+          delta_ticks: '0',
+          kind: 'initial_import',
+        },
+        {
+          observed_at: '2026-09-17T11:20:18.000Z',
+          delta_ticks: '0',
+          kind: 'rollback',
+          old_ticks: '60',
+        },
+        {
+          observed_at: '2026-09-17T11:23:18.000Z',
+          delta_ticks: '27670',
+          kind: 'increment',
+        },
+        {
+          observed_at: '2026-09-17T12:04:25.000Z',
+          delta_ticks: '27670',
+          kind: 'increment',
+        },
       ],
     },
     {
