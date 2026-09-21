@@ -82,6 +82,13 @@ export function loadObservedSessions() {
 }
 export interface ObservedSessionsPage {
   sessions: NonNullable<TrackingSummary['sessions']>;
+  /**
+   * The same rows grouped by instance, so a collapsed group can show its real
+   * totals. Built server-side because an instance's sessions can outnumber a page
+   * (one archive holds 19 sessions for a single instance against a page size of
+   * 20), and grouping per page would split an instance and show it twice.
+   */
+  groups?: ObservationGroup[];
   total: number;
   history_total?: number;
   filtered_seconds?: string;
@@ -104,6 +111,19 @@ export interface ObservationQuery {
   status: string;
   boundary?: number;
   snapshot?: string;
+}
+
+export interface ObservationGroup {
+  game_root: string;
+  name: string;
+  /** Sessions in this group on the current page. */
+  sessions: NonNullable<TrackingSummary['sessions']>;
+  /** Sessions for this instance across all history, not just this page. */
+  session_count: number;
+  /** Summed seconds across the whole group, so a collapsed row stays informative. */
+  seconds: string;
+  unknown_sessions: number;
+  baseline_sessions: number;
 }
 export function loadObservedSessionsPage(
   page: number,

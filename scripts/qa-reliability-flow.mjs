@@ -118,13 +118,17 @@ try {
   await page.getByRole('button', { name: /有 1 条新观测/ }).waitFor();
   await page.getByRole('button', { name: '下一页', exact: true }).click();
   await page.getByRole('status').filter({ hasText: '第 2 / 3 页' }).waitFor();
+  // Rows are identified by their start time now that the instance name heads a
+  // group instead of appearing on every row. id 32 is the last record of page 1 and
+  // id 31 the first of page 2, so their timestamps (00:32 and 00:31) mark the
+  // boundary without depending on the instance name.
   assert.match(
-    await page.locator('.observed-sessions tbody').innerText(),
-    /QA Session 31/,
+    await page.locator('.observed-sessions').innerText(),
+    /08:31:00/,
   );
   assert.doesNotMatch(
-    await page.locator('.observed-sessions tbody').innerText(),
-    /QA Session 32/,
+    await page.locator('.observed-sessions').innerText(),
+    /08:32:00/,
   );
   await page.getByLabel('状态', { exact: true }).selectOption('interrupted');
   await page.getByRole('status').filter({ hasText: '共 1 条' }).waitFor();

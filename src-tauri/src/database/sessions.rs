@@ -48,6 +48,29 @@ pub struct ObservationInstance {
     pub name: String,
 }
 
+/// One instance's sessions, as a group the UI can collapse.
+///
+/// Grouping happens here rather than in the frontend because an instance's sessions
+/// can outnumber a page: the reference archive has one instance with 19 sessions and
+/// a page holds 20, so any grouping done per page would split a single instance
+/// across two pages and show it twice with partial totals.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ObservationGroup {
+    pub game_root: String,
+    pub name: String,
+    /// Sessions in this group on the current page, newest first.
+    pub sessions: Vec<ObservedSession>,
+    /// Total sessions for this instance across all history, not just this page.
+    pub session_count: i64,
+    /// Summed `pseudo_seconds` across every session in the group, so a collapsed
+    /// row still shows the instance's real total.
+    pub seconds: String,
+    /// Sessions excluded from `seconds` because their end was never observed.
+    pub unknown_sessions: i64,
+    /// Sessions excluded because a first local baseline could not be attributed.
+    pub baseline_sessions: i64,
+}
+
 /// What a manual end time is allowed to be, for one session.
 ///
 /// Returned to the UI so the input can be constrained before submitting, and
@@ -135,6 +158,10 @@ fn parse_timestamp(value: &str) -> DbResult<i64> {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ObservedSessionsPage {
     pub sessions: Vec<ObservedSession>,
+    /// The same rows grouped by instance, for the collapsible view. Each group
+    /// carries its own totals across all history so a collapsed instance is still
+    /// informative.
+    pub groups: Vec<ObservationGroup>,
     pub total: i64,
     pub history_total: i64,
     pub snapshot: Option<String>,
@@ -149,6 +176,53 @@ pub struct ObservedSessionsPage {
     pub unknown_sessions: usize,
     pub baseline_sessions: usize,
     pub running_sessions: i64,
+}
+
+/// Group sessions by instance, using the estimates already attached to each row.
+///
+/// Shared by the direct query and the cache so both produce identical groups: the
+/// cache slices a full-history page and would otherwise duplicate this, and two
+/// implementations of the same totals is how a collapsed view and the totals line
+/// start disagreeing.
+///
+/// Reads `pseudo_seconds` and `missing_baseline` off the row rather than a separate
+/// estimate map, because every caller has already filled them in.
+pub(crate) fn group_sessions(sessions: &[ObservedSession]) -> Vec<ObservationGroup> {
+    let mut order: Vec<String> = Vec::new();
+    let mut grouped: std::collections::BTreeMap<String, ObservationGroup> =
+        std::collections::BTreeMap::new();
+    for session in sessions {
+        let ended = session.ended_at.is_some();
+        let missing_baseline = session.missing_baseline;
+        let seconds: i128 = session.pseudo_seconds.parse().unwrap_or(0);
+        let entry = grouped.entry(session.game_root.clone()).or_insert_with(|| {
+            order.push(session.game_root.clone());
+            ObservationGroup {
+                game_root: session.game_root.clone(),
+                name: session.instance_name.clone(),
+                sessions: Vec::new(),
+                session_count: 0,
+                seconds: String::new(),
+                unknown_sessions: 0,
+                baseline_sessions: 0,
+            }
+        });
+        entry.session_count += 1;
+        if !ended {
+            // No observed end means no measurable duration.
+            entry.unknown_sessions += 1;
+        } else if missing_baseline {
+            // A first local baseline cannot be attributed to this session.
+            entry.baseline_sessions += 1;
+        } else {
+            let running: i128 = entry.seconds.parse().unwrap_or(0);
+            entry.seconds = (running + seconds).to_string();
+        }
+    }
+    order
+        .into_iter()
+        .filter_map(|key| grouped.remove(&key))
+        .collect()
 }
 
 impl Repository {
@@ -461,9 +535,13 @@ impl Repository {
         let history_total = all.len() as i64;
         let new_records = all.iter().filter(|s| s.id > boundary).count() as i64;
         let running_sessions = all.iter().filter(|s| s.status == "running").count() as i64;
+        // Groups are built from every filtered session, not just this page, so a
+        // collapsed instance shows its real totals rather than this page's share.
+        let filtered: std::collections::HashSet<i64> = ids.iter().copied().collect();
         let mut sessions: Vec<_> = all
-            .into_iter()
+            .iter()
             .filter(|s| page_ids.contains(&s.id))
+            .cloned()
             .collect();
         for session in &mut sessions {
             if let Some(estimate) = estimates.get(&session.id) {
@@ -471,7 +549,34 @@ impl Repository {
                 session.missing_baseline = estimate.missing_baseline;
             }
         }
+        // Totals come from the filtered set, rows from the page. Grouping the page
+        // rows alone would report one page's worth of time under an instance that
+        // spans several pages.
+        let history: Vec<_> = all
+            .iter()
+            .filter(|s| filtered.contains(&s.id))
+            .cloned()
+            .map(|mut session| {
+                if let Some(estimate) = estimates.get(&session.id) {
+                    session.pseudo_seconds = estimate.seconds.to_string();
+                    session.missing_baseline = estimate.missing_baseline;
+                }
+                session
+            })
+            .collect();
+        let mut groups = group_sessions(&history);
+        // Attach this page's rows to their group. `group_sessions` only computes
+        // totals, so without this every group would render collapsed with nothing
+        // to expand.
+        for group in &mut groups {
+            group.sessions = sessions
+                .iter()
+                .filter(|s| s.game_root == group.game_root)
+                .cloned()
+                .collect();
+        }
         let result = ObservedSessionsPage {
+            groups,
             sessions,
             total,
             history_total,

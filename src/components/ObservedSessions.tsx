@@ -17,6 +17,109 @@ const date = (value: string) =>
 
 type Session = NonNullable<ObservedSessionsPage['sessions']>[number];
 
+/** One session row. Shared by every group's table. */
+function SessionRow({
+  session,
+  onEdit,
+}: {
+  session: Session;
+  onEdit: (session: Session) => void;
+}) {
+  const manual = session.ended_source === 'manual';
+  return (
+    <tr>
+      <td title={displayPath(session.game_root)}>{session.instance_name}</td>
+      <td>
+        <time dateTime={session.started_at}>{date(session.started_at)}</time>
+      </td>
+      <td>
+        {session.ended_at ? (
+          <>
+            <time dateTime={session.ended_at}>{date(session.ended_at)}</time>
+            {manual ? (
+              // A typed value is an estimate. Marking it keeps it from reading
+              // exactly like an observed one.
+              <span
+                className="observed-sessions-tag"
+                title={
+                  session.edited_at
+                    ? `手动填写于 ${date(session.edited_at)}`
+                    : '手动填写'
+                }
+              >
+                手动
+              </span>
+            ) : null}
+          </>
+        ) : session.status === 'running' ? (
+          '等待实例关闭'
+        ) : (
+          '结束时间未知'
+        )}
+      </td>
+      <td>
+        {!session.ended_at ? (
+          '—'
+        ) : session.missing_baseline ? (
+          <span className="scan-note">缺少本地基线</span>
+        ) : (
+          formatSeconds(session.pseudo_seconds ?? '0')
+        )}
+      </td>
+      <td>
+        {session.status === 'running'
+          ? '运行中'
+          : session.status === 'closed'
+          ? '已结束'
+          : '观测中断'}
+      </td>
+      <td>
+        {session.status === 'running' ? (
+          // The observer owns a live session; a manual end would be contradicted
+          // on the next poll.
+          <span className="scan-note">等待观测</span>
+        ) : (
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => onEdit(session)}
+          >
+            {session.ended_at ? '修改' : '填写'}
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function SessionTable({
+  sessions,
+  onEdit,
+}: {
+  sessions: Session[];
+  onEdit: (session: Session) => void;
+}) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>实例</th>
+          <th>观测开始时间</th>
+          <th>观测结束时间</th>
+          <th>未归因运行时长</th>
+          <th>状态</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sessions.map((session) => (
+          <SessionRow key={session.id} session={session} onEdit={onEdit} />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function ObservedSessions({
   data,
   loading,
@@ -31,6 +134,34 @@ export default function ObservedSessions({
 }) {
   const { sessions } = data;
   const [editing, setEditing] = useState<Session | null>(null);
+  // Falls back to one synthetic group when the backend sent none, which keeps the
+  // preview fixture and any older archive rendering instead of showing an empty
+  // list.
+  const groups: NonNullable<ObservedSessionsPage['groups']> = data.groups
+    ?.length
+    ? data.groups
+    : sessions.length
+    ? [
+        {
+          game_root: sessions[0].game_root,
+          name: sessions[0].instance_name,
+          sessions,
+          session_count: sessions.length,
+          seconds: sessions
+            .reduce(
+              (sum, s) =>
+                sum +
+                (s.missing_baseline || !s.ended_at
+                  ? 0n
+                  : BigInt(s.pseudo_seconds ?? '0')),
+              0n,
+            )
+            .toString(),
+          unknown_sessions: sessions.filter((s) => !s.ended_at).length,
+          baseline_sessions: sessions.filter((s) => s.missing_baseline).length,
+        },
+      ]
+    : [];
   const total = sessions.reduce(
     (sum, s) =>
       sum + (s.missing_baseline ? 0n : BigInt(s.pseudo_seconds ?? '0')),
@@ -88,89 +219,51 @@ export default function ObservedSessions({
           这里保留全部历史，可按页查看。
         </p>
       </details>
-      {sessions.length ? (
+      {groups.length ? (
         <div className="observed-sessions-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>实例</th>
-                <th>观测开始时间</th>
-                <th>观测结束时间</th>
-                <th>未归因运行时长</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((s) => {
-                const manual = s.ended_source === 'manual';
-                return (
-                  <tr key={s.id}>
-                    <td title={displayPath(s.game_root)}>{s.instance_name}</td>
-                    <td>
-                      <time dateTime={s.started_at}>{date(s.started_at)}</time>
-                    </td>
-                    <td>
-                      {s.ended_at ? (
-                        <>
-                          <time dateTime={s.ended_at}>{date(s.ended_at)}</time>
-                          {manual ? (
-                            // A typed value is an estimate. Marking it keeps it
-                            // from reading exactly like an observed one.
-                            <span
-                              className="observed-sessions-tag"
-                              title={
-                                s.edited_at
-                                  ? `手动填写于 ${date(s.edited_at)}`
-                                  : '手动填写'
-                              }
-                            >
-                              手动
-                            </span>
-                          ) : null}
-                        </>
-                      ) : s.status === 'running' ? (
-                        '等待实例关闭'
-                      ) : (
-                        '结束时间未知'
-                      )}
-                    </td>
-                    <td>
-                      {!s.ended_at ? (
-                        '—'
-                      ) : s.missing_baseline ? (
-                        <span className="scan-note">缺少本地基线</span>
-                      ) : (
-                        formatSeconds(s.pseudo_seconds ?? '0')
-                      )}
-                    </td>
-                    <td>
-                      {s.status === 'running'
-                        ? '运行中'
-                        : s.status === 'closed'
-                        ? '已结束'
-                        : '观测中断'}
-                    </td>
-                    <td>
-                      {s.status === 'running' ? (
-                        // The observer owns a live session; a manual end would be
-                        // contradicted on the next poll.
-                        <span className="scan-note">等待观测</span>
-                      ) : (
-                        <button
-                          type="button"
-                          className="text-button"
-                          onClick={() => setEditing(s)}
-                        >
-                          {s.ended_at ? '修改' : '填写'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {groups.map((group) => {
+            const hidden = group.session_count - group.sessions.length;
+            return (
+              <details
+                key={group.game_root}
+                className="observed-group"
+                // The instance with rows on this page stays open by default, so the
+                // common case needs no clicks; a group whose sessions are all on
+                // another page would otherwise open to nothing.
+                open={group.sessions.length > 0}
+              >
+                <summary>
+                  <strong title={displayPath(group.game_root)}>
+                    {group.name}
+                  </strong>
+                  <span className="observed-group-total">
+                    {formatSeconds(group.seconds)}
+                  </span>
+                  <span className="observed-group-count">
+                    {group.session_count} 次观测
+                    {hidden > 0 ? ` · 本页 ${group.sessions.length} 条` : ''}
+                  </span>
+                  {group.unknown_sessions ? (
+                    <span className="observed-group-note">
+                      {group.unknown_sessions} 次结束未知
+                    </span>
+                  ) : null}
+                  {group.baseline_sessions ? (
+                    <span className="observed-group-note">
+                      {group.baseline_sessions} 次缺少本地基线
+                    </span>
+                  ) : null}
+                </summary>
+                {group.sessions.length ? (
+                  <SessionTable sessions={group.sessions} onEdit={setEditing} />
+                ) : (
+                  <p className="muted">
+                    该实例的观测记录在其他页，翻页后可查看。
+                  </p>
+                )}
+              </details>
+            );
+          })}
         </div>
       ) : (
         <p className="muted">

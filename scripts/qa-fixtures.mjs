@@ -179,6 +179,29 @@ const timelinePage = {
       old_ticks: null,
     },
     {
+      // A merged run: the shape the backend now returns for consecutive
+      // increments. Without one in the fixture the merged UI is never rendered,
+      // so a regression in the span, the tag or the expansion would go unseen.
+      id: 4,
+      kind: 'increment',
+      observed_at: '2026-09-17T12:04:25.000Z',
+      first_observed_at: '2026-09-17T11:18:18.000Z',
+      world_path: 'D:\\QA\\root\\saves\\QA World',
+      world_name: 'QA World',
+      uuid: UUID_A,
+      player_name: 'Jasonsomelike',
+      play_ticks: '104340000',
+      delta_ticks: '55340',
+      old_ticks: null,
+      merged_count: 4,
+      parts: [
+        { observed_at: '2026-09-17T11:18:18.000Z', delta_ticks: '13835' },
+        { observed_at: '2026-09-17T11:23:18.000Z', delta_ticks: '13835' },
+        { observed_at: '2026-09-17T11:28:18.000Z', delta_ticks: '13835' },
+        { observed_at: '2026-09-17T12:04:25.000Z', delta_ticks: '13835' },
+      ],
+    },
+    {
       id: 3,
       kind: 'rollback',
       observed_at: '2026-09-16T18:00:00.000Z',
@@ -191,7 +214,7 @@ const timelinePage = {
       old_ticks: '9000',
     },
   ],
-  total: 3,
+  total: 4,
   page_size: 50,
 };
 

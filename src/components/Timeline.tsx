@@ -145,46 +145,85 @@ export default function Timeline({
       ) : null}
       {data ? (
         <ol className="timeline-events">
-          {data?.events.slice(0, compact ? 5 : 50).map((e) => (
-            <li key={e.id} className={`event-${e.kind}`}>
-              <time dateTime={e.observed_at}>
-                {new Date(e.observed_at).toLocaleString()}
-              </time>
-              <div>
-                <div className="timeline-title">
-                  <strong>{eventNames[e.kind] ?? e.kind}</strong>
-                  <button
-                    className="text-button"
-                    title={displayPath(e.world_path)}
-                    onClick={() => onOpen(e.world_path)}
-                  >
-                    {e.world_name}
-                    <ArrowUpRight size={13} />
-                  </button>
+          {data?.events.slice(0, compact ? 5 : 50).map((e) => {
+            const merged = (e.merged_count ?? 1) > 1;
+            return (
+              <li key={e.id} className={`event-${e.kind}`}>
+                <time dateTime={e.observed_at}>
+                  {merged && e.first_observed_at ? (
+                    // A merged run covers a span, so the date column shows the
+                    // range rather than one instant. Without this the row looked
+                    // like a single moment that happened to add an hour.
+                    <>
+                      {new Date(e.first_observed_at).toLocaleString()}
+                      <span className="event-span-sep">→</span>
+                      {new Date(e.observed_at).toLocaleTimeString()}
+                    </>
+                  ) : (
+                    new Date(e.observed_at).toLocaleString()
+                  )}
+                </time>
+                <div>
+                  <div className="timeline-title">
+                    <strong>{eventNames[e.kind] ?? e.kind}</strong>
+                    {merged ? (
+                      <span
+                        className="event-merged-tag"
+                        title={`这一段时间由 ${e.merged_count} 次观测合并`}
+                      >
+                        {e.merged_count} 次观测
+                      </span>
+                    ) : null}
+                    <button
+                      className="text-button"
+                      title={displayPath(e.world_path)}
+                      onClick={() => onOpen(e.world_path)}
+                    >
+                      {e.world_name}
+                      <ArrowUpRight size={13} />
+                    </button>
+                  </div>
+                  <p>
+                    {e.player_name ?? e.uuid}
+                    <span className="event-duration">
+                      {e.kind === 'increment'
+                        ? `+ ${formatTickTotal(e.delta_ticks)}`
+                        : e.kind === 'rollback'
+                        ? `${formatTickTotal(
+                            e.old_ticks ?? '0',
+                          )} → ${formatTickTotal(e.play_ticks)}`
+                        : e.kind === 'initial_import'
+                        ? formatTickTotal(e.play_ticks)
+                        : ''}
+                    </span>
+                  </p>
+                  {!compact ? (
+                    <details className="event-details">
+                      <summary>玩家标识</summary>
+                      <code className="scan-note">{e.uuid}</code>
+                    </details>
+                  ) : null}
+                  {merged && e.parts?.length ? (
+                    // The individual observations, so the merged total stays
+                    // auditable: a reader can see how it was built up.
+                    <details className="event-details event-parts">
+                      <summary>展开 {e.parts.length} 次观测</summary>
+                      <ol>
+                        {e.parts.map((part) => (
+                          <li key={part.observed_at}>
+                            <time dateTime={part.observed_at}>
+                              {new Date(part.observed_at).toLocaleTimeString()}
+                            </time>
+                            <span>+ {formatTickTotal(part.delta_ticks)}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
+                  ) : null}
                 </div>
-                <p>
-                  {e.player_name ?? e.uuid}
-                  <span className="event-duration">
-                    {e.kind === 'increment'
-                      ? `+ ${formatTickTotal(e.delta_ticks)}`
-                      : e.kind === 'rollback'
-                      ? `${formatTickTotal(
-                          e.old_ticks ?? '0',
-                        )} → ${formatTickTotal(e.play_ticks)}`
-                      : e.kind === 'initial_import'
-                      ? formatTickTotal(e.play_ticks)
-                      : ''}
-                  </span>
-                </p>
-                {!compact ? (
-                  <details className="event-details">
-                    <summary>玩家标识</summary>
-                    <code className="scan-note">{e.uuid}</code>
-                  </details>
-                ) : null}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
       ) : null}
       {!compact && data && data.total > 50 ? (

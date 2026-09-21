@@ -2653,3 +2653,121 @@ button.stat-icon:hover {
   font-size: 11px;
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+   Merged timeline runs.
+   The observer records an increment per reconcile pass, so a session used to
+   arrive as dozens of "+ 5 分钟" rows. Close ones are merged; these styles make
+   the merge legible rather than hiding it.
+   --------------------------------------------------------------------------- */
+.event-span-sep {
+  margin: 0 4px;
+  color: var(--text-faint);
+}
+.timeline-events time {
+  /* The date column is a fixed 155px grid track, so a range needs to wrap rather
+     than push the layout. Tabular figures stop the two timestamps jittering. */
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+.event-merged-tag {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.event-parts {
+  margin-top: 6px;
+}
+.event-parts ol {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  /* A long run would otherwise push the page very tall; capped so the detail
+     stays a detail. */
+  max-height: 220px;
+  overflow: auto;
+}
+.event-parts li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  border-bottom: 0;
+  padding: 3px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.event-parts time {
+  font-size: 12px;
+}
+.event-parts span {
+  font-variant-numeric: tabular-nums;
+}
+/* ---------------------------------------------------------------------------
+   Observation groups.
+   The instance table listed every session as its own row, so one archive showed
+   30 rows dominated by repeats of the same instance. Each instance is now one
+   collapsible group whose summary carries the whole-history total, because the
+   rows inside it are only the current page.
+   --------------------------------------------------------------------------- */
+.observed-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+.observed-group > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 14px;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.observed-group[open] > summary {
+  border-bottom: 1px solid var(--border-soft);
+  border-radius: 10px 10px 0 0;
+}
+.observed-group > summary:hover {
+  background: var(--surface-hover);
+}
+.observed-group > summary strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.observed-group-total {
+  /* The headline figure: this is the instance's whole-history time, not the
+     page's share, so it reads first. */
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.observed-group-count,
+.observed-group-note {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.observed-group-note {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+}
+/* Inside a group the table is the detail, so it loses the outer card chrome. */
+.observed-group table {
+  margin: 0;
+}
+.observed-group table th:first-child,
+.observed-group table td:first-child {
+  /* The instance name is already the group heading, so repeating it on every row
+     is noise. Hidden rather than removed so the columns stay aligned with the
+     other groups. */
+  display: none;
+}
+.observed-group > p {
+  margin: 12px 14px;
+}

@@ -1,16 +1,34 @@
 /* global window */
 // Runs inside a Playwright page; all values are synthetic.
 export function installObservationFixture(table) {
-  const rows = Array.from({ length: 51 }, (_, i) => ({
-    id: 51 - i,
-    game_root: 'D:\\QA\\root',
-    instance_name: `QA Session ${51 - i}`,
-    started_at: '2026-09-01T00:00:00Z',
-    ended_at: i === 2 ? null : '2026-09-01T00:01:00Z',
-    status: i === 2 ? 'interrupted' : 'closed',
-    pseudo_seconds: i === 1 || i === 2 ? '0' : '60',
-    missing_baseline: i === 1,
-  }));
+  // Two instances, because the page groups by instance: with one root the grouping
+  // would never be visible and a regression in the group headers, totals or
+  // collapse would go unseen.
+  //
+  // Instance names are stable per root, as they are in the archive: one instance has
+  // one name and the sessions under it differ by time. The earlier fixture named
+  // every row `QA Session <id>`, which is not a shape the archive can produce and
+  // which made the group heading look wrong for the wrong reason.
+  //
+  // Each row gets a distinct start time (base plus its id in minutes) so the
+  // pagination tests can assert which records a page actually reached - the instance
+  // name can no longer identify a row now that it is a group heading.
+  const rows = Array.from({ length: 51 }, (_, i) => {
+    const second = i >= 20 && i < 35;
+    const id = 51 - i;
+    const at = (minutes) =>
+      `2026-09-01T00:${String(minutes).padStart(2, '0')}:00Z`;
+    return {
+      id,
+      game_root: second ? 'D:\\QA\\server' : 'D:\\QA\\root',
+      instance_name: second ? '香草纪元：食旅纪行' : 'QA Instance',
+      started_at: at(id),
+      ended_at: i === 2 ? null : at(id),
+      status: i === 2 ? 'interrupted' : 'closed',
+      pseudo_seconds: i === 1 || i === 2 ? '0' : '60',
+      missing_baseline: i === 1,
+    };
+  });
   table.tracking_summary.pseudo = [
     {
       game_root: 'D:\\QA\\root',
@@ -56,8 +74,39 @@ export function installObservationFixture(table) {
           1,
           Math.min(Math.max(1, Math.ceil(filtered.length / 20)), args.page),
         );
+        // Groups mirror what the backend now returns: totals across the whole
+        // filtered set, with only this page's rows attached. Built here so the
+        // collapsible view is exercised rather than falling back to the single
+        // synthetic group the component uses for older archives.
+        const pageRows = filtered.slice((page - 1) * 20, page * 20);
+        const byRoot = new Map();
+        for (const row of filtered) {
+          const entry = byRoot.get(row.game_root) ?? {
+            game_root: row.game_root,
+            name: row.instance_name,
+            sessions: [],
+            session_count: 0,
+            seconds: '0',
+            unknown_sessions: 0,
+            baseline_sessions: 0,
+          };
+          entry.session_count += 1;
+          if (!row.ended_at) entry.unknown_sessions += 1;
+          else if (row.missing_baseline) entry.baseline_sessions += 1;
+          else
+            entry.seconds = String(
+              Number(entry.seconds) + Number(row.pseudo_seconds ?? 0),
+            );
+          byRoot.set(row.game_root, entry);
+        }
+        for (const entry of byRoot.values()) {
+          entry.sessions = pageRows.filter(
+            (r) => r.game_root === entry.game_root,
+          );
+        }
         return {
-          sessions: filtered.slice((page - 1) * 20, page * 20),
+          sessions: pageRows,
+          groups: [...byRoot.values()],
           total: filtered.length,
           history_total: qa.rows.length,
           boundary,

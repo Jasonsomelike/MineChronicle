@@ -108,15 +108,34 @@ impl ObservationCache {
             .ok_or("观测查询已失效，请刷新观测")?;
         let total = snapshot.indices.len() as i64;
         let page = page.clamp(1, ((total + 19) / 20).max(1));
-        // Copy only the selected page. Whole-history vectors remain shared.
-        Ok(ObservedSessionsPage {
-            sessions: snapshot
-                .indices
+        // The rows on this page.
+        let rows: Vec<_> = snapshot
+            .indices
+            .iter()
+            .skip(((page - 1) * 20) as usize)
+            .take(20)
+            .map(|i| snapshot.history.sessions[*i].clone())
+            .collect();
+        // Groups cover the whole filtered set so a collapsed instance reports its
+        // real totals; only this page's rows are attached to each group. Built with
+        // the same helper as the direct query so the two cannot disagree.
+        let filtered: Vec<_> = snapshot
+            .indices
+            .iter()
+            .map(|i| snapshot.history.sessions[*i].clone())
+            .collect();
+        let mut groups = super::sessions::group_sessions(&filtered);
+        // Attach this page's rows; the groups' own totals stay whole-history.
+        for group in &mut groups {
+            group.sessions = rows
                 .iter()
-                .skip(((page - 1) * 20) as usize)
-                .take(20)
-                .map(|i| snapshot.history.sessions[*i].clone())
-                .collect(),
+                .filter(|s| s.game_root == group.game_root)
+                .cloned()
+                .collect();
+        }
+        Ok(ObservedSessionsPage {
+            groups,
+            sessions: rows,
             total,
             history_total: current.history_total,
             snapshot: Some(token.to_string()),

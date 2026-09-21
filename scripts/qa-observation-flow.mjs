@@ -29,7 +29,7 @@ try {
     /18 分钟/,
   );
   assert.match(
-    await page.locator('.observed-sessions tbody').innerText(),
+    await page.locator('.observed-sessions').innerText(),
     /缺少本地基线/,
   );
   assert.equal(
@@ -65,9 +65,11 @@ try {
   await page.getByRole('button', { name: '下一页', exact: true }).click();
   await page.getByRole('status').filter({ hasText: '第 3 / 3 页' }).waitFor();
   assert.equal(await page.locator('.observed-sessions tbody tr').count(), 11);
+  // id 1 is the oldest record, so it lands on the last page. Identified by time
+  // because the instance name now heads a group rather than labelling each row.
   assert.match(
-    await page.locator('.observed-sessions tbody').innerText(),
-    /QA Session 1\b/,
+    await page.locator('.observed-sessions').innerText(),
+    /08:01:00/,
   );
   assert.equal(
     await page

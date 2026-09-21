@@ -28,10 +28,33 @@ pub struct TimelineEvent {
     pub world_name: String,
     pub uuid: String,
     pub player_name: Option<String>,
-    pub play_ticks: String,
+    /// Total play-time change for this row. For a merged run this is the sum
+    /// across the run, which is what makes the timeline readable: the observer
+    /// records an increment every reconcile pass (5 minutes), so an evening of
+    /// play arrived as dozens of separate "+ 5 分钟" rows.
     pub delta_ticks: String,
+    pub play_ticks: String,
     pub old_ticks: Option<String>,
+    /// How many raw observations this row merges. 1 for an unmerged event.
+    #[serde(default)]
+    pub merged_count: i64,
+    /// When the run started, only set for a merged run (older than `observed_at`,
+    /// which stays the newest moment so ordering and display stay familiar).
+    #[serde(default)]
+    pub first_observed_at: Option<String>,
+    /// The individual observations inside a merged run, oldest first. Empty for
+    /// an unmerged event, which already shows its own delta.
+    #[serde(default)]
+    pub parts: Vec<TimelinePart>,
 }
+
+/// One raw observation inside a merged run.
+#[derive(Serialize)]
+pub struct TimelinePart {
+    pub observed_at: String,
+    pub delta_ticks: String,
+}
+
 #[derive(Serialize)]
 pub struct TimelinePage {
     pub events: Vec<TimelineEvent>,
@@ -219,7 +242,83 @@ const EVENTS: &str = "WITH events AS (
 //
 // Equivalence with the previous form was checked against the real archive over
 // 62 lower and 62 upper boundaries with zero mismatches.
-const FILTER: &str = " WHERE (?1='null' OR world_path IN (SELECT value FROM json_each(?1))) AND (?2='null' OR game_root IN (SELECT value FROM json_each(?2))) AND (?3='[]' OR uuid IN (SELECT value FROM json_each(?3))) AND (?4='' OR observed_at>=strftime('%Y-%m-%dT%H:%M:%fZ',?4||' 00:00:00','utc')) AND (?5='' OR observed_at<strftime('%Y-%m-%dT%H:%M:%fZ',date(?5,'+1 day')||' 00:00:00','utc')) AND (?6='' OR kind=?6) AND (kind='rollback' OR (kind='initial_import' AND play_ticks>=20) OR (kind='increment' AND delta_ticks>=20))";
+//
+// The ungrouped form of these predicates (a plain `WHERE` over `events`) is no
+// longer used: the timeline now always merges, so the equivalents live in
+// `FILTER_GROUPED` as a `HAVING` clause over the grouped rows.
+/// How long a pause may be before consecutive increments stop counting as one run.
+///
+/// The watcher reconciles every 300s, so a continuous session arrives as one
+/// increment per pass. Measured on the reference archive, the 139 gaps between
+/// consecutive increments split cleanly: 135 are at or below 310s (one of them is
+/// exactly 300s, eighty-one times), and the next is 422s, then 1008s, then 2717s.
+/// 600s sits in that empty band, so no real boundary is near it and the value is
+/// not a tuned guess. Above it, a genuinely separate session would be swallowed.
+const MERGE_GAP_SECONDS: i64 = 600;
+
+/// Marks a new "island" of consecutive increments, per world and player.
+///
+/// Only `increment` rows merge: an initial import or a rollback is a moment, not a
+/// duration, and would mislead as the heading of a multi-minute run. A run is per
+/// (world, player), so two players in one world stay separate, and it breaks when
+/// the gap exceeds `?7`, so "this morning" and "this evening" do not collapse into
+/// a single row.
+///
+/// The gap is compared as whole seconds via `CAST(strftime('%s', ...) AS INTEGER)`
+/// rather than by subtracting two `julianday` values. SQLite's Julian day is a
+/// float, so the obvious `(julianday(a) - julianday(b)) * 86400 > ?7` is wrong at
+/// the boundary: an exact 600s gap computes as 600.0000044703484, making `> 600`
+/// true and splitting a run that should have merged. A 300s gap computes as
+/// 299.99998211860657 for the same reason.
+///
+/// Comparing the stored strings as text also works, but only if the same fractional
+/// precision is used on both sides: the stored form carries milliseconds
+/// (`...T00:00:00.000Z`) and a bound rebuilt with `%S` drops them, so
+/// `...T00:00:00Z` sorts after `...T00:00:00.000Z` and an exact-600s gap breaks
+/// again. Integer seconds avoid both traps and need no assumption about the shape.
+///
+/// `?7` is the gap threshold in both statements that use this CTE; the paging query
+/// adds the offset as `?8`. Positional numbering is deliberate - every caller binds
+/// all seven, so no statement has a hole.
+const EVENT_RUNS: &str = ", marked AS ( \
+     SELECT e.*, \
+       LAG(observed_at) OVER (PARTITION BY world_path, uuid ORDER BY observed_at) prev_at, \
+       LAG(kind) OVER (PARTITION BY world_path, uuid ORDER BY observed_at) prev_kind \
+     FROM events e \
+   ), grouped AS ( \
+     SELECT m.*, SUM(CASE \
+       WHEN kind <> 'increment' THEN 1 \
+       WHEN prev_kind IS NULL OR prev_kind <> 'increment' THEN 1 \
+       WHEN CAST(strftime('%s', observed_at) AS INTEGER) \
+          - CAST(strftime('%s', prev_at) AS INTEGER) > ?7 THEN 1 \
+       ELSE 0 END) \
+       OVER (PARTITION BY world_path, uuid ORDER BY observed_at) grp \
+     FROM marked m \
+   )";
+
+/// The same filters as the old ungrouped `WHERE`, expressed over grouped rows.
+///
+/// These live in a `HAVING` clause because the query aggregates, and `HAVING` must
+/// follow `GROUP BY`. Filtering after grouping is also what keeps a run intact when
+/// a date filter lands inside it: the run is built over the full event set first,
+/// then whole runs are kept or dropped.
+///
+/// `min(observed_at)` is compared for the lower bound and `max(observed_at)` for
+/// the upper, so a run counts as in-range when any part of it overlaps the range.
+///
+/// The noise floors keep their original columns: an `initial_import` is measured by
+/// `play_ticks` (its `delta_ticks` is always 0, so testing the delta would drop
+/// every import), while an `increment` keeps the delta test. Using `sum` for a run
+/// applies the floor to the run's total, which is the intended reading.
+const FILTER_GROUPED: &str = " (?1='null' OR world_path IN (SELECT value FROM json_each(?1))) AND (?2='null' OR game_root IN (SELECT value FROM json_each(?2))) AND (?3='[]' OR uuid IN (SELECT value FROM json_each(?3))) AND (?4='' OR max(observed_at)>=strftime('%Y-%m-%dT%H:%M:%fZ',?4||' 00:00:00','utc')) AND (?5='' OR min(observed_at)<strftime('%Y-%m-%dT%H:%M:%fZ',date(?5,'+1 day')||' 00:00:00','utc')) AND (?6='' OR max(kind)=?6) AND (max(kind)='rollback' OR (max(kind)='initial_import' AND max(play_ticks)>=20) OR (max(kind)='increment' AND sum(delta_ticks)>=20))";
+
+/// The JSON shape `json_group_array` produces, before conversion.
+#[derive(Deserialize)]
+struct RawPart {
+    observed_at: String,
+    delta_ticks: i64,
+}
+
 fn path_filter(legacy: &str, paths: &Option<Vec<String>>) -> DbResult<String> {
     match paths {
         Some(paths) => {
@@ -285,13 +384,44 @@ impl Repository {
         {
             return Err("事件类型无效".into());
         }
-        let args = params![worlds, roots, players, filter.from, filter.to, filter.kind];
+        // `total` counts merged rows, not raw events, so pagination agrees with
+        // what is displayed. Counting events would let a merged run be split
+        // across a page boundary.
+        //
+        // The gap threshold is bound as `?7` here (the paging query adds its own
+        // `?7` for the offset and uses `?8` for the gap), so each statement numbers
+        // its own parameters without leaving a hole.
         let total = self.connection.query_row(
-            &format!("{EVENTS} SELECT count(*) FROM events {FILTER}"),
-            args,
+            &format!(
+                "{EVENTS}{EVENT_RUNS} SELECT count(*) FROM ( \
+                 SELECT 1 FROM grouped GROUP BY world_path, uuid, grp \
+                 HAVING {FILTER_GROUPED})"
+            ),
+            params![
+                worlds,
+                roots,
+                players,
+                filter.from,
+                filter.to,
+                filter.kind,
+                MERGE_GAP_SECONDS
+            ],
             |r| r.get(0),
         )?;
-        let mut query = self.connection.prepare(&format!("{EVENTS} SELECT id,kind,observed_at,world_path,world_name,uuid,player_name,play_ticks,delta_ticks,old_ticks FROM events {FILTER} ORDER BY observed_at DESC,id DESC LIMIT 50 OFFSET ?7"))?;
+        // One row per run. The newest moment of the run becomes `observed_at` so
+        // ordering stays newest-first, and the run's span is reported separately.
+        // `parts` carries the individual observations so the UI can expand a run
+        // without a second query.
+        let mut query = self.connection.prepare(&format!(
+            "{EVENTS}{EVENT_RUNS} \
+             SELECT max(id), max(kind), max(observed_at), world_path, world_name, uuid, \
+                    max(player_name), max(play_ticks), sum(delta_ticks), max(old_ticks), \
+                    count(*), min(observed_at), \
+                    json_group_array(json_object('observed_at', observed_at, \
+                                                 'delta_ticks', delta_ticks)) \
+             FROM grouped GROUP BY world_path, uuid, grp HAVING {FILTER_GROUPED} \
+             ORDER BY max(observed_at) DESC, max(id) DESC LIMIT 50 OFFSET ?8"
+        ))?;
         let events = query
             .query_map(
                 params![
@@ -301,12 +431,35 @@ impl Repository {
                     filter.from,
                     filter.to,
                     filter.kind,
+                    MERGE_GAP_SECONDS,
                     filter.offset
                 ],
                 |r| {
+                    let merged_count: i64 = r.get(10)?;
+                    // Only a merged run needs its parts; a single event already
+                    // shows its own delta and the array would be noise.
+                    let parts: Vec<TimelinePart> = if merged_count > 1 {
+                        let raw: String = r.get(12)?;
+                        let mut parsed: Vec<TimelinePart> =
+                            serde_json::from_str::<Vec<RawPart>>(&raw)
+                                .unwrap_or_default()
+                                .into_iter()
+                                .map(|p| TimelinePart {
+                                    observed_at: p.observed_at,
+                                    delta_ticks: p.delta_ticks.to_string(),
+                                })
+                                .collect();
+                        parsed.sort_by(|a, b| a.observed_at.cmp(&b.observed_at));
+                        parsed
+                    } else {
+                        Vec::new()
+                    };
                     Ok(TimelineEvent {
                         id: r.get(0)?,
                         kind: r.get(1)?,
+                        // max(observed_at) is the run's end; the run's start is
+                        // reported separately so an unmerged event has no
+                        // redundant second timestamp.
                         observed_at: r.get(2)?,
                         world_path: r.get(3)?,
                         world_name: r.get(4)?,
@@ -315,6 +468,13 @@ impl Repository {
                         play_ticks: r.get::<_, i64>(7)?.to_string(),
                         delta_ticks: r.get::<_, i64>(8)?.to_string(),
                         old_ticks: r.get::<_, Option<i64>>(9)?.map(|v| v.to_string()),
+                        merged_count,
+                        first_observed_at: if merged_count > 1 {
+                            Some(r.get(11)?)
+                        } else {
+                            None
+                        },
+                        parts,
                     })
                 },
             )?

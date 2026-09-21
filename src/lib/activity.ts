@@ -64,6 +64,16 @@ export interface TimelineEvent {
   play_ticks: string;
   delta_ticks: string;
   old_ticks: string | null;
+  /**
+   * How many raw observations this row merges. The observer records one increment
+   * per reconcile pass (5 minutes), so an evening of play arrives as dozens of
+   * rows; close ones are merged into a single run. 1 when the event stands alone.
+   */
+  merged_count?: number;
+  /** When a merged run started. Absent for an event that stands alone. */
+  first_observed_at?: string | null;
+  /** The individual observations inside a merged run, oldest first. */
+  parts?: { observed_at: string; delta_ticks: string }[];
 }
 export interface TimelinePage {
   events: TimelineEvent[];

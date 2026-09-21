@@ -296,6 +296,25 @@ fn timeline_paginates_after_removing_zero_duration_noise() -> TestResult {
         stats(&world, "stats", PLAYER, ticks)?;
         import(&mut repo, &root)?;
     }
+    // Space the observations far enough apart that none merge. The timeline now
+    // merges consecutive increments within 10 minutes, and this test is about
+    // pagination and noise removal rather than merging, so the rows must stay
+    // separate for the page arithmetic to mean anything.
+    {
+        let connection = rusqlite::Connection::open(temp.path().join("db"))?;
+        connection.execute(
+            "UPDATE stat_snapshots \
+             SET observed_at = strftime('%Y-%m-%dT%H:%M:%SZ', '2026-01-01', \
+                 printf('+%d hours', id))",
+            [],
+        )?;
+        connection.execute(
+            "UPDATE tracked_deltas \
+             SET observed_at = strftime('%Y-%m-%dT%H:%M:%SZ', '2026-01-01', \
+                 printf('+%d hours', id))",
+            [],
+        )?;
+    }
     fs::write(
         world.join(format!("stats/{PLAYER}.json")),
         br#"{"stats":{"minecraft:custom":{"minecraft:play_time":1100,"minecraft:jumps":9}}}"#,
