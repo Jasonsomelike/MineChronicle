@@ -89,6 +89,10 @@ export default function ScanPanel() {
     statistics: BarChart3,
   };
   const [view, setView] = useState(routePage);
+  // Which settings section the viewport is in, for the sticky section nav. Derived
+  // from scrolling rather than only from clicks, so a manual scroll keeps the
+  // highlight honest.
+  const [activeSection, setActiveSection] = useState('settings-identity');
   const [backgroundErrors, setBackgroundErrors] = useState<
     Record<string, string>
   >({});
@@ -329,6 +333,58 @@ export default function ScanPanel() {
     void acknowledgeView(report).catch(() => {});
   }, [report, runtime]);
 
+  // Highlight the settings section nearest the top of the viewport.
+  //
+  // The nav is sticky and the page is long, so without this the highlight would go
+  // stale as soon as the user scrolled instead of clicking. Sections are chosen by
+  // the first one whose top has passed a line just below the sticky nav.
+  useEffect(() => {
+    if (view !== 'settings') return;
+    const ids = [
+      'settings-identity',
+      'settings-startup',
+      'settings-import',
+      'settings-archive',
+      'settings-health',
+    ] as const;
+    // Looked up on every read rather than captured once. `settings-health` is
+    // rendered only after the health data arrives, so resolving the list when the
+    // effect ran left it out and the last section could never be selected - the
+    // highlight stuck on the previous one at the bottom of the page.
+    const present = () =>
+      ids
+        .map((id) => document.getElementById(id))
+        .filter((el): el is HTMLElement => el !== null);
+    const update = () => {
+      const sections = present();
+      if (!sections.length) return;
+      // At the bottom of the page no section's top can reach the threshold line, so
+      // the last one would never highlight. Measured: at max scroll its top sits
+      // 281px down, past any sensible line.
+      //
+      // The tolerance is 32px rather than a couple: a smooth scroll stops emitting
+      // `scroll` events while still a few pixels short, so an exact test never fires.
+      const atBottom =
+        window.scrollY + window.innerHeight >=
+        document.documentElement.scrollHeight - 32;
+      if (atBottom) {
+        setActiveSection(sections[sections.length - 1].id);
+        return;
+      }
+      // The nav's own height plus its sticky offset, so a section counts as current
+      // once it reaches the line below the nav rather than the very top.
+      const line = 120;
+      let current = sections[0].id;
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= line) current = section.id;
+      }
+      setActiveSection(current);
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  }, [view]);
+
   async function scan() {
     setError('');
     let paths: string[];
@@ -463,19 +519,29 @@ export default function ScanPanel() {
       </details>
       {view === 'settings' && (
         <nav className="settings-jump" aria-label="设置分区">
-          {[
-            ['settings-identity', '身份'],
-            ['settings-startup', '启动与显示'],
-            ['settings-import', '导入与联动'],
-            ['settings-archive', '档案与备份'],
-            ['settings-health', '数据健康'],
-          ].map(([id, label]) => (
+          {(
+            [
+              ['settings-identity', '身份'],
+              ['settings-startup', '启动与显示'],
+              ['settings-import', '导入与联动'],
+              ['settings-archive', '档案与备份'],
+              ['settings-health', '数据健康'],
+            ] as const
+          ).map(([id, label]) => (
             <button
-              className="text-button"
               key={id}
-              onClick={() =>
-                document.getElementById(id)?.scrollIntoView({ block: 'start' })
+              // `aria-current` both marks the active chip and tells a screen reader
+              // which section the viewport is in, since the nav is sticky and
+              // otherwise gives no positional cue.
+              aria-current={
+                activeSection === id ? ('true' as const) : undefined
               }
+              onClick={() => {
+                document
+                  .getElementById(id)
+                  ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                setActiveSection(id);
+              }}
             >
               {label}
             </button>

@@ -203,59 +203,62 @@ export default function Dashboard({
             height="180"
           />
         </div>
-        <div className="metric-grid">
+        {/* The observation figures sit with the career total rather than in their
+            own band below it. They are the same kind of number - a duration - so
+            stacking them as a separate full-width row made the page read as two
+            unrelated summaries and pushed the ranking off the first screen. */}
+        <div className="tracking-state">
           <article>
-            <span className="metric-label">
-              <Globe2 size={16} />
-              当前统计 · 世界 / 玩家
+            <span>
+              <Globe2 size={16} aria-hidden="true" />
+              统计范围
             </span>
             <strong>
               {data.worlds.length} /{' '}
               {playersNone ? 0 : players.length || data.players.length}
             </strong>
             <small>
-              {report.instances.length} 个 PCL 实例 · {data.missing} 个缺失世界
+              世界 / 玩家 · {report.instances.length} 个实例 · {data.missing}{' '}
+              个缺失
             </small>
           </article>
+          <article>
+            <span>
+              <Sunrise size={16} aria-hidden="true" />
+              本周观察增量
+            </span>
+            <strong>
+              {tracking?.started_at
+                ? formatTickTotal(tracked.week.toString())
+                : '等待首次观察'}
+            </strong>
+          </article>
+          <article>
+            <span>
+              <CalendarDays size={16} aria-hidden="true" />
+              本月观察增量
+            </span>
+            <strong>
+              {tracking?.started_at
+                ? formatTickTotal(tracked.month.toString())
+                : '等待首次观察'}
+            </strong>
+          </article>
+          <article>
+            <span>
+              <Footprints size={16} aria-hidden="true" />
+              累计追踪时长
+            </span>
+            <strong>
+              {tracking?.started_at
+                ? formatTickTotal(tracked.ticks.toString())
+                : '等待首次观察'}
+            </strong>
+          </article>
+          <p className="tracking-note">
+            只累计观察到的正向变化，回档不会扣减。周/月按本机日期的观察时间归档，不代表精确游戏会话时间。
+          </p>
         </div>
-      </div>
-      <div className="tracking-state">
-        <article>
-          <span>
-            <Sunrise size={16} aria-hidden="true" />
-            本周观察增量
-          </span>
-          <strong>
-            {tracking?.started_at
-              ? formatTickTotal(tracked.week.toString())
-              : '等待首次观察'}
-          </strong>
-        </article>
-        <article>
-          <span>
-            <CalendarDays size={16} aria-hidden="true" />
-            本月观察增量
-          </span>
-          <strong>
-            {tracking?.started_at
-              ? formatTickTotal(tracked.month.toString())
-              : '等待首次观察'}
-          </strong>
-        </article>
-        <article>
-          <span>
-            <Footprints size={16} aria-hidden="true" />
-            累计追踪时长
-          </span>
-          <strong>
-            {tracking?.started_at
-              ? formatTickTotal(tracked.ticks.toString())
-              : '等待首次观察'}
-          </strong>
-        </article>
-        <p>
-          只累计观察到的正向变化，回档不会扣减。周/月按本机日期的观察时间归档，不代表精确游戏会话时间。
-        </p>
       </div>
       <div className="ranking-switch" role="group" aria-label="排行维度">
         <button

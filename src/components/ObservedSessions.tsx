@@ -173,36 +173,56 @@ export default function ObservedSessions({
       <h3>
         实例观测时段 <span>全部玩家 · 不随玩家筛选</span>
       </h3>
-      <div className="observation-summary">
-        <div>
-          <span>全部历史累计 · 未归因</span>
-          <strong>{formatSeconds(data.total_seconds)}</strong>
-          <small>{data.history_total ?? data.total} 次观测</small>
-        </div>
-        <div>
-          <span>筛选结果累计 · 未归因</span>
+      {/* One compact line instead of four large cards.
+          Three of the four figures were the same quantity at different scopes (all
+          history, the filtered set, this page), so as equal-sized cards they read as
+          four unrelated numbers and pushed the instance list below the fold. The
+          headline is the filtered total, since that is what the list below shows;
+          the other scopes are inline qualifiers. */}
+      <div
+        className="observation-summary"
+        role="group"
+        aria-label="观测时段汇总"
+      >
+        <p className="observation-headline">
           <strong>
             {formatSeconds(data.filtered_seconds ?? data.total_seconds)}
           </strong>
-          <small>{data.total} 条符合条件</small>
-        </div>
-        <div>
-          <span>本页小计 · 未归因</span>
-          <strong>{formatSeconds(total.toString())}</strong>
-          <small>本页 {sessions.length} 条记录</small>
-        </div>
-        <div>
-          <span>正在运行</span>
-          <strong>{data.running_sessions} 个实例</strong>
-          <small>关闭后计算时长</small>
-        </div>
-      </div>
-      {data.baseline_sessions || data.unknown_sessions ? (
-        <p className="scan-note">
-          未计入累计：{data.baseline_sessions} 次缺少本地基线，
-          {data.unknown_sessions} 次结束时间未知（含运行中）。
+          <span className="observation-headline-label">未归因运行时长</span>
         </p>
-      ) : null}
+        <dl className="observation-facts">
+          <div>
+            <dt>全部历史</dt>
+            <dd>{formatSeconds(data.total_seconds)}</dd>
+            <small>{data.history_total ?? data.total} 次观测</small>
+          </div>
+          <div>
+            <dt>筛选结果</dt>
+            <dd>{data.total} 条</dd>
+            <small>
+              {data.total === (data.history_total ?? data.total)
+                ? '未筛选'
+                : `共 ${data.history_total ?? data.total} 条`}
+            </small>
+          </div>
+          <div>
+            <dt>本页</dt>
+            <dd>{sessions.length} 条</dd>
+            <small>{formatSeconds(total.toString())}</small>
+          </div>
+          <div>
+            <dt>正在运行</dt>
+            <dd>{data.running_sessions} 个</dd>
+            <small>关闭后计算</small>
+          </div>
+        </dl>
+        {data.baseline_sessions || data.unknown_sessions ? (
+          <p className="observation-excluded">
+            未计入累计：{data.baseline_sessions} 次缺少本地基线，
+            {data.unknown_sessions} 次结束时间未知（含运行中）。
+          </p>
+        ) : null}
+      </div>
       <details className="observation-explanation">
         <summary>如何计算这些时间</summary>
         <p className="muted">
@@ -227,10 +247,10 @@ export default function ObservedSessions({
               <details
                 key={group.game_root}
                 className="observed-group"
-                // The instance with rows on this page stays open by default, so the
-                // common case needs no clicks; a group whose sessions are all on
-                // another page would otherwise open to nothing.
-                open={group.sessions.length > 0}
+                // Collapsed by default so the list reads as one line per instance
+                // and the totals can be compared at a glance. No `open` prop is
+                // passed: that makes the element uncontrolled, so it opens and
+                // closes natively and cannot be pinned shut by a re-render.
               >
                 <summary>
                   <strong title={displayPath(group.game_root)}>

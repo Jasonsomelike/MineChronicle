@@ -22,6 +22,42 @@
   --focus-ring: #2f6a4f;
   --focus-ring-width: 3px;
   --focus-ring-offset: 2px;
+
+  /* ---------------------------------------------------------------------------
+     Control sizes.
+
+     Measured across the seven pages, interactive controls had five different
+     heights (28, 30, 34, 36, 38px) and four different paddings (4px, 6px,
+     "7px 9px", "12px 18px"), so no two rows of controls lined up. These three
+     steps are the whole scale: small for a control inside a table row or chip
+     row, medium as the default for a real form control, large for a page-level
+     primary action. Anything that does not fit one of them is a new step, and
+     adding one should be a decision rather than an accident.
+     --------------------------------------------------------------------------- */
+  --control-sm: 28px;
+  --control-md: 38px;
+  --control-lg: 46px;
+
+  /* ---------------------------------------------------------------------------
+     Spacing scale, in 4px steps.
+
+     The previous values included 22px (used seven times) and 10px, which are on no
+     scale, so vertical rhythm drifted between sections meant to look alike. Gaps
+     now come from this list.
+     --------------------------------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+
+  /* Corner radii, so cards and chips stay in one family. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 }
 * {
   box-sizing: border-box;
@@ -211,9 +247,12 @@ main {
 .scan-panel select {
   min-width: 0;
   max-width: 100%;
-  padding: 9px 12px;
+  /* Matched to the button scale so a select and a button in one row sit flush.
+     Padding alone gave ~38px inputs next to 46px buttons. */
+  min-height: var(--control-md);
+  padding: 0 var(--space-3);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
@@ -348,6 +387,11 @@ main {
   color: var(--text-strong);
   padding: 0;
   text-align: left;
+  /* A link-styled button sizes to its text. Without this it inherits the control
+     scale's min-height and every inline "全部记录" link becomes a 38px block, which
+     spaced out lists that were previously tight. */
+  min-height: 0;
+  border-radius: var(--radius-sm);
 }
 .text-button:hover {
   background: none;
@@ -491,8 +535,12 @@ li span {
 button {
   background: var(--surface-strong);
   border: 0;
-  border-radius: 6px;
-  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  /* An explicit height rather than padding alone, so a button and a select in the
+     same row line up. Padding previously produced 46px buttons next to 38px
+     selects, which is why control rows never sat flush. */
+  min-height: var(--control-md);
+  padding: 0 16px;
   color: white;
   font-size: 13px;
   cursor: pointer;
@@ -643,16 +691,37 @@ button:disabled {
 }
 .world-result {
   border-top: 1px solid var(--border);
-  padding: 12px 0;
+  padding: var(--space-2) 0;
 }
 .world-result summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
   cursor: pointer;
   font-size: 14px;
+  min-height: var(--control-sm);
+  padding: var(--space-1) var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  border-radius: var(--radius-sm);
 }
-.world-result summary span {
-  color: var(--text-muted);
-  font-size: 12px;
-  margin-left: 12px;
+.world-result summary:hover {
+  background: var(--surface-hover);
+}
+.world-result summary strong {
+  color: var(--text-strong);
+}
+/* The world's total, so a collapsed row still ranks the worlds by play time. */
+.world-total {
+  margin-left: auto !important;
+  color: var(--text-strong) !important;
+  font-variant-numeric: tabular-nums;
+}
+.world-status {
+  flex-basis: 100%;
+  color: var(--text-faint) !important;
+  font-size: 11px !important;
+  margin-left: 0 !important;
 }
 .world-path {
   overflow-wrap: anywhere;
@@ -847,20 +916,21 @@ footer {
 }
 .overview-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 20px;
+  /* Two cards side by side: the career total as the hero, the observation figures as
+     a compact sidebar. Both are cards, matching the ranking panel below, rather than
+     one being a card inside a bordered band. */
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+  align-items: stretch;
 }
 .career-total {
-  background: transparent;
   color: var(--text);
-  padding: 22px 24px 22px 0;
   margin: 0;
-  border-radius: 0;
+  padding: var(--space-5) var(--space-6);
 }
 .career-total strong {
-  line-height: 1.5;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 .career-total p {
@@ -869,7 +939,7 @@ footer {
 }
 .metric-label {
   display: flex !important;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
   font-size: 12px;
 }
@@ -877,9 +947,9 @@ footer {
   flex-shrink: 0;
 }
 .metric-grid {
-  gap: 16px;
+  gap: var(--space-4);
   grid-template-columns: minmax(0, 1fr);
-  padding: 22px 0 22px 24px;
+  padding: var(--space-6) 0 var(--space-6) var(--space-6);
   border-left: 1px solid var(--border);
   align-items: center;
 }
@@ -893,39 +963,43 @@ footer {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
+/* The observation figures: a quiet 2x2 grid inside the sidebar. They carry real
+   numbers but are secondary to the career total, so they use small labels and a
+   hairline rule instead of card chrome. */
 .tracking-state {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px 24px;
-  padding: 0 0 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-5);
+  align-content: center;
+  padding: var(--space-5) var(--space-6);
 }
 .tracking-state article {
-  border-left: 2px solid var(--border);
-  padding-left: 14px;
   min-width: 0;
 }
-.tracking-state article:last-of-type {
-  border-color: var(--border);
-}
 .tracking-state span {
-  display: block;
-  color: var(--text-muted);
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.tracking-state span svg {
+  flex: none;
 }
 .tracking-state strong {
   display: block;
   color: var(--text-strong);
-  font-size: 17px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
-  margin-top: 10px;
+  margin-top: var(--space-1);
   overflow-wrap: anywhere;
 }
-.tracking-state article:last-of-type strong {
-  color: var(--text-strong);
-}
-.tracking-state p {
+.tracking-note {
   grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-faint);
   font-size: 11px;
+  line-height: 1.6;
 }
 .ranking-grid {
   padding-top: 22px;
@@ -1094,6 +1168,15 @@ footer {
   justify-content: space-between;
   margin-bottom: 16px;
 }
+/* The heading's trailing content: a note plus an action. Grouped with a real gap so
+   the button does not sit against the text, and aligned on the baseline so a 12px
+   note and a 38px button read as one row. */
+.heading-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
 .library-heading h2 {
   display: flex;
   align-items: center;
@@ -1203,8 +1286,10 @@ footer {
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 40px;
-  padding: 8px 10px;
+  /* A form control, so it takes the medium step. It previously used 40px, one step
+     off the 38px of the selects and inputs beside it. */
+  min-height: var(--control-md);
+  padding: 0 var(--space-3);
   background: var(--surface-raised);
   color: var(--text);
   border: 1px solid var(--border-strong);
@@ -1854,9 +1939,11 @@ button.stat-icon:hover {
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  min-height: 36px;
-  padding: 7px 9px;
-  border-radius: 4px;
+  /* A chip, not a form control: the small step, so the category row stays compact
+     above the table it filters. */
+  min-height: var(--control-sm);
+  padding: 0 var(--control-pad-x-sm);
+  border-radius: var(--radius-sm);
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
@@ -2373,27 +2460,116 @@ button.stat-icon:hover {
   overflow-x: auto;
 }
 .observation-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
-  gap: 12px;
-  margin: 16px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-6);
+  margin: var(--space-4) 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-hover);
+  border-radius: var(--radius-md);
 }
-.observation-summary > div {
+/* The headline figure leads, because it is what the list below sums to. */
+.observation-headline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+.observation-headline strong {
+  color: var(--text-strong);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.observation-headline-label {
+  color: var(--text-summary);
+  font-size: 12px;
+}
+/* The remaining scopes are qualifiers on that figure, so they are quiet inline
+   facts rather than cards of equal weight. */
+.observation-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border);
+}
+.observation-facts > div {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 16px;
-  background: var(--surface-hover);
-  border-radius: 14px;
+  gap: 1px;
 }
-.observation-summary span,
-.observation-summary small {
-  color: var(--text-summary);
+.observation-facts dt {
+  color: var(--text-faint);
+  font-size: 11px;
 }
-.observation-summary strong {
+.observation-facts dd {
+  margin: 0;
   color: var(--text-label);
-  font-size: 18px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+.observation-facts small {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.observation-excluded {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-summary);
+  font-size: 12px;
+}
+.observation-stale {
+  margin: var(--space-3) 0 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Collapsible filter drawer.
+   Expanded, the four filters and their explanatory note pushed the first record
+   more than 700px down the page. The summary always states whether anything is
+   filtering, so a collapsed drawer cannot hide the reason a list looks short.
+   --------------------------------------------------------------------------- */
+.filter-drawer {
+  margin: var(--space-3) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.filter-drawer > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-md);
+  padding: 0 var(--space-4);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  color: var(--text-strong);
+  font-size: 13px;
+}
+.filter-drawer > summary:hover {
+  background: var(--surface-hover);
+}
+.filter-drawer[open] > summary {
+  border-bottom: 1px solid var(--border-soft);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.filter-badge {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-tint);
+  color: var(--text-accent);
+  font-size: 11px;
+  font-weight: 400;
+}
+.filter-badge-idle {
+  background: var(--surface-sunken);
+  color: var(--text-faint);
+}
+.filter-drawer .observation-filters {
+  margin: 0;
+  padding: var(--space-4);
 }
 .observation-explanation {
   margin: 16px 0;
@@ -2522,21 +2698,12 @@ button.stat-icon:hover {
   padding: 10px 14px;
   border-radius: 8px;
 }
-.dashboard .career-total,
-.dashboard .metric-grid article,
-.dashboard .ranking,
-.dashboard .tracking-state {
+/* `.dashboard`-scoped card chrome. Every panel in the dashboard is a card, so the
+   overview grid and the ranking panel share one treatment; `warmth.css` supplies the
+   border colour and radius. */
+.dashboard :is(.career-total, .tracking-state, .metric-grid article, .ranking) {
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
   background: var(--surface-raised);
-}
-.dashboard .career-total {
-  background: linear-gradient(
-    120deg,
-    var(--surface-hover),
-    var(--surface-hover)
-  );
 }
 .dashboard .ranking-grid {
   align-items: start;
@@ -2617,13 +2784,45 @@ button.stat-icon:hover {
   margin: 12px 0;
 }
 .settings-jump {
-  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2);
   border: 1px solid var(--border, #dde5d9);
-  border-radius: 16px;
-  background: var(--surface, #fffefb);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  /* Sticky, because the page is around 2700px tall and the list of sections is the
+     only way to move through it. `scroll-margin-top` on the sections already
+     reserved room for it, so it was meant to stick and never did. */
+  position: sticky;
+  top: var(--space-2);
+  z-index: 20;
+  box-shadow: 0 2px 8px #20352e0f;
+}
+/* A segmented control: one chip per section, the current one filled. */
+.settings-jump button {
+  min-height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.settings-jump button:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+  text-decoration: none;
+}
+.settings-jump button[aria-current='true'] {
+  background: var(--surface-strong);
+  color: var(--text-on-strong);
+}
+.settings-jump button[aria-current='true']:hover {
+  background: var(--surface-strong-hover);
+  color: var(--text-on-strong);
 }
 [id^='settings-'] {
-  scroll-margin-top: 110px;
+  scroll-margin-top: 92px;
 }
 .archive-settings {
   margin: 20px 0;

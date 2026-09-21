@@ -19,7 +19,30 @@ try {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('http://127.0.0.1:1420/#/observation');
   await page.getByRole('status').filter({ hasText: '第 1 / 3 页' }).waitFor();
-  assert.equal(await page.locator('.observed-sessions tbody tr').count(), 20);
+
+  // Groups start collapsed, so a row's text is present in the DOM but not rendered
+  // and `innerText` returns only the summaries. Opening the group first is both
+  // what a user does and what makes the row text readable.
+  const openGroups = async () => {
+    await page.evaluate(() => {
+      document
+        .querySelectorAll('.observed-group:not([open])')
+        .forEach((group) => group.setAttribute('open', ''));
+    });
+  };
+
+  // Collapsed by default, so the list reads as one line per instance. Pinned
+  // because the row assertions below depend on opening them first.
+  assert.equal(
+    await page.locator('.observed-group[open]').count(),
+    0,
+    'instance groups must start collapsed',
+  );
+  assert.equal(
+    await page.locator('.observed-sessions tbody tr').count(),
+    20,
+    'collapsed groups still keep their rows in the DOM',
+  );
   assert.match(
     await page.locator('.observation-summary').innerText(),
     /49 分钟/,
@@ -28,6 +51,7 @@ try {
     await page.locator('.observation-summary').innerText(),
     /18 分钟/,
   );
+  await openGroups();
   assert.match(
     await page.locator('.observed-sessions').innerText(),
     /缺少本地基线/,
@@ -65,6 +89,7 @@ try {
   await page.getByRole('button', { name: '下一页', exact: true }).click();
   await page.getByRole('status').filter({ hasText: '第 3 / 3 页' }).waitFor();
   assert.equal(await page.locator('.observed-sessions tbody tr').count(), 11);
+  await openGroups();
   // id 1 is the oldest record, so it lands on the last page. Identified by time
   // because the instance name now heads a group rather than labelling each row.
   assert.match(

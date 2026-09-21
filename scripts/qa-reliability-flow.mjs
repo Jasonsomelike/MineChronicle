@@ -118,6 +118,13 @@ try {
   await page.getByRole('button', { name: /有 1 条新观测/ }).waitFor();
   await page.getByRole('button', { name: '下一页', exact: true }).click();
   await page.getByRole('status').filter({ hasText: '第 2 / 3 页' }).waitFor();
+  // Groups start collapsed, so the rows' text is in the DOM but not rendered and
+  // `innerText` would return only the summaries. Open them before reading rows.
+  await page.evaluate(() => {
+    document
+      .querySelectorAll('.observed-group:not([open])')
+      .forEach((group) => group.setAttribute('open', ''));
+  });
   // Rows are identified by their start time now that the instance name heads a
   // group instead of appearing on every row. id 32 is the last record of page 1 and
   // id 31 the first of page 2, so their timestamps (00:32 and 00:31) mark the
@@ -130,6 +137,11 @@ try {
     await page.locator('.observed-sessions').innerText(),
     /08:32:00/,
   );
+  // The filters live in a drawer that is collapsed while nothing is filtering, so
+  // open it before reaching for a control inside it - the same first step a user
+  // takes. The summary states "未筛选" while collapsed, which the next assertion
+  // relies on.
+  await page.locator('.filter-drawer > summary').click();
   await page.getByLabel('状态', { exact: true }).selectOption('interrupted');
   await page.getByRole('status').filter({ hasText: '共 1 条' }).waitFor();
 

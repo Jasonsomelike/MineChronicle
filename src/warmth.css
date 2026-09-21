@@ -238,9 +238,12 @@ body {
   border-color: var(--warm-line);
 }
 .app-nav button {
-  border-radius: 11px;
-  padding: 10px 16px;
-  min-height: 42px;
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-4);
+  /* Uses the shared control scale rather than its own 42px. The nav was the only
+     place on the page with a 42px control, so it sat one step off every button
+     below it. */
+  min-height: var(--control-lg);
 }
 .app-nav button[aria-current='page'] {
   background: var(--surface-strong);
@@ -312,22 +315,20 @@ body {
   border: 0;
   align-items: stretch;
 }
-.dashboard :is(.career-total, .metric-grid article, .ranking, .tracking-state),
+/* Both overview panels are cards, matching the ranking panel below them. The
+   previous rule boxed only some of them, so the career total had a card edge while
+   the sidebar beside it did not. */
+.dashboard :is(.career-total, .tracking-state, .metric-grid article, .ranking),
 .settings-card {
-  border-color: var(--warm-line);
-  border-radius: 18px;
+  border: 1px solid var(--warm-line);
+  border-radius: var(--radius-lg);
   background: var(--warm-surface);
   box-shadow: 0 4px 18px #4d573b04;
 }
 .dashboard .career-total {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: linear-gradient(
-    115deg,
-    var(--surface-hover),
-    var(--surface-warning)
-  );
+  gap: var(--space-3);
   min-width: 0;
 }
 .career-copy {
@@ -722,10 +723,12 @@ footer {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
-  padding: 6px 12px;
+  /* A chip in a segmented control, so the small step. It invented 32px, which made
+     the three theme options taller than the other chips on the page. */
+  min-height: var(--control-sm);
+  padding: 0 var(--space-3);
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font-size: 13px;

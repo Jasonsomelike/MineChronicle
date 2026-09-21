@@ -29,6 +29,16 @@ function World({
 }) {
   const [expanded, setExpanded] = useState(search);
   const open = expanded;
+  // The summary carries the world's total, so a collapsed row still answers "which
+  // world did I play most" without opening every one of them. Summed over the
+  // players whose latest reading is usable; a conflicting or unreadable reading
+  // contributes nothing rather than a misleading zero.
+  const total = world.players.reduce(
+    (sum, player) =>
+      sum + (player.play_ticks === null ? 0n : BigInt(player.play_ticks)),
+    0n,
+  );
+  const readable = world.players.filter((p) => p.play_ticks !== null).length;
   return (
     <details
       className="world-result"
@@ -39,7 +49,10 @@ function World({
     >
       <summary>
         <strong>{world.name}</strong>
-        <span>
+        <span className="world-total">
+          {readable ? formatPlayTicks(total.toString()) : '—'}
+        </span>
+        <span className="world-status">
           {world.status === 'Missing'
             ? '目录已缺失 · 历史保留'
             : world.status === 'Degraded'
