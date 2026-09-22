@@ -2,6 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { applyTheme, loadThemePreference } from './lib/theme';
+// Bundled, not linked: the app is offline, so a font CDN would fail. The
+// package splits subsets by unicode-range, so only latin is ever fetched.
+import '@fontsource-variable/jetbrains-mono/wght.css';
 import './styles.css';
 import './warmth.css';
 import './motion.css';

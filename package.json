@@ -22,6 +22,7 @@
     "verify": "npm run typecheck && npm run lint && npm test && npm run format:check && npm run rust:fmt && npm run rust:clippy && npm run rust:test"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@tauri-apps/api": "2.11.1",
     "echarts": "6.1.0",
     "gsap": "^3.13.0",

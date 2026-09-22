@@ -7,7 +7,7 @@
    warmth.css, not in utility classes. */
 @import 'tailwindcss' source(none);
 :root {
-  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-family: var(--font-ui);
   /* The base size was never declared, so the root fell back to the browser's 16px
      default and showed up as an off-scale size on every page. Pinning it to the body
      step makes the baseline explicit; the app uses no rem units, so nothing else
@@ -76,6 +76,18 @@
   --type-title: 18px;
   --type-heading: 22px;
   --type-display: 28px;
+
+  /* ---------------------------------------------------------------------------
+     Families.
+
+     `--font-ui` is the system UI face for prose. `--font-mono` is bundled rather
+     than linked: this is an offline desktop app, so a font CDN would simply fail.
+     It is used for numerals and identifiers only, so the CJK text keeps falling
+     back to the system face.
+     --------------------------------------------------------------------------- */
+  --font-ui: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono',
+    Consolas, monospace;
 
   /* Corner radii, so cards and chips stay in one family. */
   /* `xs` is for a corner nested inside another: a nested radius should be
@@ -366,6 +378,8 @@ main {
   font-size: var(--type-display);
   margin: 10px 0;
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .career-total p {
   color: var(--caption-on-strong);
@@ -392,6 +406,8 @@ main {
   font-size: var(--type-title);
   margin: 10px 0;
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .tracking-state {
   display: flex;
@@ -781,6 +797,8 @@ button:disabled {
   margin-left: auto !important;
   color: var(--text-strong) !important;
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .world-status {
   flex-basis: 100%;
@@ -1056,6 +1074,8 @@ footer {
   color: var(--text-strong);
   font-size: var(--type-lead);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
   margin-top: var(--space-1);
   overflow-wrap: anywhere;
 }
@@ -1090,6 +1110,8 @@ footer {
   margin-right: 7px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .rank-duration {
   display: flex;
@@ -1097,6 +1119,8 @@ footer {
   justify-content: space-between;
   padding-left: 25px;
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .rank-duration svg {
   color: var(--text-muted);
@@ -1562,6 +1586,8 @@ footer {
   font-size: var(--type-caption);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .event-date {
   white-space: nowrap;
@@ -1627,6 +1653,8 @@ footer {
   background: var(--surface-tint);
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .event-increment .event-duration {
   color: var(--text-label);
@@ -1675,12 +1703,16 @@ footer {
   font-size: var(--type-caption);
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .part-kind {
   font-size: var(--type-caption);
 }
 .part-delta {
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 /* The non-increment parts opened the span, so they are marked rather than buried
    among identical-looking rows. */
@@ -1783,6 +1815,8 @@ button.stat-icon:hover {
 }
 .stat-reading {
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
   line-height: 1.7;
 }
 .stat-sort-heading {
@@ -1982,6 +2016,8 @@ button.stat-icon:hover {
   color: var(--text-strong);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .stat-overview-caption {
   margin-left: auto;
@@ -2032,6 +2068,8 @@ button.stat-icon:hover {
   font-weight: 400;
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
   min-width: 2ch;
 }
 .statistics .statistics-toolbar {
@@ -2081,6 +2119,8 @@ button.stat-icon:hover {
   font-size: var(--type-caption);
   color: var(--text-label);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .statistics-table {
   transition: opacity var(--motion-fast) ease;
@@ -2524,6 +2564,8 @@ button.stat-icon:hover {
 }
 .observed-sessions-total strong {
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .observed-sessions-scroll {
   overflow-x: auto;
@@ -2549,6 +2591,8 @@ button.stat-icon:hover {
   color: var(--text-strong);
   font-size: var(--type-heading);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .observation-headline-label {
   color: var(--text-summary);
@@ -2578,6 +2622,8 @@ button.stat-icon:hover {
   color: var(--text-label);
   font-size: var(--type-body);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .observation-facts small {
   color: var(--text-faint);
@@ -2691,6 +2737,8 @@ button.stat-icon:hover {
 .observed-sessions time {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .status-center {
   margin: 12px 0 20px;
@@ -3088,6 +3136,8 @@ button.stat-icon:hover {
      page's share, so it reads first. */
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
+  /* Figures get the monospace family; see --font-mono. */
+  font-family: var(--font-mono);
 }
 .observed-group-count,
 .observed-group-note {
