@@ -302,7 +302,9 @@ main {
 }
 .app-nav button[aria-current='page'] {
   background: var(--surface-strong);
-  color: white;
+  /* `--text-on-strong`, not white: the dark accent fill is a bright jade, so white
+     text on it measures 1.92:1. */
+  color: var(--text-on-strong);
 }
 .scan-panel input,
 .scan-panel select {
@@ -602,7 +604,9 @@ button {
      selects, which is why control rows never sat flush. */
   min-height: var(--control-md);
   padding: 0 16px;
-  color: white;
+  /* `--text-on-strong`, not white: the dark accent fill is a bright jade, so white
+     text on it measures 1.92:1. */
+  color: var(--text-on-strong);
   font-size: var(--type-body);
   cursor: pointer;
   transition: background-color var(--motion-base) ease,
@@ -2387,7 +2391,9 @@ button.stat-icon:hover {
 }
 .health-tabs button[aria-selected='true'] {
   background: var(--surface-strong);
-  color: white;
+  /* `--text-on-strong`, not white: the dark accent fill is a bright jade, so white
+     text on it measures 1.92:1. */
+  color: var(--text-on-strong);
 }
 .health-empty {
   padding: 28px 0;

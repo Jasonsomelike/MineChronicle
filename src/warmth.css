@@ -19,81 +19,81 @@
 :root {
   color-scheme: light;
 
-  --warm-paper: #faf9f5;
-  --warm-surface: #fffefa;
-  --warm-line: #e1e6da;
-  --warm-ink: #2c4035;
-  --warm-green: #426b50;
-  --warm-muted: #677467;
+  --warm-paper: #f7f8f8;
+  --warm-surface: #ffffff;
+  --warm-line: #dde3e1;
+  --warm-ink: #18211e;
+  --warm-green: #0d6b48;
+  --warm-muted: #4a5852;
 
   /* Surfaces, from the page floor upward. */
-  --page: #faf9f5;
-  --surface: #fffefa;
+  --page: #f7f8f8;
+  --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-sunken: #f0f6ef;
-  --surface-hover: #edf2f6;
-  --surface-active: #dce6d9;
+  --surface-sunken: #eceeed;
+  --surface-hover: #eff2f1;
+  --surface-active: #e2e7e5;
   /* Tinted card used by the observation and health summaries. */
-  --surface-tint: #f7faf8;
+  --surface-tint: #f2f5f4;
   /* The dark header/CTA green, and the surface it sits on. */
-  --surface-strong: #244e39;
-  --surface-strong-hover: #193b29;
+  --surface-strong: #0d6b48;
+  --surface-strong-hover: #0a5738;
 
   /* Text, from strongest to faintest. */
-  --text: #20352e;
-  --text-strong: #244e39;
-  --text-muted: #627268;
-  --text-faint: #5c6f66;
+  --text: #18211e;
+  --text-strong: #0c1311;
+  --text-muted: #4a5852;
+  --text-faint: #57655f;
   --text-on-strong: #ffffff;
-  --text-accent: #265f50;
-  --text-label: #35594a;
+  --text-accent: #0b5c3e;
+  --text-label: #24322d;
 
   /* Borders. */
-  --border: #dce4db;
-  --border-soft: #e3ebe6;
-  --border-strong: #ccd8d3;
-  --border-input: #cdd8c7;
+  --border: #dde3e1;
+  --border-soft: #e7ebe9;
+  --border-strong: #c9d2cf;
+  --border-input: #ccd5d2;
 
   /* Feedback. */
-  --danger: #9a2f2f;
-  --danger-surface: #faecec;
-  --success: #26835c;
-  --success-surface: #eef4ea;
+  --danger: #b42318;
+  --danger-surface: #fdeceb;
+  --success: #0d6b48;
+  --success-surface: #eaf5ef;
 
   /* The decorative wash behind the page. Kept as a token pair so the dark theme
      can drop it to a much fainter tint instead of removing the depth entirely. */
-  --wash-a: #f1eadb80;
-  --wash-b: #edf2e880;
+  --wash-a: #eef1f080;
+  --wash-b: #e9efec80;
 
   /* Header is translucent and blurs what scrolls under it. */
-  --header-surface: #faf9f5ed;
+  --header-surface: #f7f8f8ed;
 
-  --text-status: #315a45;
-  --text-hint: #526b60;
-  --text-caption: #687f71;
-  --text-caption-warm: #6a795d;
-  --text-summary: #6a7765;
-  --text-button: #426248;
+  --text-status: #0b5c3e;
+  --text-hint: #3d4a45;
+  --text-caption: #52605a;
+  --text-caption-warm: #4e5c56;
+  --text-summary: #4a5852;
+  --text-button: #24322d;
   --heading-on-strong: #ffffff;
-  --caption-on-strong: #d0e0d2;
+  --caption-on-strong: #c9e6d8;
 
   /* Semantic tints. A warning or error panel must keep its meaning in both
      themes, so these are roles rather than shared neutrals. */
-  --border-danger: #ecdcd6;
-  --surface-info: #eaf0f4;
-  --surface-warning: #fbf8f0;
-  --surface-danger: #faecec;
-  --warning: #b88d43;
+  --border-danger: #f0d6d3;
+  --surface-info: #e9f0f4;
+  --surface-warning: #faf6ec;
+  --surface-danger: #fdeceb;
+  --warning: #8a5a00;
 
   /* Bar colour for the ECharts ranking chart. ECharts paints SVG, so it
      cannot read a CSS variable and resolves this value in JavaScript. */
-  --chart-bar: #46765a;
+  --chart-bar: #0d6b48;
 
   /* Amber accent for the second tracking metric. */
-  --accent-amber: #ab8955;
+  --accent-amber: #8a5a00;
 
   /* The focus ring, measured at >=3:1 against every surface in both themes. */
-  --focus-ring: #2f6a4f;
+  --focus-ring: #0b5c3e;
 
   background: var(--page);
   color: var(--text);
@@ -124,66 +124,66 @@
   --shadow-pop: none;
   --shadow-modal: none;
 
-  --warm-paper: #121a16;
-  --warm-surface: #1a2420;
-  --warm-line: #2c3a33;
-  --warm-ink: #e4ebe6;
-  --warm-green: #8fc7a4;
-  --warm-muted: #a3b3a9;
+  --warm-paper: #0c100f;
+  --warm-surface: #181e1d;
+  --warm-line: #2b3532;
+  --warm-ink: #e6ebe9;
+  --warm-green: #34d399;
+  --warm-muted: #b3beba;
 
-  --page: #121a16;
-  --surface: #1a2420;
-  --surface-raised: #1f2b25;
-  --surface-sunken: #151e1a;
-  --surface-hover: #24312a;
-  --surface-active: #2b3a31;
-  --surface-tint: #18231e;
-  --surface-strong: #2f6a4f;
-  --surface-strong-hover: #3a7d5e;
+  --page: #0c100f;
+  --surface: #181e1d;
+  --surface-raised: #232b29;
+  --surface-sunken: #0a0d0c;
+  --surface-hover: #2c3633;
+  --surface-active: #323d39;
+  --surface-tint: #1b2321;
+  --surface-strong: #34d399;
+  --surface-strong-hover: #5ce0ae;
 
-  --text: #e4ebe6;
-  --text-strong: #f0f5f1;
-  --text-muted: #a3b3a9;
-  --text-faint: #9aaba1;
-  --text-on-strong: #ffffff;
-  --text-accent: #9fd4b4;
-  --text-label: #c3d2c8;
+  --text: #e6ebe9;
+  --text-strong: #f5f8f7;
+  --text-muted: #b3beba;
+  --text-faint: #a5b1ad;
+  --text-on-strong: #062d20;
+  --text-accent: #5ce0ae;
+  --text-label: #d3dcd9;
 
-  --border: #2c3a33;
-  --border-soft: #253129;
-  --border-strong: #3a4a41;
-  --border-input: #3a4a41;
+  --border: #2b3532;
+  --border-soft: #232b29;
+  --border-strong: #3d4a46;
+  --border-input: #3d4a46;
 
-  --danger: #f2a3a3;
-  --danger-surface: #35211f;
-  --success: #8fd0ae;
-  --success-surface: #1e2c25;
+  --danger: #f87171;
+  --danger-surface: #2a1a1a;
+  --success: #34d399;
+  --success-surface: #12241c;
 
   /* Pulled far back: on a dark floor a bright wash reads as a stain, not depth. */
-  --wash-a: #1d2a2340;
-  --wash-b: #1a2b2240;
+  --wash-a: #16201e80;
+  --wash-b: #121a1880;
 
-  --header-surface: #161f1beb;
+  --header-surface: #0c100fed;
 
-  --text-status: #9dc4ab;
-  --text-hint: #9db3a7;
-  --text-caption: #9bab9f;
-  --text-caption-warm: #b3bda2;
-  --text-summary: #a9b8ad;
-  --text-button: #a8c9b4;
-  --heading-on-strong: #f2f7f3;
-  --caption-on-strong: #cfe2d5;
+  --text-status: #5ce0ae;
+  --text-hint: #a5b1ad;
+  --text-caption: #a5b1ad;
+  --text-caption-warm: #a5b1ad;
+  --text-summary: #b3beba;
+  --text-button: #d3dcd9;
+  --heading-on-strong: #062d20;
+  --caption-on-strong: #0d3d2c;
 
-  --accent-amber: #d9b47a;
-  --chart-bar: #7fc79b;
-  --border-danger: #4a2f2c;
-  --surface-info: #1b262e;
-  --surface-warning: #2b2618;
-  --surface-danger: #2e1f1f;
-  --warning: #d9b47a;
+  --accent-amber: #fbbf24;
+  --chart-bar: #34d399;
+  --border-danger: #4a2a2a;
+  --surface-info: #152229;
+  --surface-warning: #2a2418;
+  --surface-danger: #2a1a1a;
+  --warning: #fbbf24;
 
   /* Lightened so it still clears 3:1 against dark surfaces. */
-  --focus-ring: #7fc79b;
+  --focus-ring: #34d399;
 }
 
 /*
