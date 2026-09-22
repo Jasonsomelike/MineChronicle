@@ -230,128 +230,148 @@ export default function DataHealth({
   }
   return (
     <section className="data-health" aria-label="数据健康">
-      <div className="library-heading">
-        <h2>数据健康</h2>
-        <span>
-          {health.pending_count} 项待处理 · {health.confirmed_lineages}{' '}
-          条确认关联
-        </span>
-      </div>
-      <div role="tablist" aria-label="复核状态" className="health-tabs">
-        {[
-          ['pending', '待处理'],
-          ['reviewed', '已复核'],
-          ['all', '全部'],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            type="button"
-            aria-selected={tab === key}
-            onClick={() => {
-              setTab(key);
-              setPage(0);
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {health.analysis_limited ? (
-        <p role="alert" className="scan-error">
-          本次候选分析达到 2000 对上限，部分候选尚未列出。
-        </p>
-      ) : null}
-      {error ? (
-        <p role="alert" className="scan-error">
-          {error}
-        </p>
-      ) : null}
-      {!rows.length ? (
-        <p className="health-empty">
-          {tab === 'pending' ? '暂无待处理问题。' : '此分类暂无记录。'}
-        </p>
-      ) : null}
-      {rows.slice(current * 12, current * 12 + 12).map((row) =>
-        row.type === 'clone' ? (
-          <Candidate
-            key={`clone:${row.candidate.id}`}
-            candidate={row.candidate}
-            names={names}
-            onSaved={onSaved}
-            onOpen={onOpen}
-          />
-        ) : (
-          <article className="health-issue" key={row.item.key}>
-            <div className="health-item-heading">
-              <h3>{issueNames[row.item.kind] ?? row.item.kind}</h3>
-              <span>{row.item.reviewed ? '已复核' : '待处理'}</span>
-            </div>
-            <p>{row.item.detail}</p>
-            {row.item.path ? (
-              <p className="world-path">{displayPath(row.item.path)}</p>
-            ) : null}
-            <div className="health-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                disabled={!!busy}
-                onClick={() => void review(row.item.key, !row.item.reviewed)}
-              >
-                {row.item.reviewed ? <Undo2 size={15} /> : <Check size={15} />}{' '}
-                {row.item.reviewed ? '恢复待处理' : '标记已复核'}
-              </button>
-              {row.item.target ? (
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => onOpen(row.item.target)}
-                >
-                  <ArrowUpRight size={15} />
-                  查找相关世界
-                </button>
-              ) : null}
-            </div>
-          </article>
-        ),
-      )}
-      {pages > 1 ? (
-        <div className="pagination">
-          <label>
-            跳转到{' '}
-            <select
-              aria-label="数据健康页码"
-              value={current}
-              onChange={(event) => setPage(Number(event.target.value))}
-            >
-              {Array.from({ length: pages }, (_, i) => (
-                <option key={i} value={i}>
-                  第 {i + 1} 页
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            title="上一页"
-            aria-label="上一页"
-            disabled={current === 0}
-            onClick={() => setPage(current - 1)}
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span>
-            {current + 1} / {pages}
+      {/* This section is a review queue, not a setting: it is something you come back
+          to when there is work, whereas a setting is something you look up. Collapsed
+          by default, with the pending count kept in the summary, so nothing
+          actionable is hidden - the summary states whether there is anything to open
+          it for. The <section> wrapper stays so the landmark survives. */}
+      <details className="health-disclosure">
+        <summary className="library-heading">
+          <h2>数据健康</h2>
+          {/* Flagged rather than merely counted when there is work: a collapsed queue
+              that looks the same whether or not it needs attention is how a
+              disclosure turns into a hiding place. */}
+          <span className={health.pending_count ? 'health-pending' : undefined}>
+            {health.pending_count
+              ? `${health.pending_count} 项待处理`
+              : '无待处理'}{' '}
+            · {health.confirmed_lineages} 条确认关联
           </span>
-          <button
-            title="下一页"
-            aria-label="下一页"
-            disabled={current === pages - 1}
-            onClick={() => setPage(current + 1)}
-          >
-            <ChevronRight size={16} />
-          </button>
+        </summary>
+        <div className="health-disclosure-body">
+          <div role="tablist" aria-label="复核状态" className="health-tabs">
+            {[
+              ['pending', '待处理'],
+              ['reviewed', '已复核'],
+              ['all', '全部'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                role="tab"
+                type="button"
+                aria-selected={tab === key}
+                onClick={() => {
+                  setTab(key);
+                  setPage(0);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {health.analysis_limited ? (
+            <p role="alert" className="scan-error">
+              本次候选分析达到 2000 对上限，部分候选尚未列出。
+            </p>
+          ) : null}
+          {error ? (
+            <p role="alert" className="scan-error">
+              {error}
+            </p>
+          ) : null}
+          {!rows.length ? (
+            <p className="health-empty">
+              {tab === 'pending' ? '暂无待处理问题。' : '此分类暂无记录。'}
+            </p>
+          ) : null}
+          {rows.slice(current * 12, current * 12 + 12).map((row) =>
+            row.type === 'clone' ? (
+              <Candidate
+                key={`clone:${row.candidate.id}`}
+                candidate={row.candidate}
+                names={names}
+                onSaved={onSaved}
+                onOpen={onOpen}
+              />
+            ) : (
+              <article className="health-issue" key={row.item.key}>
+                <div className="health-item-heading">
+                  <h3>{issueNames[row.item.kind] ?? row.item.kind}</h3>
+                  <span>{row.item.reviewed ? '已复核' : '待处理'}</span>
+                </div>
+                <p>{row.item.detail}</p>
+                {row.item.path ? (
+                  <p className="world-path">{displayPath(row.item.path)}</p>
+                ) : null}
+                <div className="health-actions">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    disabled={!!busy}
+                    onClick={() =>
+                      void review(row.item.key, !row.item.reviewed)
+                    }
+                  >
+                    {row.item.reviewed ? (
+                      <Undo2 size={15} />
+                    ) : (
+                      <Check size={15} />
+                    )}{' '}
+                    {row.item.reviewed ? '恢复待处理' : '标记已复核'}
+                  </button>
+                  {row.item.target ? (
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => onOpen(row.item.target)}
+                    >
+                      <ArrowUpRight size={15} />
+                      查找相关世界
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            ),
+          )}
+          {pages > 1 ? (
+            <div className="pagination">
+              <label>
+                跳转到{' '}
+                <select
+                  aria-label="数据健康页码"
+                  value={current}
+                  onChange={(event) => setPage(Number(event.target.value))}
+                >
+                  {Array.from({ length: pages }, (_, i) => (
+                    <option key={i} value={i}>
+                      第 {i + 1} 页
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                title="上一页"
+                aria-label="上一页"
+                disabled={current === 0}
+                onClick={() => setPage(current - 1)}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span>
+                {current + 1} / {pages}
+              </span>
+              <button
+                title="下一页"
+                aria-label="下一页"
+                disabled={current === pages - 1}
+                onClick={() => setPage(current + 1)}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </details>
     </section>
   );
 }

@@ -3253,3 +3253,39 @@ button.stat-icon:hover {
 .observed-group > p {
   margin: 12px 14px;
 }
+
+/* ---------------------------------------------------------------------------
+   Data-health review queue.
+
+   This section is a queue rather than a setting, so it starts collapsed and the
+   summary carries the pending count. A reader can tell whether there is anything
+   to open it for without opening it, which is what keeps the disclosure honest.
+   --------------------------------------------------------------------------- */
+.health-disclosure > summary {
+  /* The heading it replaced. `library-heading` already draws the row. */
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-3)) var(--space-2);
+}
+.health-disclosure > summary:hover {
+  background: var(--surface-hover);
+}
+.health-disclosure > summary h2 {
+  /* Inline so the heading and the count stay on the disclosure's row. */
+  display: inline;
+  margin: 0;
+}
+.health-disclosure[open] > summary {
+  margin-bottom: var(--space-4);
+}
+.health-disclosure-body {
+  min-width: 0;
+}
+/* Pending work is stated in the accent, so a collapsed queue still announces
+   itself. The colour does not carry the meaning alone - the text already says how
+   many - it only makes it noticeable at a glance. */
+.health-pending {
+  color: var(--text-accent);
+  font-weight: 600;
+}
