@@ -46,6 +46,7 @@ function World({
   return (
     <details
       className="world-result"
+      data-status={world.status}
       open={open}
       onToggle={(e) => {
         const next = e.currentTarget.open;

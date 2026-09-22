@@ -9,6 +9,17 @@ import type { AppState } from './useAppState';
 
 function StatusSummary({ state }: { state: AppState }) {
   const { trackingStatus, backgroundErrors, pclStatus, navigate } = state;
+  const hasError =
+    !!trackingStatus?.error || Object.values(backgroundErrors).some(Boolean);
+  const running =
+    !!trackingStatus?.running || !!trackingStatus?.active_instances?.length;
+  const tone = hasError
+    ? 'is-error'
+    : running
+    ? 'is-running'
+    : trackingStatus?.enabled
+    ? 'is-ready'
+    : 'is-paused';
   const label = trackingStatus?.running
     ? '正在同步存档'
     : trackingStatus?.active_instances?.length
@@ -19,17 +30,22 @@ function StatusSummary({ state }: { state: AppState }) {
     ? '追踪已就绪，等待游戏启动'
     : '追踪已暂停';
   return (
-    <details className="status-center">
+    <details className={`status-center ${tone}`}>
       <summary>
         <span
-          className={trackingStatus?.enabled ? 'watch-dot active' : 'watch-dot'}
+          className={
+            hasError
+              ? 'watch-dot error'
+              : running
+              ? 'watch-dot active'
+              : trackingStatus?.enabled
+              ? 'watch-dot ready'
+              : 'watch-dot'
+          }
         />
         {label}
         <span className="status-center-hint">
-          {trackingStatus?.error ||
-          Object.values(backgroundErrors).some(Boolean)
-            ? '有服务异常 · 查看详情'
-            : '运行状态'}
+          {hasError ? '有服务异常 · 查看详情' : '运行状态'}
         </span>
       </summary>
       {pclStatus && state.view !== 'settings' ? (
@@ -140,12 +156,14 @@ export default function AppShell({
           MineChronicle
         </span>
         <div className="header-tools">
-          <span className="local-label">本地档案</span>
+          <span className="local-label" title="数据仅存本机，无账号无遥测">
+            本地档案
+          </span>
           <span
             className="local-label"
             title="关闭窗口后继续追踪，从系统托盘可彻底退出"
           >
-            关闭窗口后驻留托盘
+            托盘驻留
           </span>
         </div>
       </header>

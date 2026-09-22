@@ -1,5 +1,158 @@
 /* Density and clarity helpers for the UX pass. */
 
+.filter-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-left: auto;
+}
+
+.world-result {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.world-result summary {
+  min-height: 36px;
+  padding: var(--space-1) 0;
+}
+
+.world-result[open] summary {
+  padding-bottom: var(--space-2);
+}
+
+.world-mini-bar {
+  display: inline-block;
+  width: 48px;
+  height: 4px;
+  margin-left: var(--space-2);
+  border-radius: 2px;
+  background: var(--surface-sunken);
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.world-mini-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--chart-bar);
+  opacity: 0.7;
+}
+
+.world-result[data-status='Missing'] summary {
+  opacity: 0.55;
+}
+
+.world-result[data-status='Degraded'] .world-status {
+  color: var(--warning);
+}
+
+.observation-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3) var(--space-4);
+}
+
+.observation-facts > div {
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.observation-facts dt {
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+}
+
+.observation-facts dd {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--type-lead);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-center.is-running {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: var(--success-surface);
+}
+
+.status-center.is-paused {
+  border-color: var(--border-strong);
+  background: var(--surface-sunken);
+}
+
+.status-center.is-error {
+  border-color: var(--border-danger);
+  background: var(--surface-danger);
+}
+
+.status-center.is-error > summary {
+  color: var(--danger);
+}
+
+.status-center.is-running > summary {
+  color: var(--text-status);
+}
+
+.status-center.is-paused > summary {
+  color: var(--text-muted);
+}
+
+.uuid-copy {
+  margin-left: var(--space-2);
+  opacity: 0.7;
+}
+
+.event-player:hover .uuid-copy {
+  opacity: 1;
+}
+
+.stat-provenance-count {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption);
+}
+
+.rank-bar {
+  display: block;
+  height: 3px;
+  margin-top: var(--space-1);
+  border-radius: 2px;
+  background: var(--chart-bar);
+  opacity: 0.55;
+  max-width: 100%;
+}
+
+.stat-icon-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  border: 1px dashed var(--border-strong);
+}
+
+.stat-placeholder-letter {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 2px;
+  border-radius: 7px;
+  background: var(--surface-strong);
+  color: var(--text-on-strong);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+}
+
 .event-uuid-row {
   display: flex;
   flex-wrap: wrap;

@@ -7,30 +7,31 @@ export function formatPlayTicks(ticks: string): string {
   return formatTickTotal(ticks);
 }
 
+function hms(hours: bigint, minutes: bigint, seconds: bigint): string {
+  const parts: string[] = [];
+  if (hours) parts.push(`${hours}h`);
+  if (minutes || hours) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(' ');
+}
+
 /** Totals across records can exceed one signed 64-bit counter. */
 export function formatTickTotal(ticks: string): string {
   if (!/^\d+$/.test(ticks))
     throw new Error('Ticks must be a non-negative integer');
   const value = BigInt(ticks);
   const seconds = value / 20n;
-  const hours = seconds / 3600n;
-  const minutes = (seconds % 3600n) / 60n;
-  if (value > 0n && seconds === 0n) return '不足 1 秒';
-  const parts = [];
-  if (hours) parts.push(`${hours} 小时`);
-  if (minutes) parts.push(`${minutes} 分钟`);
-  if (seconds % 60n || !parts.length) parts.push(`${seconds % 60n} 秒`);
-  return parts.join(' ');
+  if (value > 0n && seconds === 0n) return '<1s';
+  return hms(seconds / 3600n, (seconds % 3600n) / 60n, seconds % 60n);
 }
 
 /** Compact ranks keep exact seconds in their accessible tooltip. */
 export function formatCompactTicks(ticks: string): string {
-  const full = formatTickTotal(ticks);
   const seconds = BigInt(ticks) / 20n;
-  if (seconds < 3600n) return full;
-  return `${seconds / 3600n}h${
-    (seconds % 3600n) / 60n ? ` ${(seconds % 3600n) / 60n}m` : ''
-  }`;
+  if (seconds < 3600n) return formatTickTotal(ticks);
+  const hours = seconds / 3600n;
+  const minutes = (seconds % 3600n) / 60n;
+  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 }
 
 /**
@@ -44,14 +45,7 @@ export function formatCompactTicks(ticks: string): string {
 export function formatSeconds(seconds: string): string {
   if (!/^\d+$/.test(seconds)) throw new Error('Seconds must be non-negative');
   const value = BigInt(seconds);
-  const hours = value / 3600n;
-  const minutes = (value % 3600n) / 60n;
-  const rest = value % 60n;
-  const parts = [];
-  if (hours) parts.push(`${hours} 小时`);
-  if (minutes) parts.push(`${minutes} 分钟`);
-  if (rest || !parts.length) parts.push(`${rest} 秒`);
-  return parts.join(' ');
+  return hms(value / 3600n, (value % 3600n) / 60n, value % 60n);
 }
 
 const pad = (value: number) => String(value).padStart(2, '0');

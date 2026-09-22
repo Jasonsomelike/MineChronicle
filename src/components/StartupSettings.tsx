@@ -55,7 +55,10 @@ export default function StartupSettings() {
           <strong>
             <Power size={16} /> 开机自启动
           </strong>
-          <p>登录 Windows 后自动打开 MineChronicle，仅对当前账户生效。</p>
+          <p>
+            登录 Windows 后自动打开 MineChronicle，仅对当前账户生效。当前：
+            {busy ? '保存中…' : status?.enabled ? '已开启' : '已关闭'}
+          </p>
         </div>
         <label className="setting-switch">
           <input
@@ -66,7 +69,7 @@ export default function StartupSettings() {
             disabled={!status?.supported || busy}
             onChange={(e) => void change(e.target.checked)}
           />
-          {busy ? '保存中…' : status?.enabled ? '已开启' : '已关闭'}
+          <span aria-hidden="true">自启</span>
         </label>
       </div>
       {status?.executable ? (

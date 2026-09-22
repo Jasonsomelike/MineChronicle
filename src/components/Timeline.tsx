@@ -295,8 +295,20 @@ export default function Timeline({
                     </button>
                   </div>
                   <p className="event-meta">
-                    <span className="event-player">
+                    <span className="event-player" title={`UUID ${e.uuid}`}>
                       {e.player_name ?? e.uuid}
+                      {!compact ? (
+                        <button
+                          type="button"
+                          className="text-button uuid-copy"
+                          title="复制玩家 UUID"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(e.uuid);
+                          }}
+                        >
+                          复制 UUID
+                        </button>
+                      ) : null}
                     </span>
                     <span className="event-duration">
                       {e.kind === 'increment'
@@ -315,23 +327,6 @@ export default function Timeline({
                         : ''}
                     </span>
                   </p>
-                  {!compact ? (
-                    <details className="event-details">
-                      <summary>玩家标识</summary>
-                      <div className="event-uuid-row">
-                        <code className="scan-note">{e.uuid}</code>
-                        <button
-                          type="button"
-                          className="text-button"
-                          onClick={() => {
-                            void navigator.clipboard?.writeText(e.uuid);
-                          }}
-                        >
-                          复制
-                        </button>
-                      </div>
-                    </details>
-                  ) : null}
                   {merged && e.parts?.length ? (
                     // The individual observations, so the merged total stays
                     // auditable: a reader can see how it was built up, including

@@ -12,7 +12,9 @@ export default function ReadStatus({
   return (
     <div className="read-status">
       {updatedAt > 0 && (
-        <small>最近更新：{new Date(updatedAt).toLocaleTimeString()}</small>
+        <small title={`最近更新 ${new Date(updatedAt).toLocaleString()}`}>
+          已缓存数据
+        </small>
       )}
       {loading && <span role="status">正在更新…</span>}
       {error && (

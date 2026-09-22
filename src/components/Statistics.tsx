@@ -101,6 +101,7 @@ export default function Statistics({
   const [resourceDetails, setResourceDetails] = useState<DiscoverDetail[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
+  const [showTech, setShowTech] = useState(false);
   useEffect(() => {
     setDiscovered({});
     discoveredIdsRef.current = [];
@@ -401,25 +402,36 @@ export default function Statistics({
       <ReadStatus {...request} />
       <div className="filter-summary">
         <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
-        <div className="health-tabs" role="group" aria-label="表格密度">
-          <button
-            type="button"
-            aria-pressed={density === 'compact'}
-            onClick={() => setDensity('compact')}
-          >
-            紧凑
-          </button>
-          <button
-            type="button"
-            aria-pressed={density === 'comfortable'}
-            onClick={() => setDensity('comfortable')}
-          >
-            舒适
+        <div className="filter-tools">
+          <div className="health-tabs" role="group" aria-label="表格密度">
+            <button
+              type="button"
+              aria-pressed={density === 'compact'}
+              onClick={() => setDensity('compact')}
+            >
+              紧凑
+            </button>
+            <button
+              type="button"
+              aria-pressed={density === 'comfortable'}
+              onClick={() => setDensity('comfortable')}
+            >
+              舒适
+            </button>
+          </div>
+          <label className="setting-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={showTech}
+              onChange={(e) => setShowTech(e.target.checked)}
+            />
+            显示技术字段
+          </label>
+          <button type="button" className="text-button" onClick={clearFilters}>
+            清除本页筛选
           </button>
         </div>
-        <button type="button" className="text-button" onClick={clearFilters}>
-          清除本页筛选
-        </button>
       </div>
       <details className="statistics-overview">
         <summary>
@@ -660,22 +672,41 @@ export default function Statistics({
                           </button>
                         ) : (
                           <span
-                            className="stat-icon stat-icon-missing"
+                            className="stat-icon stat-icon-placeholder"
                             title={
                               isAir
                                 ? '空气（无可见材质）'
-                                : `MC占位图标 · ${
+                                : `分类占位 · ${
                                     local?.reason ?? '尚未找到可用游戏模型'
                                   }`
                             }
-                            aria-hidden="true"
                           >
-                            <img
-                              src="/stat-fallback.svg"
-                              width={32}
-                              height={32}
-                              alt=""
-                            />
+                            {(() => {
+                              const CatIcon =
+                                groupIcons[
+                                  (row.category.split(':').pop() ??
+                                    'other') as keyof typeof groupIcons
+                                ] ?? groupIcons.other;
+                              const letter = (
+                                row.label ??
+                                resource?.english ??
+                                row.key
+                              )
+                                .replace(/^minecraft:/, '')
+                                .slice(0, 1)
+                                .toUpperCase();
+                              return (
+                                <>
+                                  <CatIcon size={18} aria-hidden="true" />
+                                  <span
+                                    className="stat-placeholder-letter"
+                                    aria-hidden="true"
+                                  >
+                                    {letter}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </span>
                         )}
                         <div className="stat-description">
@@ -687,16 +718,17 @@ export default function Statistics({
                           ) ? (
                             <small className="stat-supplement">补充译名</small>
                           ) : null}
-                          <details className="stat-tech">
-                            <summary>技术字段</summary>
-                            <small title={row.category}>
-                              {row.category_label ?? row.category} ·{' '}
-                              {row.key.includes(':')
-                                ? row.key.split(':')[0]
-                                : 'Minecraft'}
-                            </small>
-                            <code>{row.key}</code>
-                          </details>
+                          {showTech ? (
+                            <div className="stat-tech">
+                              <small title={row.category}>
+                                {row.category_label ?? row.category} ·{' '}
+                                {row.key.includes(':')
+                                  ? row.key.split(':')[0]
+                                  : 'Minecraft'}
+                              </small>
+                              <code>{row.key}</code>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </td>
@@ -720,25 +752,31 @@ export default function Statistics({
                       )}
                     </td>
                     <td>
-                      <details className="stat-provenance">
-                        <summary>{row.sources} 份</summary>
-                        <div>{row.source_packs?.join('、') || '本地世界'}</div>
-                        {row.resources?.map((r, i) => (
-                          <div key={i}>
-                            {row.resources.length > 1 ? (
-                              <b>
-                                {r.label ?? r.english} · {r.packs.join('、')}
-                              </b>
-                            ) : null}
-                            <span>
-                              {r.translation_source ?? '未找到可用语言资源'}
-                            </span>
-                            {r.english && r.english !== r.label ? (
-                              <span>{r.english}</span>
-                            ) : null}
+                      {row.sources === 1 ? (
+                        <span className="stat-provenance-count">1 份</span>
+                      ) : (
+                        <details className="stat-provenance">
+                          <summary>{row.sources} 份</summary>
+                          <div>
+                            {row.source_packs?.join('、') || '本地世界'}
                           </div>
-                        ))}
-                      </details>
+                          {row.resources?.map((r, i) => (
+                            <div key={i}>
+                              {row.resources.length > 1 ? (
+                                <b>
+                                  {r.label ?? r.english} · {r.packs.join('、')}
+                                </b>
+                              ) : null}
+                              <span>
+                                {r.translation_source ?? '未找到可用语言资源'}
+                              </span>
+                              {r.english && r.english !== r.label ? (
+                                <span>{r.english}</span>
+                              ) : null}
+                            </div>
+                          ))}
+                        </details>
+                      )}
                     </td>
                   </tr>
                 );

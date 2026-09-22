@@ -10,19 +10,19 @@ import {
 describe('integer tick display', () => {
   it('formats aggregate ticks beyond i64 without rounding', () => {
     expect(formatTickTotal('18446744073709551614')).toBe(
-      '256204778801521 小时 33 分钟',
+      '256204778801521h 33m 0s',
     );
     expect(() => formatTickTotal('-1')).toThrow();
   });
   it.each([
-    ['0', '0 秒'],
-    ['1', '不足 1 秒'],
-    ['364', '18 秒'],
-    ['1199', '59 秒'],
-    ['1200', '1 分钟'],
-    ['72000', '1 小时'],
-    ['73200', '1 小时 1 分钟'],
-    ['9223372036854775807', '128102389400760 小时 46 分钟 30 秒'],
+    ['0', '0s'],
+    ['1', '<1s'],
+    ['364', '18s'],
+    ['1199', '59s'],
+    ['1200', '1m 0s'],
+    ['72000', '1h 0m 0s'],
+    ['73200', '1h 1m 0s'],
+    ['9223372036854775807', '128102389400760h 46m 30s'],
   ])('formats %s without float rounding', (input, output) => {
     expect(formatPlayTicks(input)).toBe(output);
   });
@@ -36,13 +36,13 @@ describe('integer tick display', () => {
 
 describe('second display', () => {
   it.each([
-    ['0', '0 秒'],
-    ['59', '59 秒'],
-    ['60', '1 分钟'],
-    ['3600', '1 小时'],
-    ['3660', '1 小时 1 分钟'],
-    ['37737', '10 小时 28 分钟 57 秒'],
-    ['9007199254740993', '2501999792983 小时 36 分钟 33 秒'],
+    ['0', '0s'],
+    ['59', '59s'],
+    ['60', '1m 0s'],
+    ['3600', '1h 0m 0s'],
+    ['3660', '1h 1m 0s'],
+    ['37737', '10h 28m 57s'],
+    ['9007199254740993', '2501999792983h 36m 33s'],
   ])('formats %s seconds', (input, output) => {
     expect(formatSeconds(input)).toBe(output);
   });

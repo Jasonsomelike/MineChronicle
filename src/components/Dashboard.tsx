@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useId, useMemo, useState } from 'react';
+import { Fragment, useId, useMemo, useState } from 'react';
 import type { ScanSummary } from '../lib/scan';
 import { summarize } from '../lib/dashboard';
 import type { Ranking } from '../lib/dashboard';
@@ -22,7 +22,6 @@ import {
   CalendarDays,
   Footprints,
 } from 'lucide-react';
-const RankingChart = lazy(() => import('./RankingChart'));
 import Timeline from './Timeline';
 import PlayerPicker from './PlayerPicker';
 import { selectedPlayer } from '../lib/players';
@@ -34,30 +33,32 @@ function RankingList({
   title,
   rows,
   onOpen,
+  maxTicks,
 }: {
   title: string;
   rows: Ranking[];
   onOpen: (path: string) => void;
+  maxTicks?: bigint;
 }) {
   const [visibleCount, setVisibleCount] = useState(5);
   const listId = useId();
   const visible = rows.slice(0, visibleCount);
   const remaining = rows.length - visible.length;
+  const scale = maxTicks ?? (rows[0]?.ticks || 1n);
   return (
     <section className="ranking" aria-label={title}>
       <h3>{title}</h3>
       {visible.length ? (
         <>
-          <div className="ranking-body">
-            <Suspense fallback={null}>
-              <RankingChart rows={visible} />
-            </Suspense>
-            <ol id={listId}>
-              {visible.map((r, index) => (
+          <ol id={listId}>
+            {visible.map((r, index) => {
+              const share =
+                scale > 0n ? Number((r.ticks * 1000n) / scale) / 10 : 0;
+              return (
                 <li key={r.path}>
                   <button
                     type="button"
-                    className="text-button"
+                    className="text-button rank-row-main"
                     title={displayPath(r.path)}
                     onClick={() => onOpen(r.path)}
                   >
@@ -75,10 +76,15 @@ function RankingList({
                     {formatCompactTicks(r.ticks.toString())}
                     <ArrowUpRight size={14} />
                   </span>
+                  <span
+                    className="rank-bar"
+                    aria-hidden="true"
+                    style={{ width: `${Math.max(share, 2)}%` }}
+                  />
                 </li>
-              ))}
-            </ol>
-          </div>
+              );
+            })}
+          </ol>
           <div className="ranking-footer">
             <span aria-live="polite">
               已显示 {visible.length} / {rows.length}
@@ -352,8 +358,10 @@ export default function Dashboard({
           实例排行
         </button>
       </div>
+      {/* Ruler owns the selected dimension; the list always shows the other
+          slice so the same top names are not painted twice. */}
       <div className="ranking-grid ranking-unified">
-        <SessionPage active={ranking === 'worlds'} label="世界排行">
+        <SessionPage active={ranking === 'instances'} label="世界排行">
           <RankingList
             key={`worlds:${rankingScope}`}
             title="世界排行"
@@ -361,7 +369,7 @@ export default function Dashboard({
             onOpen={onOpen}
           />
         </SessionPage>
-        <SessionPage active={ranking === 'instances'} label="实例排行">
+        <SessionPage active={ranking === 'worlds'} label="实例排行">
           <RankingList
             key={`roots:${rankingScope}`}
             title="实例排行 · 按根目录汇总"
