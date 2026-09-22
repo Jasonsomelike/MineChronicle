@@ -28,6 +28,7 @@ import {
   formatCount,
   formatDistance,
   formatStatistic,
+  statisticUnitSuffix,
   statisticRawTitle,
   statisticsGroups,
 } from '../lib/activity';
@@ -465,7 +466,12 @@ export default function Statistics({
                   ? formatTickTotal(data.counters[key] ?? '0')
                   : key.endsWith('_cm')
                   ? formatDistance(data.counters[key] ?? '0')
-                  : `${formatCount(data.counters[key] ?? '0')} 次`}
+                  : formatCount(data.counters[key] ?? '0')}
+                {key.endsWith('_cm') ? (
+                  <small className="stat-unit">m</small>
+                ) : key === 'play_ticks' ? null : (
+                  <small className="stat-unit">次</small>
+                )}
               </strong>
             </div>
           ))}
@@ -738,7 +744,14 @@ export default function Statistics({
                           className="stat-reading"
                           title={statisticRawTitle(row.value, row.unit)}
                         >
-                          {formatStatistic(row.value, row.unit)}
+                          <span className="stat-value">
+                            {formatStatistic(row.value, row.unit)}
+                          </span>
+                          {statisticUnitSuffix(row.unit) ? (
+                            <small className="stat-unit">
+                              {statisticUnitSuffix(row.unit)}
+                            </small>
+                          ) : null}
                         </span>
                       ) : (
                         <details>

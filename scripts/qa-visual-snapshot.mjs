@@ -112,8 +112,42 @@ for (const [viewportName, viewport] of viewports) {
   }, JSON.stringify(backend));
 
   for (const [name, hash] of pages) {
-    await page.goto(`${base}/${hash}`, { waitUntil: 'domcontentloaded' });
+    // Hash-only goto can race the SPA: the previous page stays mounted under
+    // SessionPage and `aria-current` can lag, so a screenshot named for one page
+    // captured another. Force the route, click the matching nav chip, then wait
+    // until that chip is the current page before capturing.
+    await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.app-nav button', { timeout: 30000 });
+    await page.evaluate((h) => {
+      if (window.location.hash !== h) {
+        window.location.hash = h;
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+    }, hash);
+    const labels = {
+      dashboard: '生涯概览',
+      instances: '游戏实例',
+      worlds: '世界与玩家',
+      timeline: '时间线',
+      statistics: '更多统计',
+      observation: '实例观测',
+      settings: '导入与设置',
+    };
+    const navButton = page
+      .locator('.app-nav button')
+      .filter({ hasText: labels[name] })
+      .first();
+    await navButton.click();
+    await page.waitForFunction(
+      (label) => {
+        const current = document.querySelector(
+          '.app-nav button[aria-current="page"]',
+        );
+        return !!current && (current.textContent || '').includes(label);
+      },
+      labels[name],
+      { timeout: 10000 },
+    );
     // Wait for the page to stop changing rather than for a fixed delay: the
     // settings page in particular keeps settling for longer than 2.5 s, and a
     // screenshot taken mid-settle differs between runs of identical CSS.

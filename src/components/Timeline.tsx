@@ -295,20 +295,15 @@ export default function Timeline({
                     </button>
                   </div>
                   <p className="event-meta">
-                    <span className="event-player" title={`UUID ${e.uuid}`}>
+                    <span
+                      className="event-player"
+                      title={`UUID ${e.uuid} · 点击复制`}
+                      style={{ cursor: 'copy' }}
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(e.uuid);
+                      }}
+                    >
                       {e.player_name ?? e.uuid}
-                      {!compact ? (
-                        <button
-                          type="button"
-                          className="text-button uuid-copy"
-                          title="复制玩家 UUID"
-                          onClick={() => {
-                            void navigator.clipboard?.writeText(e.uuid);
-                          }}
-                        >
-                          复制 UUID
-                        </button>
-                      ) : null}
                     </span>
                     <span className="event-duration">
                       {e.kind === 'increment'

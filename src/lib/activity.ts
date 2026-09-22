@@ -157,18 +157,48 @@ export const eventNames: Record<string, string> = {
   mixed: '观测时段',
 };
 export function formatCount(value: string) {
-  return BigInt(value).toLocaleString('zh-CN');
+  // Pure digits with grouping. Units never ride inside the mono stream.
+  const n = BigInt(value);
+  const neg = n < 0n;
+  const digits = (neg ? -n : n).toString();
+  let out = '';
+  for (let i = 0; i < digits.length; i += 1) {
+    const fromEnd = digits.length - i;
+    out += digits[i];
+    if (fromEnd > 1 && (fromEnd - 1) % 3 === 0) out += ',';
+  }
+  return neg ? `-${out}` : out;
 }
+
+/** Metres from centimetres as a pure number (`123.45`); unit is a micro suffix. */
 export function formatDistance(cm: string) {
-  const value = BigInt(cm);
-  const absolute = value < 0n ? -value : value;
-  const meters = absolute / 100n;
-  return `${value < 0n ? '-' : ''}${meters.toLocaleString('zh-CN')}.${(
-    absolute % 100n
-  )
-    .toString()
-    .padStart(2, '0')} 米`;
+  const neg = cm.startsWith('-');
+  const abs = neg ? cm.slice(1) : cm;
+  if (!/^\d+$/.test(abs)) throw new Error('Distance must be integer cm');
+  const n = BigInt(abs);
+  const whole = n / 100n;
+  let frac = (n % 100n).toString().padStart(2, '0');
+  while (frac.endsWith('0')) frac = frac.slice(0, -1);
+  return `${neg ? '-' : ''}${formatCount(whole.toString())}${
+    frac ? `.${frac}` : ''
+  }`;
 }
+
+/** Micro suffix beside a number; never embedded in the mono value. */
+export function statisticUnitSuffix(unit: StatUnit): string {
+  return (
+    {
+      ticks: '',
+      centimeters: 'm',
+      damage_tenths: 'HP',
+      blocks: '块',
+      items: '个',
+      times: '次',
+      none: '',
+    } as Record<StatUnit, string>
+  )[unit];
+}
+
 export function formatStatistic(value: string, unit: StatUnit = 'none') {
   if (unit === 'ticks') {
     const ticks = BigInt(value);
@@ -178,15 +208,15 @@ export function formatStatistic(value: string, unit: StatUnit = 'none') {
   }
   if (unit === 'centimeters') return formatDistance(value);
   if (unit === 'damage_tenths') {
-    const raw = BigInt(value),
-      absolute = raw < 0n ? -raw : raw;
-    return `${raw < 0n ? '-' : ''}${(absolute / 10n).toLocaleString('zh-CN')}.${
-      absolute % 10n
-    } 点伤害`;
+    const n = BigInt(value);
+    const abs = n < 0n ? -n : n;
+    return `${n < 0n ? '-' : ''}${formatCount((abs / 10n).toString())}.${
+      abs % 10n
+    }`;
   }
-  const suffix = { blocks: '块', items: '个', times: '次', none: '' }[unit];
-  return `${formatCount(value)}${suffix ? ` ${suffix}` : ''}`;
+  return formatCount(value);
 }
+
 export function statisticRawTitle(value: string, unit: StatUnit) {
   const rawUnit =
     {
