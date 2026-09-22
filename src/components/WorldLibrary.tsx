@@ -16,6 +16,11 @@ function WorldTotal({ world }: { world: WorldSummary }) {
   return (
     <span className="world-total">
       {readable.length ? formatPlayTicks(total.toString()) : '—'}
+      {readable.length ? (
+        <span className="world-mini-bar" aria-hidden="true">
+          <i style={{ width: '55%' }} />
+        </span>
+      ) : null}
     </span>
   );
 }
