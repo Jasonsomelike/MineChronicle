@@ -386,6 +386,95 @@ main {
   font-size: var(--type-caption);
   margin: 0;
 }
+/* ---------------------------------------------------------------------------
+   Playtime ruler.
+
+   Every world measured against one shared scale, with visible graduations. A bar
+   chart shows relative size; a ruler lets a value be read off the track, which is
+   why the scale is labelled and the graduations are drawn.
+   --------------------------------------------------------------------------- */
+.playtime-ruler {
+  margin-top: var(--space-5);
+}
+.ruler-grid {
+  display: grid;
+  /* Name / track / value. The track takes most of the width because it is the
+     measurement; the name column is capped so a long name cannot push the scale out
+     of alignment between rows. Rows are spaced well clear of each other so the
+     graduations read as one scale rather than as per-row stripes. */
+  grid-template-columns: minmax(96px, 1.1fr) minmax(0, 3fr) auto;
+  align-items: center;
+  gap: var(--space-3) var(--space-3);
+}
+.ruler-scale {
+  /* Sits over the track column, so a label lines up with its graduation. */
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--type-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ruler-name {
+  /* A button so the row is keyboard reachable, styled back down to text. */
+  min-height: 0;
+  padding: 0;
+  background: none;
+  color: var(--text);
+  font-size: var(--type-caption);
+  font-weight: 400;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ruler-name:hover {
+  background: none;
+  color: var(--text-accent);
+  text-decoration: underline;
+}
+.ruler-track {
+  position: relative;
+  display: block;
+  height: 12px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+}
+.ruler-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-bar);
+  transform-origin: left center;
+  animation: ruler-fill-in var(--motion-slow) var(--ease-standard) backwards;
+}
+@keyframes ruler-fill-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+/* The graduations sit above the fill, so the scale stays readable across the
+   measured part rather than only on the empty rail. */
+.ruler-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    to right,
+    color-mix(in srgb, var(--page) 60%, transparent) 0 1px,
+    transparent 1px 25%
+  );
+}
+.ruler-value {
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: var(--type-micro);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .metric-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

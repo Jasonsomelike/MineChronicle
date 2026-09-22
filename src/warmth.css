@@ -356,18 +356,7 @@ body {
   font-size: var(--type-caption);
   line-height: 1.6;
 }
-.career-caption {
-  display: block;
-  color: var(--text-caption-warm);
-  font-size: var(--type-caption);
-  margin-top: 14px;
-}
-.career-scene {
-  width: 190px;
-  height: auto;
-  flex: 0 0 190px;
-  align-self: flex-end;
-}
+
 .dashboard .metric-grid article {
   display: flex;
   flex-direction: column;
@@ -649,9 +638,7 @@ footer {
     animation: warm-reveal var(--motion-slow) cubic-bezier(0.2, 0.7, 0.3, 1)
       both;
   }
-  .career-scene {
-    animation: warm-reveal var(--motion-reveal) ease-out both;
-  }
+
   .app-nav button svg {
     transition: transform var(--motion-base) ease;
   }
@@ -674,9 +661,6 @@ footer {
   }
 }
 @media (max-width: 1100px) {
-  .career-scene {
-    display: none;
-  }
 }
 @media (max-width: 760px) {
   .app-nav {

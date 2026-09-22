@@ -1,4 +1,4 @@
-import { lazy, Suspense, useId, useMemo, useState } from 'react';
+import { Fragment, lazy, Suspense, useId, useMemo, useState } from 'react';
 import type { ScanSummary } from '../lib/scan';
 import { summarize } from '../lib/dashboard';
 import type { Ranking } from '../lib/dashboard';
@@ -105,6 +105,81 @@ function RankingList({
     </section>
   );
 }
+/**
+ * The playtime ruler: every world measured against one shared scale.
+ *
+ * This is the page's signature, and it exists to replace the "big number plus
+ * illustration" hero, which is the templated answer and said nothing the number
+ * itself did not. A ruler says something the number cannot: how the total is
+ * distributed, and how far apart the worlds are.
+ *
+ * Three decisions make it a measuring instrument rather than a bar chart:
+ *   - One shared scale across every row, so the bars are comparable to each other
+ *     instead of each filling its own width.
+ *   - Visible graduations with the unit labelled, so a value can be read off the
+ *     track rather than only inferred from the number beside it.
+ *   - The divisions are exact quarters of the real maximum, not rounded to a "nice"
+ *     axis: a ruler that rounds its own scale is decoration.
+ */
+function PlaytimeRuler({
+  rows,
+  onOpen,
+}: {
+  rows: Ranking[];
+  onOpen: (path: string) => void;
+}) {
+  // Rows arrive sorted by play time, so the first is the maximum.
+  const max = rows[0]?.ticks ?? 0n;
+  if (max <= 0n) return null;
+  const marks = [0n, 1n, 2n, 3n, 4n].map((i) => (max * BigInt(i)) / 4n);
+  const visible = rows.slice(0, 5);
+
+  return (
+    <div className="playtime-ruler">
+      <div className="ruler-grid">
+        <span />
+        {/* Purely visual: the rows below carry the same numbers as text. */}
+        <div className="ruler-scale" aria-hidden="true">
+          {marks.map((mark, index) => (
+            <span key={index}>
+              {index === 0 ? '0' : formatCompactTicks(mark.toString())}
+            </span>
+          ))}
+        </div>
+        <span />
+        {visible.map((row) => {
+          // Percentage with two decimals, matching how the ranking chart scales its
+          // bars, so the ruler and the chart cannot disagree.
+          const share = Number((row.ticks * 10000n) / max) / 100;
+          return (
+            <Fragment key={row.path}>
+              <button
+                type="button"
+                className="ruler-name"
+                title={displayPath(row.path)}
+                onClick={() => onOpen(row.path)}
+              >
+                {row.name}
+              </button>
+              <span className="ruler-track" aria-hidden="true">
+                <span className="ruler-fill" style={{ width: `${share}%` }} />
+              </span>
+              {/* A world whose directory is gone has no current reading. Showing
+                  "0 秒" would claim it was never played, which is a different and
+                  untrue statement, so the value column says what happened. */}
+              <span className="ruler-value">
+                {row.missing
+                  ? '已缺失'
+                  : formatCompactTicks(row.ticks.toString())}
+              </span>
+            </Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard({
   report,
   onOpen,
@@ -190,18 +265,14 @@ export default function Dashboard({
                 ? '所选玩家'
                 : '全部玩家'}
             </p>
-            <span className="career-caption">
-              每一次出发，都在这里留下足迹。
-            </span>
+            {/* The ruler replaces an illustration and a caption. The headline figure
+                above stays; what changes is that the card now shows how the total is
+                made up, which is the thing the number alone cannot say. */}
+            <PlaytimeRuler
+              rows={ranking === 'worlds' ? data.worlds : data.roots}
+              onOpen={onOpen}
+            />
           </div>
-          <img
-            className="career-scene"
-            src="/illustrations/homestead.svg"
-            alt=""
-            aria-hidden="true"
-            width="320"
-            height="180"
-          />
         </div>
         {/* The observation figures sit with the career total rather than in their
             own band below it. They are the same kind of number - a duration - so

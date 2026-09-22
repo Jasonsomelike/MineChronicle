@@ -156,6 +156,9 @@ details > summary::-webkit-details-marker {
   .settings-card,
   .metric-grid article,
   .ranking li,
+  /* The ruler's fills grow from zero on load. Under reduced motion they simply
+     appear at their measured width, which is the whole information. */
+  .ruler-fill,
   .save-feedback,
   .setting-badge {
     animation: none !important;
