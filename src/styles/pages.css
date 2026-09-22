@@ -27,7 +27,7 @@
   width: 48px;
   height: 4px;
   margin-left: var(--space-2);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: var(--surface-sunken);
   vertical-align: middle;
   overflow: hidden;
@@ -118,7 +118,7 @@
   display: block;
   height: 3px;
   margin-top: var(--space-1);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--chart-bar) 28%, var(--surface-sunken));
   max-width: 42%;
   opacity: 0.85;
@@ -131,11 +131,11 @@
   min-width: 14px;
   height: 14px;
   padding: 0 2px;
-  border-radius: 7px;
+  border-radius: var(--radius-pill);
   background: var(--surface-strong);
   color: var(--text-on-strong);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--type-micro);
   line-height: 14px;
   text-align: center;
 }
@@ -273,14 +273,14 @@
   min-width: 16px;
   height: 16px;
   padding: 0 3px;
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   background: var(--surface-strong);
   color: var(--text-on-strong);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--type-micro);
   line-height: 16px;
   text-align: center;
-  box-shadow: 0 0 0 2px var(--surface);
+  box-shadow: var(--shadow-cutout);
 }
 .stat-value {
   font-family: var(--font-mono);

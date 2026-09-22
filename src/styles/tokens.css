@@ -43,6 +43,11 @@
   --shadow-field: 0 1px 3px #40523714, inset 0 0 0 1px var(--border);
   --shadow-focus-glow: 0 0 0 4px #62895c12;
 
+  /* Not elevation: a ring that punches a gap through to the surface behind, used
+     where a small badge overlaps a bar. Structural, so it stays in dark mode while
+     the four elevation tokens go to `none`. */
+  --shadow-cutout: 0 0 0 2px var(--surface);
+
   --motion-reveal: 650ms;
   /* Compact chrome budget: header + nav + status stay under this at 100%. */
   --chrome-header: 48px;

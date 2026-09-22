@@ -44,16 +44,19 @@ try {
     'collapsed groups still keep their rows in the DOM',
   );
   // The newest fixture record is a live session, so it has no measurable duration
-  // and contributes 0. That is why the page subtotals are 48/17 rather than 49/18.
-  // The summary's own figures come from the fixture's fixed values, so this asserts
-  // the page subtotal, which is computed from the rows.
+  // and contributes 0. That is why the page subtotals are 48m/17m rather than
+  // 49m/18m. The summary's own figures come from the fixture's fixed values, so this
+  // asserts the page subtotal, which is computed from the rows.
+  //
+  // Units are the compact `48m 0s` form. The wording was `48 分钟` until the duration
+  // formatter changed; these assertions were left behind and the suite was red.
   assert.match(
     await page.locator('.observation-summary').innerText(),
-    /48 分钟/,
+    /48m 0s/,
   );
   assert.match(
     await page.locator('.observation-summary').innerText(),
-    /17 分钟/,
+    /17m 0s/,
   );
   // A live session must be renderable: it shows as running and waits for the
   // instance to close, rather than presenting an invented end time.
@@ -116,11 +119,11 @@ try {
   );
   assert.match(
     await page.locator('.observation-summary').innerText(),
-    /48 分钟/,
+    /48m 0s/,
   );
   assert.match(
     await page.locator('.observation-summary').innerText(),
-    /11 分钟/,
+    /11m 0s/,
   );
 
   await page.setViewportSize({ width: 620, height: 900 });
