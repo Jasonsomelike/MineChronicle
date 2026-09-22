@@ -100,6 +100,7 @@ export default function Statistics({
   const discoveredIdsRef = useRef<string[]>([]);
   const [resourceDetails, setResourceDetails] = useState<DiscoverDetail[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
   useEffect(() => {
     setDiscovered({});
     discoveredIdsRef.current = [];
@@ -259,7 +260,9 @@ export default function Statistics({
           <BarChart3 size={18} />
           更多统计
         </h2>
-        <span>{data?.sources ?? 0} 份有效玩家统计</span>
+        <span title="按当前玩家筛选的有效统计份数；不等于档案内全部世界数">
+          所选玩家 {data?.sources ?? 0} 份有效统计
+        </span>
       </div>
       <ActivityFilters
         report={report}
@@ -270,18 +273,23 @@ export default function Statistics({
         }}
       />
       <div className="stat-icon-toolbar">
+        <span role="status" className="stat-icon-status">
+          {checkingResources
+            ? '正在检查游戏图标…'
+            : resourceStatus || '图标：打开页面自动用缓存，完整检查需手动'}
+        </span>
         <button
           type="button"
-          className="secondary-button"
+          className="text-button"
           title="从本机已安装实例查找模型并补齐本页图标；不会写入游戏文件。打开页面只自动应用已有缓存。"
           disabled={loading || !data || checkingResources}
           onClick={() => void checkResources()}
         >
-          {checkingResources ? '正在检查游戏图标…' : '检查本页游戏图标'}
+          检查本页游戏图标
         </button>
         <button
           type="button"
-          className="secondary-button"
+          className="text-button"
           disabled={resourceDetails.length === 0}
           aria-expanded={detailsOpen}
           onClick={() => setDetailsOpen((open) => !open)}
@@ -292,15 +300,6 @@ export default function Statistics({
             ? `查看明细（${resourceDetails.length}）`
             : '查看明细'}
         </button>
-        {resourceStatus && !checkingResources ? (
-          <span role="status" className="stat-icon-status">
-            {resourceStatus}
-          </span>
-        ) : checkingResources ? (
-          <span role="status" className="stat-icon-status">
-            正在检查游戏图标…
-          </span>
-        ) : null}
       </div>
       <div className="statistics-context">
         <div className="health-tabs" role="tablist" aria-label="统计口径">
@@ -402,6 +401,22 @@ export default function Statistics({
       <ReadStatus {...request} />
       <div className="filter-summary">
         <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
+        <div className="health-tabs" role="group" aria-label="表格密度">
+          <button
+            type="button"
+            aria-pressed={density === 'compact'}
+            onClick={() => setDensity('compact')}
+          >
+            紧凑
+          </button>
+          <button
+            type="button"
+            aria-pressed={density === 'comfortable'}
+            onClick={() => setDensity('comfortable')}
+          >
+            舒适
+          </button>
+        </div>
         <button type="button" className="text-button" onClick={clearFilters}>
           清除本页筛选
         </button>
@@ -527,7 +542,9 @@ export default function Statistics({
       </div>
       {data ? (
         <div
-          className={`statistics-table${loading ? ' is-loading' : ''}`}
+          className={`statistics-table${
+            loading ? ' is-loading' : ''
+          } is-${density}`}
           aria-busy={loading}
         >
           <table>
@@ -662,21 +679,24 @@ export default function Statistics({
                           </span>
                         )}
                         <div className="stat-description">
-                          <small title={row.category}>
-                            {row.category_label ?? row.category} ·{' '}
-                            {row.key.includes(':')
-                              ? row.key.split(':')[0]
-                              : 'Minecraft'}
-                          </small>
                           <strong className="stat-label">
                             {row.label ?? resource?.english ?? row.key}
                           </strong>
-                          <code>{row.key}</code>
                           {row.resources?.some(
                             (r) => r.origin === 'reviewed',
                           ) ? (
                             <small className="stat-supplement">补充译名</small>
                           ) : null}
+                          <details className="stat-tech">
+                            <summary>技术字段</summary>
+                            <small title={row.category}>
+                              {row.category_label ?? row.category} ·{' '}
+                              {row.key.includes(':')
+                                ? row.key.split(':')[0]
+                                : 'Minecraft'}
+                            </small>
+                            <code>{row.key}</code>
+                          </details>
                         </div>
                       </div>
                     </td>

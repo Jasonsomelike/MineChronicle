@@ -256,7 +256,7 @@ body {
   /* Uses the shared control scale rather than its own 42px. The nav was the only
      place on the page with a 42px control, so it sat one step off every button
      below it. */
-  min-height: var(--control-lg);
+  min-height: var(--control-sm);
 }
 .app-nav button[aria-current='page'] {
   background: var(--surface-strong);

@@ -1,0 +1,49 @@
+/* Design scales. Role-named; colour roles live in warmth.css. */
+:root {
+  --focus-ring: #2f6a4f;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+
+  --control-sm: 28px;
+  --control-md: 38px;
+  --control-lg: 46px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+
+  --type-micro: 11px;
+  --type-caption: 12px;
+  --type-body: 13px;
+  --type-lead: 15px;
+  --type-title: 18px;
+  --type-heading: 22px;
+  --type-display: 28px;
+
+  --font-ui: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono',
+    Consolas, monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --shadow-hairline: 0 2px 5px #40523712;
+  --shadow-card: 0 4px 18px #4d573b04;
+  --shadow-pop: 0 8px 24px #20352e24;
+  --shadow-modal: 0 20px 80px #15372a33;
+  --shadow-nav: 0 3px 8px #37533c14, inset 0 1px #ffffff20;
+  --shadow-field: 0 1px 3px #40523714, inset 0 0 0 1px var(--border);
+  --shadow-focus-glow: 0 0 0 4px #62895c12;
+
+  --motion-reveal: 650ms;
+  /* Compact chrome budget: header + nav + status stay under this at 100%. */
+  --chrome-header: 48px;
+}

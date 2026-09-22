@@ -6,117 +6,14 @@
    14 captured pages rendering pixel-identically. Styling lives in this file and
    warmth.css, not in utility classes. */
 @import 'tailwindcss' source(none);
+/* Design scales live in styles/tokens.css; colour roles in warmth.css. */
 :root {
   font-family: var(--font-ui);
-  /* The base size was never declared, so the root fell back to the browser's 16px
-     default and showed up as an off-scale size on every page. Pinning it to the body
-     step makes the baseline explicit; the app uses no rem units, so nothing else
-     shifts. */
   font-size: var(--type-body);
   color: var(--text);
   background: var(--page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-
-  /* The one colour every focus indicator uses.
-     WCAG 2.2 SC 1.4.11 wants non-text UI (focus rings, borders, icons) at 3:1
-     against its surroundings. The value previously used here, #79a982, measured
-     2.15-2.69:1 against every surface it appeared on, so even the controls that
-     did show a ring showed an inadequate one. #2f6a4f is the lightest on-brand
-     green that clears 3:1 against all six surfaces (worst case 5.09). */
-  --focus-ring: #2f6a4f;
-  --focus-ring-width: 3px;
-  --focus-ring-offset: 2px;
-
-  /* ---------------------------------------------------------------------------
-     Control sizes.
-
-     Measured across the seven pages, interactive controls had five different
-     heights (28, 30, 34, 36, 38px) and four different paddings (4px, 6px,
-     "7px 9px", "12px 18px"), so no two rows of controls lined up. These three
-     steps are the whole scale: small for a control inside a table row or chip
-     row, medium as the default for a real form control, large for a page-level
-     primary action. Anything that does not fit one of them is a new step, and
-     adding one should be a decision rather than an accident.
-     --------------------------------------------------------------------------- */
-  --control-sm: 28px;
-  --control-md: 38px;
-  --control-lg: 46px;
-
-  /* ---------------------------------------------------------------------------
-     Spacing scale, in 4px steps.
-
-     The previous values included 22px (used seven times) and 10px, which are on no
-     scale, so vertical rhythm drifted between sections meant to look alike. Gaps
-     now come from this list.
-     --------------------------------------------------------------------------- */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-7: 28px;
-  --space-8: 32px;
-
-  /* ---------------------------------------------------------------------------
-     Type scale, seven steps.
-
-     Measured before this pass: 13 distinct px sizes across the two stylesheets, with
-     several near-duplicates (10 vs 11, 14 vs 15, 20 vs 21 vs 22) that made the same
-     visual weight drift between pages. The three dominant sizes keep their exact
-     value (12px x78, 13px x27, 11px x17); the long tail snaps to the nearest step.
-
-     `--text-micro` is the floor. Nothing renders below it.
-     --------------------------------------------------------------------------- */
-  --type-micro: 11px;
-  --type-caption: 12px;
-  --type-body: 13px;
-  --type-lead: 15px;
-  --type-title: 18px;
-  --type-heading: 22px;
-  --type-display: 28px;
-
-  /* ---------------------------------------------------------------------------
-     Families.
-
-     `--font-ui` is the system UI face for prose. `--font-mono` is bundled rather
-     than linked: this is an offline desktop app, so a font CDN would simply fail.
-     It is used for numerals and identifiers only, so the CJK text keeps falling
-     back to the system face.
-     --------------------------------------------------------------------------- */
-  --font-ui: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono',
-    Consolas, monospace;
-
-  /* Corner radii, so cards and chips stay in one family. */
-  /* `xs` is for a corner nested inside another: a nested radius should be
-     `outer - padding` to stay concentric, so it is a real step rather than a stray
-     value. Nested 3px inside a 6px wrapper with 3px of padding. */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-pill: 999px;
-
-  /* ---------------------------------------------------------------------------
-     Elevation.
-
-     Eleven literal box-shadows collapsed onto seven tokens. The four elevation steps
-     become `none` in dark: on a dark ground a shadow is nearly invisible, so it adds
-     no depth and only softens the card edge - dark takes depth from the surface
-     ladder it already has. The three structural ones stay, because they draw
-     structure rather than height.
-     --------------------------------------------------------------------------- */
-  --shadow-hairline: 0 2px 5px #40523712;
-  --shadow-card: 0 4px 18px #4d573b04;
-  --shadow-pop: 0 8px 24px #20352e24;
-  --shadow-modal: 0 20px 80px #15372a33;
-  --shadow-nav: 0 3px 8px #37533c14, inset 0 1px #ffffff20;
-  --shadow-field: 0 1px 3px #40523714, inset 0 0 0 1px var(--border);
-  --shadow-focus-glow: 0 0 0 4px #62895c12;
-
-  --motion-reveal: 650ms;
 }
 /* Tailwind's preflight sets `small { font-size: 80% }`. Nested inside a parent that is
    already small this compounded to 9.6px and 10.4px - below any readable minimum.

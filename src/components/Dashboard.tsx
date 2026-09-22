@@ -237,7 +237,14 @@ export default function Dashboard({
               ? '所选玩家'
               : '全部玩家'}
             {' · '}
-            {data.worlds.length} 个世界 · {report.instances.length} 个 PCL 实例
+            {playersNone ? 0 : data.worlds.length} 个世界 ·{' '}
+            {report.instances.length} 个 PCL 实例
+            <span
+              className="count-hint"
+              title="按当前玩家筛选后的世界数；实例数为档案内全部 PCL 实例"
+            >
+              口径
+            </span>
           </p>
         </div>
         <PlayerPicker

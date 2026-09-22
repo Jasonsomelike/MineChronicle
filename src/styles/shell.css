@@ -1,0 +1,90 @@
+/* Shell chrome: header, primary nav, status strip, settings jump.
+   Compact vertical budget so 150% zoom leaves the first screen for content. */
+
+.app-header {
+  min-height: var(--chrome-header);
+  padding: var(--space-2) 0;
+  gap: var(--space-3);
+  flex-wrap: nowrap;
+  background: var(--header-surface, var(--page));
+  backdrop-filter: blur(10px);
+}
+
+.wordmark {
+  font-size: var(--type-title);
+  font-weight: 700;
+  gap: var(--space-2);
+}
+
+.wordmark .brand-mark svg {
+  width: 20px;
+  height: 20px;
+}
+
+.header-tools {
+  gap: var(--space-3);
+  flex-wrap: nowrap;
+}
+
+.local-label {
+  white-space: nowrap;
+}
+
+.app-nav {
+  position: sticky;
+  top: var(--chrome-header);
+  z-index: 24;
+  scroll-margin-top: calc(
+    var(--chrome-header) + var(--control-sm) + var(--space-3)
+  );
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-3);
+  background: var(--header-surface, var(--page));
+  backdrop-filter: blur(10px);
+}
+
+.app-nav button {
+  min-height: var(--control-sm);
+  padding: 0 var(--space-3);
+  gap: var(--space-1);
+  font-size: var(--type-caption);
+  border-radius: var(--radius-sm);
+}
+
+.status-center {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.status-center > summary {
+  min-height: var(--control-sm);
+  gap: var(--space-2);
+  font-size: var(--type-caption);
+}
+
+.settings-jump {
+  top: calc(var(--chrome-header) + var(--control-sm) + var(--space-3));
+  padding: var(--space-1);
+  margin: 0 0 var(--space-3);
+}
+
+[id^='settings-'] {
+  scroll-margin-top: calc(
+    var(--chrome-header) + var(--control-sm) + var(--control-sm) +
+      var(--space-4)
+  );
+}
+
+@media (max-width: 760px) {
+  .header-tools .local-label:last-child {
+    display: none;
+  }
+  .app-nav button {
+    padding: 0 var(--space-2);
+  }
+  .wordmark {
+    font-size: var(--type-lead);
+  }
+}

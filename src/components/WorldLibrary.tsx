@@ -1,57 +1,66 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsDownUp,
-  Search,
-  History,
-  BarChart3,
-} from 'lucide-react';
+import { ChevronsDownUp, Search, History, BarChart3 } from 'lucide-react';
 import type { ScanSummary, WorldSummary } from '../lib/scan';
 import { worldGroups } from '../lib/worlds';
+import type { PageId } from '../app/routes';
 import { displayPath } from '../lib/path';
 import { formatPlayTicks } from '../lib/duration';
 import PlayerName from './PlayerName';
+import { SecondaryButton, TextButton, Tabs, Pagination } from './ui';
+function WorldTotal({ world }: { world: WorldSummary }) {
+  const readable = world.players.filter((p) => p.play_ticks !== null);
+  const total = readable.reduce(
+    (sum, player) => sum + BigInt(player.play_ticks as string),
+    0n,
+  );
+  return (
+    <span className="world-total">
+      {readable.length ? formatPlayTicks(total.toString()) : '—'}
+    </span>
+  );
+}
+
 function World({
   world,
+  instanceName,
   search,
   busy,
   saved,
+  open: openProp,
+  onOpenChange,
   onSaved,
   onActivity,
 }: {
   world: WorldSummary;
+  instanceName?: string;
   search: boolean;
   busy: boolean;
   saved: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onSaved: (r: ScanSummary) => void;
-  onActivity: (page: string, path: string) => void;
+  onActivity: (page: PageId, path: string) => void;
 }) {
   const [expanded, setExpanded] = useState(search);
-  const open = expanded;
-  // The summary carries the world's total, so a collapsed row still answers "which
-  // world did I play most" without opening every one of them. Summed over the
-  // players whose latest reading is usable; a conflicting or unreadable reading
-  // contributes nothing rather than a misleading zero.
-  const total = world.players.reduce(
-    (sum, player) =>
-      sum + (player.play_ticks === null ? 0n : BigInt(player.play_ticks)),
-    0n,
-  );
-  const readable = world.players.filter((p) => p.play_ticks !== null).length;
+  const open = openProp ?? expanded;
   return (
     <details
       className="world-result"
       open={open}
       onToggle={(e) => {
-        setExpanded(e.currentTarget.open);
+        const next = e.currentTarget.open;
+        if (openProp === undefined) setExpanded(next);
+        onOpenChange?.(next);
       }}
     >
       <summary>
         <strong>{world.name}</strong>
-        <span className="world-total">
-          {readable ? formatPlayTicks(total.toString()) : '—'}
-        </span>
+        {instanceName ? (
+          <span className="world-instance" title={instanceName}>
+            {instanceName}
+          </span>
+        ) : null}
+        <WorldTotal world={world} />
         <span className="world-status">
           {world.status === 'Missing'
             ? '目录已缺失 · 历史保留'
@@ -129,32 +138,71 @@ export default function WorldLibrary({
   onQuery: (q: string) => void;
   busy: boolean;
   onSaved: (r: ScanSummary) => void;
-  onActivity: (page: string, path: string) => void;
+  onActivity: (page: PageId, path: string) => void;
 }) {
   const groups = useMemo(() => worldGroups(report, query), [report, query]);
+  const [mode, setMode] = useState<'flat' | 'grouped'>('flat');
+  const flatWorlds = useMemo(
+    () =>
+      groups.flatMap((g) =>
+        g.worlds.map((world) => ({ world, instanceName: g.name })),
+      ),
+    [groups],
+  );
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(groups.length / 12));
+  const pageSize = 12;
+  const listCount = mode === 'flat' ? flatWorlds.length : groups.length;
+  const pages = Math.max(1, Math.ceil(listCount / pageSize));
   const current = Math.min(page, pages - 1);
   const search = !!query.trim();
   const previousQuery = useRef('');
   useEffect(() => {
     if (previousQuery.current === query) return;
     previousQuery.current = query;
-    setOpen(new Set(query.trim() ? groups.map((g) => g.root.path) : []));
+    setOpen(
+      new Set(
+        query.trim()
+          ? mode === 'flat'
+            ? flatWorlds.map((w) => w.world.path)
+            : groups.map((g) => g.root.path)
+          : [],
+      ),
+    );
     setPage(0);
-  }, [query, groups]);
+  }, [query, groups, flatWorlds, mode]);
   return (
     <section className="world-library" aria-label="世界与玩家">
       <div className="library-heading">
         <h2>世界与玩家</h2>
-        <span>
-          {query.trim() ? '搜索结果' : '全部档案'} · {groups.length}{' '}
-          个实例根目录 · {groups.reduce((n, g) => n + g.worlds.length, 0)}{' '}
-          个世界
+        <span title="档案总量；搜索时显示匹配结果。实例数与根目录数不是同一概念：多个实例可共用一个有世界的目录。">
+          {query.trim() ? '搜索结果' : '档案共'}{' '}
+          {groups.reduce((n, g) => n + g.worlds.length, 0)} 个世界 ·{' '}
+          {groups.length} 个有世界的目录
         </span>
       </div>
       <div className="library-toolbar">
+        <Tabs
+          label="世界视图"
+          value={mode}
+          options={[
+            ['flat', '世界列表'],
+            ['grouped', '按实例分组'],
+          ]}
+          onChange={(next) => {
+            setMode(next);
+            setOpen(
+              new Set(
+                query.trim()
+                  ? next === 'flat'
+                    ? flatWorlds.map((w) => w.world.path)
+                    : groups.map((g) => g.root.path)
+                  : [],
+              ),
+            );
+            setPage(0);
+          }}
+        />
         <label>
           <Search size={16} />
           <input
@@ -167,113 +215,120 @@ export default function WorldLibrary({
             placeholder="实例、世界、玩家名或 UUID"
           />
         </label>
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={open.size === 0}
-          onClick={() => {
-            setOpen(new Set());
-            setPage(0);
-          }}
-        >
-          <ChevronsDownUp size={15} />
-          全部收起
-        </button>
+        {mode === 'grouped' ? (
+          <SecondaryButton
+            disabled={open.size === 0}
+            onClick={() => {
+              setOpen(new Set());
+              setPage(0);
+            }}
+          >
+            <ChevronsDownUp size={15} />
+            全部收起
+          </SecondaryButton>
+        ) : (
+          <SecondaryButton
+            disabled={open.size >= flatWorlds.length || !flatWorlds.length}
+            onClick={() => {
+              setOpen(new Set(flatWorlds.map((w) => w.world.path)));
+              setPage(0);
+            }}
+          >
+            全部展开
+          </SecondaryButton>
+        )}
         {query ? (
-          <button
-            className="text-button"
+          <TextButton
             onClick={() => {
               onQuery('');
               setPage(0);
             }}
           >
             清除搜索
-          </button>
+          </TextButton>
         ) : null}
       </div>
-      {!groups.length ? <p>没有匹配的世界。</p> : null}
-      {groups.slice(current * 12, current * 12 + 12).map((group) => {
-        const expanded = open.has(group.root.path);
-        return (
-          <details
-            key={group.root.path}
-            className="world-group"
-            open={expanded}
-            onToggle={(e) => {
-              const expanded = e.currentTarget.open;
-              setOpen((prev) => {
-                if (prev.has(group.root.path) === expanded) return prev;
-                const next = new Set(prev);
-                if (expanded) next.add(group.root.path);
-                else next.delete(group.root.path);
-                return next;
-              });
-            }}
-          >
-            <summary>
-              <strong>{group.name}</strong>
-              <span>
-                {group.shared ? '共享根目录 · ' : ''}
-                {group.worlds.length} 个世界
-              </span>
-            </summary>
-            {expanded ? (
-              <div className="world-group-content">
-                <p className="world-path">{displayPath(group.root.path)}</p>
-                {group.worlds.map((world) => (
-                  <World
-                    key={world.path}
-                    world={world}
-                    search={search}
-                    busy={busy}
-                    saved={report.saved}
-                    onSaved={onSaved}
-                    onActivity={onActivity}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </details>
-        );
-      })}
+      {!listCount ? <p>没有匹配的世界。</p> : null}
+      {mode === 'flat'
+        ? flatWorlds
+            .slice(current * pageSize, current * pageSize + pageSize)
+            .map(({ world, instanceName }) => (
+              <World
+                key={world.path}
+                world={world}
+                instanceName={instanceName}
+                search={search}
+                busy={busy}
+                saved={report.saved}
+                open={open.has(world.path)}
+                onOpenChange={(next) =>
+                  setOpen((prev) => {
+                    const copy = new Set(prev);
+                    if (next) copy.add(world.path);
+                    else copy.delete(world.path);
+                    return copy;
+                  })
+                }
+                onSaved={onSaved}
+                onActivity={onActivity}
+              />
+            ))
+        : groups
+            .slice(current * pageSize, current * pageSize + pageSize)
+            .map((group) => {
+              const expanded = open.has(group.root.path);
+              return (
+                <details
+                  key={group.root.path}
+                  className="world-group"
+                  open={expanded}
+                  onToggle={(e) => {
+                    const expanded = e.currentTarget.open;
+                    setOpen((prev) => {
+                      if (prev.has(group.root.path) === expanded) return prev;
+                      const next = new Set(prev);
+                      if (expanded) next.add(group.root.path);
+                      else next.delete(group.root.path);
+                      return next;
+                    });
+                  }}
+                >
+                  <summary>
+                    <strong>{group.name}</strong>
+                    <span>
+                      {group.shared ? '共享根目录 · ' : ''}
+                      {group.worlds.length} 个世界
+                    </span>
+                  </summary>
+                  {expanded ? (
+                    <div className="world-group-content">
+                      <p className="world-path">
+                        {displayPath(group.root.path)}
+                      </p>
+                      {group.worlds.map((world) => (
+                        <World
+                          key={world.path}
+                          world={world}
+                          search={search}
+                          busy={busy}
+                          saved={report.saved}
+                          onSaved={onSaved}
+                          onActivity={onActivity}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </details>
+              );
+            })}
       {pages > 1 ? (
-        <div className="pagination">
-          <label>
-            跳转到
-            <select
-              aria-label="世界列表页码"
-              value={current}
-              onChange={(e) => setPage(Number(e.target.value))}
-            >
-              {Array.from({ length: pages }, (_, i) => (
-                <option value={i} key={i}>
-                  第 {i + 1} 页
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            title="上一页"
-            aria-label="上一页"
-            disabled={current === 0}
-            onClick={() => setPage(current - 1)}
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span>
-            {current + 1} / {pages}
-          </span>
-          <button
-            type="button"
-            title="下一页"
-            aria-label="下一页"
-            disabled={current === pages - 1}
-            onClick={() => setPage(current + 1)}
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
+        <Pagination
+          page={current}
+          pages={pages}
+          onPrev={() => setPage(current - 1)}
+          onNext={() => setPage(current + 1)}
+          onJump={setPage}
+        />
       ) : null}
     </section>
   );

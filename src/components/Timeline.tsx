@@ -108,6 +108,75 @@ export default function Timeline({
                 }}
               />
             </label>
+            <div
+              className="date-shortcuts"
+              role="group"
+              aria-label="日期快捷范围"
+            >
+              {(
+                [
+                  ['today', '今天'],
+                  ['week', '近 7 天'],
+                  ['month', '本月'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    const now = new Date();
+                    const day = (offsetDays: number) => {
+                      const d = new Date(now);
+                      d.setDate(d.getDate() - offsetDays);
+                      return `${d.getFullYear()}-${String(
+                        d.getMonth() + 1,
+                      ).padStart(2, '0')}-${String(d.getDate()).padStart(
+                        2,
+                        '0',
+                      )}`;
+                    };
+                    if (id === 'today') {
+                      const t = day(0);
+                      setFrom(t);
+                      setTo(t);
+                    } else if (id === 'week') {
+                      setFrom(day(6));
+                      setTo(day(0));
+                    } else {
+                      const start = new Date(
+                        now.getFullYear(),
+                        now.getMonth(),
+                        1,
+                      );
+                      setFrom(
+                        `${start.getFullYear()}-${String(
+                          start.getMonth() + 1,
+                        ).padStart(2, '0')}-${String(start.getDate()).padStart(
+                          2,
+                          '0',
+                        )}`,
+                      );
+                      setTo(day(0));
+                    }
+                    setOffset(0);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setFrom('');
+                  setTo('');
+                  setOffset(0);
+                }}
+              >
+                清除日期
+              </button>
+            </div>
             <label>
               事件
               <select
@@ -249,7 +318,18 @@ export default function Timeline({
                   {!compact ? (
                     <details className="event-details">
                       <summary>玩家标识</summary>
-                      <code className="scan-note">{e.uuid}</code>
+                      <div className="event-uuid-row">
+                        <code className="scan-note">{e.uuid}</code>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(e.uuid);
+                          }}
+                        >
+                          复制
+                        </button>
+                      </div>
                     </details>
                   ) : null}
                   {merged && e.parts?.length ? (
