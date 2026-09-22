@@ -8,6 +8,11 @@
 @import 'tailwindcss' source(none);
 :root {
   font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  /* The base size was never declared, so the root fell back to the browser's 16px
+     default and showed up as an off-scale size on every page. Pinning it to the body
+     step makes the baseline explicit; the app uses no rem units, so nothing else
+     shifts. */
+  font-size: var(--type-body);
   color: var(--text);
   background: var(--page);
   font-synthesis: none;
@@ -54,10 +59,38 @@
   --space-7: 28px;
   --space-8: 32px;
 
+  /* ---------------------------------------------------------------------------
+     Type scale, seven steps.
+
+     Measured before this pass: 13 distinct px sizes across the two stylesheets, with
+     several near-duplicates (10 vs 11, 14 vs 15, 20 vs 21 vs 22) that made the same
+     visual weight drift between pages. The three dominant sizes keep their exact
+     value (12px x78, 13px x27, 11px x17); the long tail snaps to the nearest step.
+
+     `--text-micro` is the floor. Nothing renders below it.
+     --------------------------------------------------------------------------- */
+  --type-micro: 11px;
+  --type-caption: 12px;
+  --type-body: 13px;
+  --type-lead: 15px;
+  --type-title: 18px;
+  --type-heading: 22px;
+  --type-display: 28px;
+
   /* Corner radii, so cards and chips stay in one family. */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+}
+/* Tailwind's preflight sets `small { font-size: 80% }`. Nested inside a parent that is
+   already small this compounded to 9.6px and 10.4px - below any readable minimum.
+
+   The first attempt used `max(var(--text-micro), 85%)`, which does not work: the
+   percentage is resolved against the parent first, so on 13px text it yields 11.05px,
+   the max picks that, and the result is still off-scale. <small> is now pinned to the
+   micro step outright. Components that want a different size already set one. */
+small {
+  font-size: var(--type-micro);
 }
 * {
   box-sizing: border-box;
@@ -66,6 +99,10 @@
 body {
   margin: 0;
   min-width: 320px;
+  /* The app never declared a base size, so unstyled text inherited the browser's
+     16px default and showed up as an off-scale size on most pages. Pinning the body
+     to the body step makes the baseline explicit and keeps a dense layout dense. */
+  font-size: var(--type-body);
 }
 button {
   font: inherit;
@@ -94,7 +131,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  font-size: 21px;
+  font-size: var(--type-heading);
   font-weight: 750;
 }
 .wordmark svg {
@@ -109,7 +146,7 @@ button {
 .local-label,
 footer {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 main {
   max-width: 1320px;
@@ -139,7 +176,7 @@ main {
   align-items: center;
   gap: 9px;
   margin: 0 0 18px;
-  font-size: 18px;
+  font-size: var(--type-title);
 }
 .setting-row {
   display: flex;
@@ -157,7 +194,7 @@ main {
 }
 .setting-row p,
 .setting-path {
-  font-size: 13px;
+  font-size: var(--type-body);
   color: var(--text-label);
   line-height: 1.7;
   margin: 7px 0 0;
@@ -168,7 +205,7 @@ main {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .setting-switch input {
   accent-color: #397858;
@@ -181,7 +218,7 @@ main {
   background: var(--surface-hover);
   padding: 5px 10px;
   color: var(--text-label);
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .settings-import .import-summary {
   margin-bottom: 18px;
@@ -280,7 +317,7 @@ main {
   flex-wrap: wrap;
 }
 .dashboard-heading p {
-  font-size: 13px;
+  font-size: var(--type-body);
   margin: 8px 0 20px;
 }
 .dashboard-heading label {
@@ -300,13 +337,13 @@ main {
 }
 .career-total strong {
   display: block;
-  font-size: 28px;
+  font-size: var(--type-display);
   margin: 10px 0;
   font-variant-numeric: tabular-nums;
 }
 .career-total p {
   color: var(--caption-on-strong);
-  font-size: 12px;
+  font-size: var(--type-caption);
   margin: 0;
 }
 .metric-grid {
@@ -322,11 +359,11 @@ main {
 .metric-grid small {
   display: block;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .metric-grid strong {
   display: block;
-  font-size: 20px;
+  font-size: var(--type-title);
   margin: 10px 0;
   font-variant-numeric: tabular-nums;
 }
@@ -335,7 +372,7 @@ main {
   gap: 28px;
   flex-wrap: wrap;
   padding: 18px 0;
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .tracking-state b {
   margin-left: 14px;
@@ -343,7 +380,7 @@ main {
 .tracking-state p {
   width: 100%;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .ranking-grid {
   display: grid;
@@ -354,7 +391,7 @@ main {
 }
 .ranking h3,
 .health-summary h3 {
-  font-size: 14px;
+  font-size: var(--type-lead);
   margin: 0 0 12px;
 }
 .ranking-body {
@@ -406,7 +443,7 @@ main {
   font-weight: 600;
 }
 .ranking li span {
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .health-summary {
   display: flex;
@@ -419,7 +456,7 @@ main {
   border-radius: 8px;
 }
 .health-summary p {
-  font-size: 12px;
+  font-size: var(--type-caption);
   margin: 0;
 }
 .folder-group {
@@ -433,7 +470,7 @@ main {
 .folder-group p,
 .pcl-link p,
 .pcl-instances p {
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .instance-row {
   border-top: 1px solid var(--border);
@@ -446,7 +483,7 @@ main {
   margin: 20px 0;
 }
 .pcl-link h3 {
-  font-size: 16px;
+  font-size: var(--type-lead);
 }
 .scan-actions {
   flex-wrap: wrap;
@@ -474,7 +511,7 @@ main {
   }
 }
 h1 {
-  font-size: 22px;
+  font-size: var(--type-heading);
   margin: 0 0 14px;
   line-height: 1.4;
 }
@@ -492,17 +529,17 @@ p {
 }
 .welcome p {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--type-micro);
 }
 .foundation {
   padding: 0;
 }
 h2 {
-  font-size: 18px;
+  font-size: var(--type-title);
   margin: 0;
 }
 .foundation > div > p {
-  font-size: 13px;
+  font-size: var(--type-body);
   margin: 6px 0 0;
 }
 ul {
@@ -516,7 +553,7 @@ li {
   gap: 14px;
   border-top: 1px solid var(--border);
   padding: 15px 0;
-  font-size: 13px;
+  font-size: var(--type-body);
   line-height: 1.7;
 }
 li strong {
@@ -530,7 +567,7 @@ li span {
   background: var(--surface-sunken);
   border-radius: 6px;
   margin-bottom: 24px;
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 button {
   background: var(--surface-strong);
@@ -542,7 +579,7 @@ button {
   min-height: var(--control-md);
   padding: 0 16px;
   color: white;
-  font-size: 13px;
+  font-size: var(--type-body);
   cursor: pointer;
   transition: background-color 160ms ease, color 160ms ease,
     box-shadow 160ms ease;
@@ -586,12 +623,12 @@ button:disabled {
 .runtime-status {
   margin: 12px 0 0;
   min-height: 24px;
-  font-size: 12px;
+  font-size: var(--type-caption);
   overflow-wrap: anywhere;
 }
 .scan-panel > p {
   margin: 10px 0 20px;
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .scan-panel form {
   margin-top: 22px;
@@ -601,11 +638,11 @@ button:disabled {
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  font-size: 13px;
+  font-size: var(--type-body);
   font-weight: 600;
 }
 .scan-panel label span {
-  font-size: 12px;
+  font-size: var(--type-caption);
   font-weight: 400;
   color: var(--text-muted);
 }
@@ -632,7 +669,7 @@ button:disabled {
   opacity: 0.7;
 }
 .scan-note {
-  font-size: 12px;
+  font-size: var(--type-caption);
   margin: 8px 0 18px;
 }
 .scan-actions {
@@ -652,7 +689,7 @@ button:disabled {
   margin: 24px 0 0;
   padding-top: 16px;
   border-top: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 .connection-check > summary {
@@ -668,7 +705,7 @@ button:disabled {
 }
 .scan-error {
   color: var(--danger);
-  font-size: 13px;
+  font-size: var(--type-body);
   margin-top: 16px;
 }
 .scan-results {
@@ -680,13 +717,13 @@ button:disabled {
   margin-bottom: 24px;
 }
 .root-result h3 {
-  font-size: 13px;
+  font-size: var(--type-body);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 .root-result > p,
 .world-result p {
-  font-size: 12px;
+  font-size: var(--type-caption);
   margin: 8px 0;
 }
 .world-result {
@@ -699,7 +736,7 @@ button:disabled {
   gap: var(--space-3);
   flex-wrap: wrap;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--type-lead);
   min-height: var(--control-sm);
   padding: var(--space-1) var(--space-2);
   margin: 0 calc(-1 * var(--space-2));
@@ -720,7 +757,7 @@ button:disabled {
 .world-status {
   flex-basis: 100%;
   color: var(--text-faint) !important;
-  font-size: 11px !important;
+  font-size: var(--type-micro) !important;
   margin-left: 0 !important;
 }
 .world-path {
@@ -731,7 +768,7 @@ button:disabled {
   flex-wrap: wrap;
   gap: 6px 20px;
   padding: 10px 0;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .player-result code {
   flex-basis: 100%;
@@ -748,7 +785,7 @@ button:disabled {
   gap: 8px 14px;
 }
 .player-name > strong {
-  font-size: 16px;
+  font-size: var(--type-lead);
 }
 .player-name form {
   display: flex;
@@ -768,7 +805,7 @@ button:disabled {
 }
 .player-name button {
   padding: 7px 12px;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .import-summary {
   background: var(--surface-sunken);
@@ -777,14 +814,14 @@ button:disabled {
   margin-bottom: 20px;
 }
 .import-summary p {
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .scan-issues {
   border-left: 3px solid var(--warning);
   background: var(--surface-warning);
   padding: 12px 16px;
   margin-top: 20px;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .scan-issues summary {
   cursor: pointer;
@@ -798,7 +835,7 @@ button:disabled {
   color: var(--warning);
 }
 .scan-issues code {
-  font-size: 11px;
+  font-size: var(--type-micro);
   overflow-wrap: anywhere;
 }
 footer {
@@ -851,7 +888,7 @@ footer {
   gap: 8px;
   margin: 0;
   font-weight: 400;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .scan-panel .tracking-toggle input {
   min-width: 0;
@@ -866,7 +903,7 @@ footer {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   margin-bottom: 24px;
   min-height: 30px;
@@ -895,7 +932,7 @@ footer {
   margin-bottom: 20px;
 }
 .dashboard-heading h2 {
-  font-size: 20px;
+  font-size: var(--type-title);
 }
 .dashboard-heading p {
   margin: 7px 0 0;
@@ -906,7 +943,7 @@ footer {
   flex-wrap: nowrap;
   gap: 12px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--type-caption);
   font-weight: 400;
   min-width: 0;
 }
@@ -941,7 +978,7 @@ footer {
   display: flex !important;
   gap: var(--space-2);
   align-items: center;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .metric-label svg {
   flex-shrink: 0;
@@ -959,7 +996,7 @@ footer {
   min-width: 0;
 }
 .metric-grid strong {
-  font-size: 18px;
+  font-size: var(--type-title);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -981,7 +1018,7 @@ footer {
   align-items: center;
   gap: var(--space-2);
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--type-micro);
 }
 .tracking-state span svg {
   flex: none;
@@ -989,7 +1026,7 @@ footer {
 .tracking-state strong {
   display: block;
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: var(--type-lead);
   font-variant-numeric: tabular-nums;
   margin-top: var(--space-1);
   overflow-wrap: anywhere;
@@ -998,7 +1035,7 @@ footer {
   grid-column: 1 / -1;
   margin: 0;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--type-micro);
   line-height: 1.6;
 }
 .ranking-grid {
@@ -1051,7 +1088,7 @@ footer {
   border-left: 3px solid var(--border);
   padding: 12px 16px;
   margin-top: 18px;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .empty-stats summary,
 .rollback-list summary {
@@ -1060,7 +1097,7 @@ footer {
 }
 .rollback-list {
   margin: 16px 0;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .rollback-list article {
   padding: 12px 0;
@@ -1078,7 +1115,7 @@ footer {
 }
 .connection-check button {
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .connection-check .runtime-status {
   margin: 0;
@@ -1129,7 +1166,7 @@ footer {
     min-width: 0;
   }
   .career-total strong {
-    font-size: 24px;
+    font-size: var(--type-display);
   }
   .tracking-state {
     gap: 18px;
@@ -1144,7 +1181,7 @@ footer {
   }
   .tracking-state strong {
     margin: 0;
-    font-size: 16px;
+    font-size: var(--type-lead);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1198,7 +1235,7 @@ footer {
 }
 .connection-summary {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .connection-actions button,
 .world-detail-actions button,
@@ -1229,7 +1266,7 @@ footer {
 }
 .pcl-connection summary {
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .pcl-connection summary svg {
   display: inline-block;
@@ -1255,7 +1292,7 @@ footer {
   background: var(--surface-hover);
   color: var(--text-strong);
   width: 100%;
-  font-size: 12px;
+  font-size: var(--type-caption);
   margin: 10px 0;
   padding: 10px 12px;
   text-align: left;
@@ -1277,7 +1314,7 @@ footer {
 }
 .picker-label {
   display: block;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   margin-bottom: 7px;
 }
@@ -1367,7 +1404,7 @@ footer {
 .scan-panel .picker-search input {
   min-width: 0;
   width: 100%;
-  font-size: 12px;
+  font-size: var(--type-caption);
   padding: 8px;
 }
 .picker-options {
@@ -1400,11 +1437,11 @@ footer {
 .picker-options span {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .picker-options small {
   display: block;
-  font-size: 10px;
+  font-size: var(--type-micro);
   color: var(--text-muted);
   margin-top: 3px;
 }
@@ -1412,19 +1449,19 @@ footer {
   border-top: 1px solid var(--border);
   padding-top: 8px;
   margin-top: 8px;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 .stat-label {
   display: block;
   margin: 5px 0;
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .active-games {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 20px;
-  font-size: 12px;
+  font-size: var(--type-caption);
   padding-bottom: 14px;
 }
 .active-games > span {
@@ -1441,7 +1478,7 @@ footer {
   align-items: stretch;
   gap: 6px;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--type-caption);
   min-width: 0;
 }
 .activity-filters select {
@@ -1475,7 +1512,7 @@ footer {
   gap: 20px;
   border-bottom: 1px solid var(--border);
   padding: 15px 4px;
-  font-size: 13px;
+  font-size: var(--type-body);
   transition: background var(--motion-fast, 120ms) var(--ease-standard, ease);
 }
 .timeline-events > li:hover {
@@ -1493,7 +1530,7 @@ footer {
   padding-top: 1px;
 }
 .event-when time {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1520,7 +1557,7 @@ footer {
 }
 .timeline-title strong {
   /* The headline: the only element in the row that carries full text weight. */
-  font-size: 14px;
+  font-size: var(--type-lead);
   font-weight: 600;
   color: var(--text-strong);
 }
@@ -1530,7 +1567,7 @@ footer {
   border-radius: 999px;
   background: var(--surface-sunken);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--type-micro);
   font-weight: 400;
   white-space: nowrap;
 }
@@ -1538,7 +1575,7 @@ footer {
   /* Sits beside the headline rather than being pushed to the far edge. Floating it
      right left a wide empty gap that read as a broken row, and the world belongs to
      the same sentence as the event name. */
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 .event-world:hover {
@@ -1575,7 +1612,7 @@ footer {
 }
 .timeline-events > li .event-details {
   margin-top: 7px;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .timeline-events > li .event-details > summary {
   color: var(--text-faint);
@@ -1606,12 +1643,12 @@ footer {
   color: var(--text-muted);
 }
 .event-parts time {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 .part-kind {
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .part-delta {
   font-variant-numeric: tabular-nums;
@@ -1641,24 +1678,24 @@ footer {
   min-width: 0;
 }
 .statistics-metrics span {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   display: block;
   margin-bottom: 8px;
 }
 .statistics-metrics strong {
-  font-size: 15px;
+  font-size: var(--type-lead);
   overflow-wrap: anywhere;
 }
 .statistics-table table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .statistics-table th {
   text-align: left;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-weight: 500;
 }
@@ -1685,7 +1722,7 @@ footer {
 }
 .stat-description code {
   display: block;
-  font-size: 11px;
+  font-size: var(--type-micro);
   color: var(--text-label);
 }
 .stat-icon {
@@ -1743,7 +1780,7 @@ button.stat-icon:hover {
   margin-bottom: 12px;
 }
 .statistics .library-heading h2 {
-  font-size: 18px;
+  font-size: var(--type-title);
   font-weight: 650;
 }
 .statistics .activity-filters {
@@ -1772,7 +1809,7 @@ button.stat-icon:hover {
   border-radius: 0;
   color: var(--text-muted);
   padding: 9px 12px;
-  font-size: 12px;
+  font-size: var(--type-caption);
   border-bottom: 2px solid transparent;
 }
 .statistics .statistics-context .health-tabs button[aria-selected='true'] {
@@ -1780,7 +1817,7 @@ button.stat-icon:hover {
   color: var(--text-accent);
 }
 .stat-unavailable {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--warning);
 }
 .stat-icon-toolbar {
@@ -1791,14 +1828,14 @@ button.stat-icon:hover {
   padding: 8px 0 4px;
 }
 .stat-icon-status {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-faint);
 }
 .link-button {
   background: transparent;
   border: 0;
   color: var(--text-label);
-  font-size: 12px;
+  font-size: var(--type-caption);
   padding: 4px 0;
   cursor: pointer;
   text-decoration: underline;
@@ -1818,7 +1855,7 @@ button.stat-icon:hover {
 .stat-detail-banner {
   margin: 0;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--warning);
   background: var(--surface-warning);
   border-bottom: 1px solid var(--warning);
@@ -1837,7 +1874,7 @@ button.stat-icon:hover {
 .stat-icon-details table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .stat-icon-details th,
 .stat-icon-details td {
@@ -1855,7 +1892,7 @@ button.stat-icon:hover {
 }
 .stat-icon-details code {
   display: block;
-  font-size: 11px;
+  font-size: var(--type-micro);
   color: var(--text-label);
   margin-top: 2px;
 }
@@ -1863,7 +1900,7 @@ button.stat-icon:hover {
   display: inline-block;
   padding: 1px 6px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--type-micro);
   border: 1px solid transparent;
 }
 .stat-detail-badge.status-cached {
@@ -1901,7 +1938,7 @@ button.stat-icon:hover {
   gap: 10px;
   padding: 12px 0;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-label);
   list-style: none;
   flex-wrap: wrap;
@@ -1947,7 +1984,7 @@ button.stat-icon:hover {
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--type-caption);
   transition: background-color 120ms ease, color 120ms ease;
 }
 .statistics-categories button:hover {
@@ -1961,7 +1998,7 @@ button.stat-icon:hover {
   font-weight: 600;
 }
 .statistics-categories small {
-  font-size: 10px;
+  font-size: var(--type-micro);
   font-weight: 400;
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
@@ -2005,13 +2042,13 @@ button.stat-icon:hover {
   /* Suppressed here only because the wrapper draws the ring; see above. */
   outline: 0;
   background: transparent;
-  font-size: 13px;
+  font-size: var(--type-body);
   font-weight: 400;
 }
 .stat-results-count {
   min-width: 64px;
   text-align: right;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
@@ -2038,19 +2075,19 @@ button.stat-icon:hover {
   background: var(--surface-hover);
 }
 .statistics .stat-label {
-  font-size: 14px;
+  font-size: var(--type-lead);
   line-height: 1.4;
   font-weight: 650;
   color: var(--text);
   margin: 3px 0;
 }
 .statistics .stat-description code {
-  font-size: 10px;
+  font-size: var(--type-micro);
   color: var(--text-muted);
   line-height: 1.5;
 }
 .statistics .stat-description > small {
-  font-size: 10px;
+  font-size: var(--type-micro);
   margin-bottom: 0;
 }
 .stat-image-dialog {
@@ -2086,7 +2123,7 @@ button.stat-icon:hover {
   align-items: center;
   gap: 8px;
   margin: 5px 0 14px;
-  font-size: 15px;
+  font-size: var(--type-lead);
   font-weight: 650;
   overflow-wrap: anywhere;
   min-width: 0;
@@ -2123,11 +2160,11 @@ button.stat-icon:hover {
   justify-content: space-between;
   gap: 6px;
   color: var(--text-label);
-  font-size: 12px;
+  font-size: var(--type-caption);
   margin-top: 14px;
 }
 .stat-image-source {
-  font-size: 11px;
+  font-size: var(--type-micro);
   line-height: 1.6;
   color: var(--text-muted);
   overflow-wrap: anywhere;
@@ -2189,12 +2226,12 @@ button.stat-icon:hover {
   }
 }
 .stat-provenance {
-  font-size: 11px;
+  font-size: var(--type-micro);
   line-height: 1.6;
 }
 .stat-provenance summary {
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--type-body);
   min-height: 24px;
 }
 .stat-provenance div {
@@ -2234,7 +2271,7 @@ button.stat-icon:hover {
   overflow-wrap: anywhere;
   max-height: 150px;
   overflow: auto;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .spinning {
   animation: sync-spin 1s linear infinite;
@@ -2265,7 +2302,7 @@ button.stat-icon:hover {
   }
 }
 .library-heading span {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 .library-toolbar {
@@ -2288,11 +2325,11 @@ button.stat-icon:hover {
 .world-group > summary {
   cursor: pointer;
   padding: 16px 0;
-  font-size: 14px;
+  font-size: var(--type-lead);
   overflow-wrap: anywhere;
 }
 .world-group > summary span {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   margin-left: 14px;
 }
@@ -2300,12 +2337,12 @@ button.stat-icon:hover {
   padding: 0 0 12px 20px;
 }
 .world-group-content > p {
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .pagination {
   justify-content: center;
   padding: 20px 0;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .pagination button {
   width: 34px;
@@ -2328,7 +2365,7 @@ button.stat-icon:hover {
 }
 .health-empty {
   padding: 28px 0;
-  font-size: 14px;
+  font-size: var(--type-lead);
 }
 .clone-candidate,
 .health-issue {
@@ -2337,7 +2374,7 @@ button.stat-icon:hover {
 }
 .clone-candidate h3,
 .health-issue h3 {
-  font-size: 14px;
+  font-size: var(--type-lead);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2350,7 +2387,7 @@ button.stat-icon:hover {
   gap: 12px;
 }
 .health-item-heading > span {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -2362,19 +2399,19 @@ button.stat-icon:hover {
 }
 .clone-worlds p,
 .health-issue p {
-  font-size: 12px;
+  font-size: var(--type-caption);
   overflow-wrap: anywhere;
 }
 .clone-candidate summary {
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .clone-evidence {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
   padding: 12px 0;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .clone-evidence code {
   flex-basis: 100%;
@@ -2392,7 +2429,7 @@ button.stat-icon:hover {
   max-width: 100%;
 }
 .lineage-note {
-  font-size: 12px;
+  font-size: var(--type-caption);
   background: var(--surface-sunken);
   padding: 12px;
 }
@@ -2441,16 +2478,16 @@ button.stat-icon:hover {
      #627268 is already used elsewhere in this file, so this removes a
      near-duplicate colour rather than adding one. Worst case is now 4.55:1. */
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--type-caption);
   font-weight: 400;
 }
 .observed-sessions .muted {
-  font-size: 12px;
+  font-size: var(--type-caption);
   line-height: 1.7;
 }
 .observed-sessions-total {
   margin: 4px 0 10px;
-  font-size: 13px;
+  font-size: var(--type-body);
   color: var(--text-label);
 }
 .observed-sessions-total strong {
@@ -2478,12 +2515,12 @@ button.stat-icon:hover {
 }
 .observation-headline strong {
   color: var(--text-strong);
-  font-size: 22px;
+  font-size: var(--type-heading);
   font-variant-numeric: tabular-nums;
 }
 .observation-headline-label {
   color: var(--text-summary);
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 /* The remaining scopes are qualifiers on that figure, so they are quiet inline
    facts rather than cards of equal weight. */
@@ -2502,23 +2539,23 @@ button.stat-icon:hover {
 }
 .observation-facts dt {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--type-micro);
 }
 .observation-facts dd {
   margin: 0;
   color: var(--text-label);
-  font-size: 13px;
+  font-size: var(--type-body);
   font-variant-numeric: tabular-nums;
 }
 .observation-facts small {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--type-micro);
 }
 .observation-excluded {
   flex-basis: 100%;
   margin: 0;
   color: var(--text-summary);
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .observation-stale {
   margin: var(--space-3) 0 0;
@@ -2545,7 +2582,7 @@ button.stat-icon:hover {
   cursor: pointer;
   border-radius: var(--radius-md);
   color: var(--text-strong);
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .filter-drawer > summary:hover {
   background: var(--surface-hover);
@@ -2560,7 +2597,7 @@ button.stat-icon:hover {
   border-radius: 999px;
   background: var(--surface-tint);
   color: var(--text-accent);
-  font-size: 11px;
+  font-size: var(--type-micro);
   font-weight: 400;
 }
 .filter-badge-idle {
@@ -2598,7 +2635,7 @@ button.stat-icon:hover {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .observed-sessions th,
 .observed-sessions td {
@@ -2636,11 +2673,11 @@ button.stat-icon:hover {
   gap: 10px;
   cursor: pointer;
   color: var(--text-status);
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .status-center-hint {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-hint);
 }
 .status-center-hint::after {
@@ -2673,12 +2710,12 @@ button.stat-icon:hover {
 }
 .error-boundary h2 {
   margin: 14px 0 8px;
-  font-size: 18px;
+  font-size: var(--type-title);
 }
 .error-boundary p {
   margin: 0 0 10px;
   color: var(--danger);
-  font-size: 13px;
+  font-size: var(--type-body);
 }
 .error-boundary-detail {
   margin: 0 0 18px;
@@ -2689,7 +2726,7 @@ button.stat-icon:hover {
   overflow-wrap: anywhere;
 }
 .error-boundary-detail code {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--danger);
 }
 .background-warning {
@@ -2716,7 +2753,7 @@ button.stat-icon:hover {
 }
 .scan-panel .picker-options small,
 .scan-panel .picker-options code {
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .scan-panel details > summary {
   cursor: pointer;
@@ -2732,11 +2769,11 @@ button.stat-icon:hover {
   margin-bottom: 18px;
 }
 .scan-panel .statistics-table code {
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 @media (max-width: 700px) {
   .status-center-hint {
-    font-size: 11px;
+    font-size: var(--type-micro);
   }
   .dashboard .career-total,
   .dashboard .metric-grid article,
@@ -2806,7 +2843,7 @@ button.stat-icon:hover {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .settings-jump button:hover {
   background: var(--surface-hover);
@@ -2855,14 +2892,14 @@ button.stat-icon:hover {
   margin-top: 12px;
 }
 .read-status {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-caption);
 }
 .read-status .scan-error {
   width: 100%;
 }
 .filter-summary {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-caption);
   justify-content: space-between;
 }
@@ -2921,12 +2958,12 @@ button.stat-icon:hover {
 }
 .session-end-body h3 {
   margin: 0 0 10px;
-  font-size: 15px;
+  font-size: var(--type-lead);
   font-weight: 650;
 }
 .session-end-note {
   margin: 0 0 12px;
-  font-size: 12px;
+  font-size: var(--type-caption);
   line-height: 1.7;
   color: var(--text-faint);
 }
@@ -2934,7 +2971,7 @@ button.stat-icon:hover {
   margin: 0 0 14px;
   display: grid;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .session-end-facts > div {
   display: grid;
@@ -2953,7 +2990,7 @@ button.stat-icon:hover {
 .session-end-field {
   display: grid;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--text-label);
 }
 .session-end-field input {
@@ -2966,7 +3003,7 @@ button.stat-icon:hover {
 }
 .session-end-error {
   margin: 10px 0 0;
-  font-size: 12px;
+  font-size: var(--type-caption);
   line-height: 1.6;
   color: var(--danger);
 }
@@ -2977,7 +3014,7 @@ button.stat-icon:hover {
   border-radius: 999px;
   background: var(--success-surface);
   color: var(--text-accent);
-  font-size: 11px;
+  font-size: var(--type-micro);
   white-space: nowrap;
 }
 
@@ -3023,7 +3060,7 @@ button.stat-icon:hover {
 .observed-group-count,
 .observed-group-note {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .observed-group-note {
   padding: 1px 7px;

@@ -269,7 +269,7 @@ body {
    @media (max-width: 700px). Because this file is imported second, this base
    rule wins above 700px; removing it changes 8 of the 14 captured pages. */
 .status-center-hint {
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .scan-panel :is(button, input, select, textarea) {
   transition: background-color 160ms ease, border-color 160ms ease,
@@ -340,13 +340,13 @@ body {
   color: var(--text-strong);
 }
 .career-copy > p {
-  font-size: 12px;
+  font-size: var(--type-caption);
   line-height: 1.6;
 }
 .career-caption {
   display: block;
   color: var(--text-caption-warm);
-  font-size: 12px;
+  font-size: var(--type-caption);
   margin-top: 14px;
 }
 .career-scene {
@@ -454,7 +454,7 @@ body {
 .event-details {
   margin-top: 6px;
   color: var(--text-summary);
-  font-size: 11px;
+  font-size: var(--type-micro);
 }
 .event-details summary {
   width: fit-content;
@@ -538,7 +538,7 @@ body {
   flex-wrap: wrap;
 }
 .instance-observation .observed-sessions h3 span {
-  font-size: 12px;
+  font-size: var(--type-caption);
   font-weight: 400;
   color: var(--warm-muted);
 }
@@ -566,7 +566,7 @@ body {
   line-height: 1.7;
 }
 .self-player-matches {
-  font-size: 12px;
+  font-size: var(--type-caption);
   color: var(--warm-muted);
   margin-top: 12px;
 }
@@ -583,7 +583,7 @@ body {
   display: block;
   overflow-wrap: anywhere;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--type-micro);
 }
 /* Load-bearing, not a duplicate of styles.css's identical rule: this file is
    imported second, so the base `.settings-layout` rule below (two columns)
@@ -621,7 +621,7 @@ body {
 }
 .statistics-context > .secondary-button {
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: var(--type-caption);
 }
 .scan-panel .zoom-controls select {
   background-color: var(--warm-surface);
@@ -670,7 +670,7 @@ footer {
   }
   .app-nav button {
     padding: 8px 10px;
-    font-size: 13px;
+    font-size: var(--type-body);
   }
   .status-center-hint {
     margin-left: 17px;
@@ -731,7 +731,7 @@ footer {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--type-body);
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease-standard),
     color var(--motion-fast) var(--ease-standard);

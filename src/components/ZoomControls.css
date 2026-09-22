@@ -45,7 +45,7 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--type-body);
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
@@ -62,6 +62,6 @@
 .zoom-error {
   max-width: 220px;
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--type-caption);
   line-height: 1.5;
 }
