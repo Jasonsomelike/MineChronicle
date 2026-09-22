@@ -78,9 +78,33 @@
   --type-display: 28px;
 
   /* Corner radii, so cards and chips stay in one family. */
+  /* `xs` is for a corner nested inside another: a nested radius should be
+     `outer - padding` to stay concentric, so it is a real step rather than a stray
+     value. Nested 3px inside a 6px wrapper with 3px of padding. */
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* ---------------------------------------------------------------------------
+     Elevation.
+
+     Eleven literal box-shadows collapsed onto seven tokens. The four elevation steps
+     become `none` in dark: on a dark ground a shadow is nearly invisible, so it adds
+     no depth and only softens the card edge - dark takes depth from the surface
+     ladder it already has. The three structural ones stay, because they draw
+     structure rather than height.
+     --------------------------------------------------------------------------- */
+  --shadow-hairline: 0 2px 5px #40523712;
+  --shadow-card: 0 4px 18px #4d573b04;
+  --shadow-pop: 0 8px 24px #20352e24;
+  --shadow-modal: 0 20px 80px #15372a33;
+  --shadow-nav: 0 3px 8px #37533c14, inset 0 1px #ffffff20;
+  --shadow-field: 0 1px 3px #40523714, inset 0 0 0 1px var(--border);
+  --shadow-focus-glow: 0 0 0 4px #62895c12;
+
+  --motion-reveal: 650ms;
 }
 /* Tailwind's preflight sets `small { font-size: 80% }`. Nested inside a parent that is
    already small this compounded to 9.6px and 10.4px - below any readable minimum.
@@ -166,9 +190,9 @@ main {
 .settings-card {
   padding: 22px;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: var(--surface-raised);
-  box-shadow: 0 5px 18px #29473206;
+  box-shadow: var(--shadow-card);
   min-width: 0;
 }
 .settings-card h2 {
@@ -214,7 +238,7 @@ main {
 }
 .setting-badge {
   flex-shrink: 0;
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   background: var(--surface-hover);
   padding: 5px 10px;
   color: var(--text-label);
@@ -332,7 +356,7 @@ main {
      used in light mode. In dark mode that token is a mid green, so white text on
      it measured 1.75:1. The token pair stays legible in both themes. */
   color: var(--heading-on-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin: 8px 0 20px;
 }
 .career-total strong {
@@ -453,7 +477,7 @@ main {
   margin-top: 20px;
   background: var(--surface-sunken);
   padding: 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 .health-summary p {
   font-size: var(--type-caption);
@@ -565,7 +589,7 @@ li span {
 .next-step {
   padding: 16px 18px;
   background: var(--surface-sunken);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin-bottom: 24px;
   font-size: var(--type-body);
 }
@@ -581,8 +605,8 @@ button {
   color: white;
   font-size: var(--type-body);
   cursor: pointer;
-  transition: background-color 160ms ease, color 160ms ease,
-    box-shadow 160ms ease;
+  transition: background-color var(--motion-base) ease,
+    color var(--motion-base) ease, box-shadow var(--motion-base) ease;
 }
 button:hover {
   background: var(--surface-strong-hover);
@@ -655,7 +679,7 @@ button:disabled {
   margin: 10px 0;
   padding: 12px 14px;
   border: 1px solid var(--border-input);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text);
   font: 13px/1.8 'Consolas', 'Microsoft YaHei', monospace;
@@ -797,7 +821,7 @@ button:disabled {
 .player-name input {
   display: block;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 8px;
   font: inherit;
   background: white;
@@ -809,7 +833,7 @@ button:disabled {
 }
 .import-summary {
   background: var(--surface-sunken);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 12px 20px;
   margin-bottom: 20px;
 }
@@ -917,7 +941,7 @@ footer {
 .watch-dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--surface-strong);
   flex: 0 0 7px;
 }
@@ -925,7 +949,7 @@ footer {
   background: var(--surface-strong);
 }
 .dashboard {
-  animation: view-enter 280ms ease-out backwards;
+  animation: view-enter var(--motion-slow) ease-out backwards;
 }
 .dashboard-heading {
   align-items: center;
@@ -1358,8 +1382,8 @@ footer {
   z-index: 30;
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px #20352e24;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pop);
   padding: 10px;
 }
 .picker-actions {
@@ -1513,7 +1537,8 @@ footer {
   border-bottom: 1px solid var(--border);
   padding: 15px 4px;
   font-size: var(--type-body);
-  transition: background var(--motion-fast, 120ms) var(--ease-standard, ease);
+  transition: background var(--motion-fast, var(--motion-fast))
+    var(--ease-standard, ease);
 }
 .timeline-events > li:hover {
   background: var(--surface-hover);
@@ -1564,7 +1589,7 @@ footer {
 .event-merged-tag {
   padding: 1px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-sunken);
   color: var(--text-muted);
   font-size: var(--type-micro);
@@ -1594,7 +1619,7 @@ footer {
 .event-duration {
   /* The figure the row exists to communicate, so it gets a filled chip. */
   padding: 2px 9px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface-tint);
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
@@ -1735,7 +1760,7 @@ footer {
   place-items: center;
   color: var(--text-muted);
   background: var(--surface-sunken);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
 }
 button.stat-icon:hover {
@@ -1774,7 +1799,7 @@ button.stat-icon:hover {
   background: transparent;
 }
 .statistics {
-  animation: view-enter 180ms ease-out;
+  animation: view-enter var(--motion-base) ease-out;
 }
 .statistics .library-heading {
   margin-bottom: 12px;
@@ -1847,7 +1872,7 @@ button.stat-icon:hover {
 .stat-icon-details {
   margin: 8px 0 12px;
   border: 1px solid var(--border-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface-tint);
   max-height: 280px;
   overflow: auto;
@@ -1899,7 +1924,7 @@ button.stat-icon:hover {
 .stat-detail-badge {
   display: inline-block;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--type-micro);
   border: 1px solid transparent;
 }
@@ -1944,7 +1969,7 @@ button.stat-icon:hover {
   flex-wrap: wrap;
 }
 .statistics-overview > summary > svg {
-  transition: transform 150ms ease;
+  transition: transform var(--motion-fast) ease;
 }
 .statistics-overview[open] > summary > svg {
   transform: rotate(180deg);
@@ -1985,7 +2010,8 @@ button.stat-icon:hover {
   border: 1px solid transparent;
   color: var(--text-muted);
   font-size: var(--type-caption);
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
 }
 .statistics-categories button:hover {
   background: var(--surface-sunken);
@@ -2020,7 +2046,7 @@ button.stat-icon:hover {
   flex: 1;
   min-width: 0;
   border: 1px solid var(--border-strong);
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   padding: 0 12px;
   background: var(--surface-raised);
   color: var(--text-muted);
@@ -2053,7 +2079,7 @@ button.stat-icon:hover {
   font-variant-numeric: tabular-nums;
 }
 .statistics-table {
-  transition: opacity 120ms ease;
+  transition: opacity var(--motion-fast) ease;
 }
 .statistics-table.is-loading {
   opacity: 0.45;
@@ -2097,10 +2123,10 @@ button.stat-icon:hover {
   padding: 0;
   margin: auto;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text);
-  box-shadow: 0 20px 80px #15372a33;
+  box-shadow: var(--shadow-modal);
 }
 .stat-image-dialog::backdrop {
   background: var(--wash-a);
@@ -2463,7 +2489,7 @@ button.stat-icon:hover {
   margin: 10px 0 20px;
   padding: 12px 16px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--surface-tint);
 }
 .observed-sessions summary {
@@ -2594,7 +2620,7 @@ button.stat-icon:hover {
 .filter-badge {
   padding: 1px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-tint);
   color: var(--text-accent);
   font-size: var(--type-micro);
@@ -2664,7 +2690,7 @@ button.stat-icon:hover {
   margin: 12px 0 20px;
   padding: 10px 14px;
   border: 1px solid var(--border-soft);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: #f0f4eaf0;
 }
 .status-center > summary {
@@ -2690,7 +2716,7 @@ button.stat-icon:hover {
   margin: 24px 0;
   padding: 32px;
   border: 1px solid var(--border-soft);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: var(--surface-sunken);
 }
 .empty-onboarding h2 {
@@ -2702,7 +2728,7 @@ button.stat-icon:hover {
   margin: 24px 0;
   padding: 32px;
   border: 1px solid var(--border-danger);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: var(--surface-danger);
 }
 .error-boundary svg {
@@ -2720,7 +2746,7 @@ button.stat-icon:hover {
 .error-boundary-detail {
   margin: 0 0 18px;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface-raised);
   border: 1px solid var(--border-danger);
   overflow-wrap: anywhere;
@@ -2733,7 +2759,7 @@ button.stat-icon:hover {
   color: var(--warning);
   background: var(--surface-warning);
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 /* `.dashboard`-scoped card chrome. Every panel in the dashboard is a card, so the
    overview grid and the ranking panel share one treatment; `warmth.css` supplies the
@@ -2834,7 +2860,7 @@ button.stat-icon:hover {
   position: sticky;
   top: var(--space-2);
   z-index: 20;
-  box-shadow: 0 2px 8px #20352e0f;
+  box-shadow: var(--shadow-hairline);
 }
 /* A segmented control: one chip per section, the current one filled. */
 .settings-jump button {
@@ -2888,7 +2914,7 @@ button.stat-icon:hover {
 .restore-preview {
   border: 1px solid var(--border);
   padding: 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   margin-top: 12px;
 }
 .read-status {
@@ -2917,7 +2943,7 @@ button.stat-icon:hover {
 }
 @media (prefers-reduced-motion: no-preference) {
   .save-feedback {
-    animation: soft-reveal 180ms ease-out;
+    animation: soft-reveal var(--motion-base) ease-out;
   }
   @keyframes soft-reveal {
     from {
@@ -2945,10 +2971,10 @@ button.stat-icon:hover {
   padding: 0;
   margin: auto;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text);
-  box-shadow: 0 20px 80px #15372a33;
+  box-shadow: var(--shadow-modal);
 }
 .session-end-dialog::backdrop {
   background: var(--wash-a);
@@ -2996,7 +3022,7 @@ button.stat-icon:hover {
 .session-end-field input {
   padding: 8px 10px;
   border: 1px solid var(--border-input);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font: inherit;
   color: inherit;
   background: var(--surface-raised);
@@ -3011,7 +3037,7 @@ button.stat-icon:hover {
   margin-left: 6px;
   padding: 1px 6px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--success-surface);
   color: var(--text-accent);
   font-size: var(--type-micro);
@@ -3027,7 +3053,7 @@ button.stat-icon:hover {
    --------------------------------------------------------------------------- */
 .observed-group {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin-bottom: 10px;
   background: var(--surface);
 }
@@ -3038,11 +3064,11 @@ button.stat-icon:hover {
   gap: 10px;
   padding: 11px 14px;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 .observed-group[open] > summary {
   border-bottom: 1px solid var(--border-soft);
-  border-radius: 10px 10px 0 0;
+  border-radius: var(--radius-md --radius-md 0 0);
 }
 .observed-group > summary:hover {
   background: var(--surface-hover);
@@ -3065,7 +3091,7 @@ button.stat-icon:hover {
 .observed-group-note {
   padding: 1px 7px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-sunken);
 }
 /* Inside a group the table is the detail, so it loses the outer card chrome. */

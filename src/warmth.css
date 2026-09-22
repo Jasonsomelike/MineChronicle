@@ -111,6 +111,19 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
+  /* Depth comes from the surface ladder below, not from shadows: on a dark ground a
+     shadow is nearly invisible, so it adds no height and only softens the card edge.
+     The structural shadow tokens (nav highlight, field inset, focus glow) are left
+     alone because they draw structure rather than elevation.
+
+     This belongs in the dark block. It first went into the plain `:root` in the
+     motion section, which turned the shadows off in *both* themes and silently
+     removed the light theme's card depth. */
+  --shadow-hairline: none;
+  --shadow-card: none;
+  --shadow-pop: none;
+  --shadow-modal: none;
+
   --warm-paper: #121a16;
   --warm-surface: #1a2420;
   --warm-line: #2c3a33;
@@ -176,14 +189,14 @@
 /*
  * Motion vocabulary.
  *
- * The app previously used 120/150/160/180/280ms with three different easings and
+ * The app previously used 120/150/160/180/var(--motion-slow) with three different easings and
  * no stated reason for any of them, so the same kind of change felt different
  * depending on which component it happened in. These tokens give each duration a
  * job:
  *
- *   fast  (120ms) feedback that must feel instant - press, hover, focus
- *   base  (180ms) a small state change - expand, reveal one card
- *   slow  (280ms) a whole region appearing - page or panel entrance
+ *   fast  (var(--motion-fast)) feedback that must feel instant - press, hover, focus
+ *   base  (var(--motion-base)) a small state change - expand, reveal one card
+ *   slow  (var(--motion-slow)) a whole region appearing - page or panel entrance
  *
  * `--ease-standard` is ease-out because things entering the screen should
  * decelerate; `--ease-spring` is a gentle overshoot for confirmations only, where
@@ -228,7 +241,7 @@ body {
   width: 36px;
   height: 36px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--surface-sunken);
 }
 .wordmark .brand-mark svg {
@@ -247,7 +260,7 @@ body {
 }
 .app-nav button[aria-current='page'] {
   background: var(--surface-strong);
-  box-shadow: 0 3px 8px #37533c14, inset 0 1px #ffffff20;
+  box-shadow: var(--shadow-nav);
 }
 .app-nav button:not([aria-current='page']):hover {
   background: var(--surface-hover);
@@ -263,7 +276,7 @@ body {
 }
 .watch-dot.active {
   background: var(--surface-strong);
-  box-shadow: 0 0 0 4px #62895c12;
+  box-shadow: var(--shadow-focus-glow);
 }
 /* Load-bearing: styles.css sets a different font-size for this element inside
    @media (max-width: 700px). Because this file is imported second, this base
@@ -272,8 +285,8 @@ body {
   font-size: var(--type-caption);
 }
 .scan-panel :is(button, input, select, textarea) {
-  transition: background-color 160ms ease, border-color 160ms ease,
-    box-shadow 160ms ease;
+  transition: background-color var(--motion-base) ease,
+    border-color var(--motion-base) ease, box-shadow var(--motion-base) ease;
 }
 /* Uses the shared token rather than its own colour. This rule was #789b62 at
    2px, which measured ~2.7:1 against the surfaces it appears on - below the 3:1
@@ -296,7 +309,7 @@ body {
   background: #edf1e7;
   color: var(--text-button);
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
 }
 .scan-panel .secondary-button:hover:not(:disabled) {
   background: var(--surface-hover);
@@ -323,7 +336,7 @@ body {
   border: 1px solid var(--warm-line);
   border-radius: var(--radius-lg);
   background: var(--warm-surface);
-  box-shadow: 0 4px 18px #4d573b04;
+  box-shadow: var(--shadow-card);
 }
 .dashboard .career-total {
   display: flex;
@@ -401,24 +414,24 @@ body {
   max-width: 100%;
   border: 1px solid var(--warm-line);
   background: var(--surface-sunken);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 4px;
   gap: 4px;
 }
 .ranking-switch button {
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   padding: 8px 16px;
 }
 .ranking-switch button[aria-pressed='true'] {
   background: var(--surface);
   color: var(--text-label);
-  box-shadow: 0 2px 5px #40523712;
+  box-shadow: var(--shadow-hairline);
 }
 .ranking li {
-  border-radius: 8px;
-  transition: background-color 160ms ease;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--motion-base) ease;
 }
 .ranking li:hover {
   background: var(--surface-hover);
@@ -427,11 +440,11 @@ body {
   border-color: var(--warm-line);
 }
 .settings-card {
-  box-shadow: 0 4px 18px #4d573b04;
+  box-shadow: var(--shadow-card);
 }
 .scan-panel :is(.world-group, .world-result, .instance-group) > summary {
-  border-radius: 8px;
-  transition: background-color 160ms ease;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--motion-base) ease;
 }
 .scan-panel :is(.world-group, .world-result, .instance-group) > summary:hover {
   background: var(--surface-hover);
@@ -444,7 +457,7 @@ body {
 }
 .timeline-events .event-duration {
   display: inline-block;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 3px 8px;
   background: var(--surface-hover);
 }
@@ -602,7 +615,7 @@ body {
   padding: 10px;
   margin-bottom: 6px;
   border: 1px solid var(--warm-line);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--warm-green);
   background: var(--surface-hover);
   text-align: left;
@@ -633,13 +646,14 @@ footer {
 /* Animate only newly revealed page content, never numeric updates or long lists. */
 @media (prefers-reduced-motion: no-preference) {
   .session-page:not([hidden]) > :is(section, .settings-layout) {
-    animation: warm-reveal 260ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    animation: warm-reveal var(--motion-slow) cubic-bezier(0.2, 0.7, 0.3, 1)
+      both;
   }
   .career-scene {
-    animation: warm-reveal 650ms ease-out both;
+    animation: warm-reveal var(--motion-reveal) ease-out both;
   }
   .app-nav button svg {
-    transition: transform 180ms ease;
+    transition: transform var(--motion-base) ease;
   }
   .app-nav button:hover svg {
     transform: translateY(-2px) rotate(-5deg);
@@ -715,7 +729,7 @@ footer {
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-sunken);
   flex-shrink: 0;
 }
@@ -745,7 +759,7 @@ footer {
 .theme-choice-option[aria-checked='true'] {
   background: var(--surface);
   color: var(--text-strong);
-  box-shadow: 0 1px 3px #40523714, inset 0 0 0 1px var(--border);
+  box-shadow: var(--shadow-field);
 }
 .theme-choice-option svg {
   flex-shrink: 0;

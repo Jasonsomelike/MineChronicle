@@ -2,7 +2,8 @@
    Motion.
    ---------------------------------------------------------------------------
    Everything here uses the duration and easing tokens in :root, so the whole app
-   shares one rhythm instead of the 120/150/160/180/280ms mix that preceded it.
+   shares one rhythm. Those tokens replaced a 120/150/160/180/260/280/650ms mix of
+   literals that had no system behind it.
    Three rules govern what is here:
 
    1. Motion explains a change. A card rises because it appeared; a button
