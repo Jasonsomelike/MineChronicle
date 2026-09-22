@@ -119,9 +119,9 @@
   height: 3px;
   margin-top: var(--space-1);
   border-radius: 2px;
-  background: var(--chart-bar);
-  opacity: 0.55;
-  max-width: 100%;
+  background: color-mix(in srgb, var(--chart-bar) 28%, var(--surface-sunken));
+  max-width: 42%;
+  opacity: 0.85;
 }
 
 .stat-icon-placeholder {

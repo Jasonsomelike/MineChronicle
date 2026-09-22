@@ -33,57 +33,45 @@ function RankingList({
   title,
   rows,
   onOpen,
-  maxTicks,
 }: {
   title: string;
   rows: Ranking[];
   onOpen: (path: string) => void;
-  maxTicks?: bigint;
 }) {
   const [visibleCount, setVisibleCount] = useState(5);
   const listId = useId();
   const visible = rows.slice(0, visibleCount);
   const remaining = rows.length - visible.length;
-  const scale = maxTicks ?? (rows[0]?.ticks || 1n);
   return (
     <section className="ranking" aria-label={title}>
       <h3>{title}</h3>
       {visible.length ? (
         <>
           <ol id={listId}>
-            {visible.map((r, index) => {
-              const share =
-                scale > 0n ? Number((r.ticks * 1000n) / scale) / 10 : 0;
-              return (
-                <li key={r.path}>
-                  <button
-                    type="button"
-                    className="text-button rank-row-main"
-                    title={displayPath(r.path)}
-                    onClick={() => onOpen(r.path)}
-                  >
-                    <span className="rank-number">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>{' '}
-                    {r.name}
-                    {r.shared > 1 ? '（共享）' : ''}
-                    {r.missing ? '（已缺失）' : ''}
-                  </button>
-                  <span
-                    className="rank-duration"
-                    title={formatTickTotal(r.ticks.toString())}
-                  >
-                    {formatCompactTicks(r.ticks.toString())}
-                    <ArrowUpRight size={14} />
-                  </span>
-                  <span
-                    className="rank-bar"
-                    aria-hidden="true"
-                    style={{ width: `${Math.max(share, 2)}%` }}
-                  />
-                </li>
-              );
-            })}
+            {visible.map((r, index) => (
+              <li key={r.path}>
+                <button
+                  type="button"
+                  className="text-button rank-row-main"
+                  title={displayPath(r.path)}
+                  onClick={() => onOpen(r.path)}
+                >
+                  <span className="rank-number">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>{' '}
+                  {r.name}
+                  {r.shared > 1 ? '（共享）' : ''}
+                  {r.missing ? '（已缺失）' : ''}
+                </button>
+                <span
+                  className="rank-duration"
+                  title={formatTickTotal(r.ticks.toString())}
+                >
+                  {formatCompactTicks(r.ticks.toString())}
+                  <ArrowUpRight size={14} />
+                </span>
+              </li>
+            ))}
           </ol>
           <div className="ranking-footer">
             <span aria-live="polite">
