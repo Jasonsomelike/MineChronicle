@@ -124,19 +124,6 @@
   opacity: 0.85;
 }
 
-.stat-icon-placeholder {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-xs);
-  background: var(--surface-sunken);
-  color: var(--text-muted);
-  border: 1px dashed var(--border-strong);
-}
-
 .stat-placeholder-letter {
   position: absolute;
   right: -2px;
