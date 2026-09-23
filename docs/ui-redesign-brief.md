@@ -141,8 +141,13 @@ are directly comparable.
 | `#/settings`    | 2152px | 6     | 6        | 11,12,13,18         |
 
 Heights match the 2026-09-22 pass exactly. `#/statistics` no longer renders **10px**
-(step 1 landed). Settings still shows 6/6 resting cards with elevation shadows — the
-step 2 target.
+(step 1 landed).
+
+**2026-09-23 step 2**: resting-card elevation removed in light mode
+(`--shadow-card` off `.settings-card` and dashboard panels). Shadowed resting cards
+**10 → 0** (dashboard 2→0, observation 2→0, settings 6→0). Overlay layers
+(`--shadow-pop` / `--shadow-modal`) and structural shadows (nav, field, focus glow,
+cutout, sticky settings jump) unchanged. `qa-design-check.mjs`: 14/14, 0 violations.
 
 ### 4.B What already works — do not undo
 

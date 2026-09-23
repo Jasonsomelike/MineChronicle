@@ -336,7 +336,8 @@ body {
   border: 1px solid var(--warm-line);
   border-radius: var(--radius-lg);
   background: var(--warm-surface);
-  box-shadow: var(--shadow-card);
+  /* Resting cards: no elevation shadow in either theme. Dark already used the
+     surface ladder; light now matches with border-only resting depth. */
 }
 .dashboard .career-total {
   display: flex;
@@ -427,9 +428,6 @@ body {
 }
 .health-summary {
   border-color: var(--warm-line);
-}
-.settings-card {
-  box-shadow: var(--shadow-card);
 }
 .scan-panel :is(.world-group, .world-result, .instance-group) > summary {
   border-radius: var(--radius-sm);
