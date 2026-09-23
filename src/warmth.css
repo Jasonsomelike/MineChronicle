@@ -319,8 +319,9 @@ body {
   opacity: 0.5;
 }
 .dashboard .overview-grid {
-  border: 0;
-  gap: 18px;
+  /* Was `border: 0`. The overview is one panel now, so it keeps the border it is given
+     in styles.css; cancelling it here is what left the merged panel edgeless. */
+  gap: 0;
   /* Cards hug their content. Stretching the hero to match the sidebar left
      unfilled space inside the card whenever the ruler had fewer rows than the
      observation stack — which read as unfinished rather than as breathing room. */
@@ -334,7 +335,11 @@ body {
 /* Both overview panels are cards, matching the ranking panel below them. The
    previous rule boxed only some of them, so the career total had a card edge while
    the sidebar beside it did not. */
-.dashboard :is(.career-total, .tracking-state, .metric-grid article, .ranking),
+/* `.career-total` and `.tracking-state` were in this list. They are regions of one
+   overview panel now, divided by a hairline, so they draw no chrome of their own -
+   which is what made the readout arrive as two separate cards. See styles.css for the
+   panel they sit in and the divider between them. */
+.dashboard :is(.metric-grid article, .ranking),
 .settings-card {
   border: 1px solid var(--warm-line);
   border-radius: var(--radius-lg);

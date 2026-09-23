@@ -1050,8 +1050,13 @@ footer {
      Alignment is decided in warmth.css by `.dashboard .overview-grid`, which wins on
      specificity. It is deliberately `start`: see the note there. Do not set it here. */
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  gap: var(--space-5);
+  /* No gap: the two readouts are regions of one panel, divided by a hairline, not
+     two cards that sit apart. */
+  gap: 0;
   margin-bottom: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
 }
 .career-total {
   color: var(--text);
@@ -2898,10 +2903,14 @@ button.stat-icon:hover {
   padding: 10px 14px;
   border-radius: var(--radius-sm);
 }
-/* `.dashboard`-scoped card chrome. Every panel in the dashboard is a card, so the
-   overview grid and the ranking panel share one treatment; `warmth.css` supplies the
-   border colour and radius. */
-.dashboard :is(.career-total, .tracking-state, .metric-grid article, .ranking) {
+/* `.dashboard`-scoped card chrome. This rule exists twice - here and in warmth.css -
+   which is why removing the two overview regions from one copy changed nothing: this
+   one wins on import order, both being equally specific.
+
+   `.career-total` and `.tracking-state` are regions of one overview panel now, divided
+   by a hairline, so they are no longer in the list. See `.overview-grid` above for the
+   panel and the divider. */
+.dashboard :is(.metric-grid article, .ranking) {
   border: 1px solid var(--border);
   background: var(--surface-raised);
 }
@@ -3282,4 +3291,24 @@ button.stat-icon:hover {
 .health-pending {
   color: var(--text-accent);
   font-weight: 600;
+}
+
+/* The overview is one panel divided in two, so its regions must not draw card chrome
+   of their own - that is what made it read as two separate readouts. */
+.dashboard .career-total,
+.dashboard .tracking-state {
+  border: 0;
+  background: none;
+  border-radius: 0;
+}
+.dashboard .tracking-state {
+  border-left: 1px solid var(--border);
+  /* Matches the career region's vertical padding so the two halves start level. */
+  padding: var(--space-5) var(--space-6);
+}
+@media (max-width: 900px) {
+  .dashboard .tracking-state {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
 }
