@@ -120,22 +120,29 @@ sharp, and they are load-bearing.
 
 ---
 
-## 4. Current state — measured 2026-09-22 22:46
+## 4. Current state — measured 2026-09-23
 
-Baseline only. **Re-measure before starting**; the source has moved once already during
-this project's life.
+Baseline re-measured with `scripts/qa-remeasure-baseline.mjs` (1440×1000, mock IPC +
+observation fixture, details closed). Card/shadow counts use a resting-panel heuristic
+(`border-radius ≥ 8`, `border ≥ 1`, `padding ≥ 12`, height > 60) and may under-count
+nested article chips relative to the 2026-09-22 eyeball pass; heights and type sizes
+are directly comparable.
 
 ### 4.A Page heights at 1440×1000
 
-| Route           | Height | Cards | Shadowed | Type sizes rendered   |
-| --------------- | ------ | ----- | -------- | --------------------- |
-| `#/dashboard`   | 1697px | 8     | 1        | 11,12,13,15,18,28     |
-| `#/instances`   | 1000px | 2     | 0        | 12,13,18              |
-| `#/worlds`      | 1000px | 5     | 0        | 11,12,13,15,18        |
-| `#/timeline`    | 1030px | 2     | 0        | 11,12,13,15,18        |
-| `#/statistics`  | 1404px | 2     | 0        | **10**,11,12,13,15,18 |
-| `#/observation` | 1167px | 6     | 2        | 11,12,13,15,18,22     |
-| `#/settings`    | 2152px | 8     | 6        | 11,12,13,18           |
+| Route           | Height | Cards | Shadowed | Type sizes rendered |
+| --------------- | ------ | ----- | -------- | ------------------- |
+| `#/dashboard`   | 1697px | 2     | 2        | 11,12,13,15,18,28   |
+| `#/instances`   | 1000px | 0     | 0        | 12,13,18            |
+| `#/worlds`      | 1000px | 0     | 0        | 11,12,13,15,18      |
+| `#/timeline`    | 1030px | 0     | 0        | 11,12,13,15,18      |
+| `#/statistics`  | 1404px | 0     | 0        | 11,12,13,15,18      |
+| `#/observation` | 1167px | 2     | 2        | 11,12,13,15,18,22   |
+| `#/settings`    | 2152px | 6     | 6        | 11,12,13,18         |
+
+Heights match the 2026-09-22 pass exactly. `#/statistics` no longer renders **10px**
+(step 1 landed). Settings still shows 6/6 resting cards with elevation shadows — the
+step 2 target.
 
 ### 4.B What already works — do not undo
 
