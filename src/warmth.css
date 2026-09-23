@@ -505,9 +505,6 @@ body {
 .self-player-settings .scan-note {
   overflow-wrap: anywhere;
 }
-.settings-layout {
-  grid-template-columns: minmax(0, 1fr);
-}
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -589,13 +586,7 @@ body {
   margin-top: 4px;
   font-size: var(--type-micro);
 }
-/* Stacked sections are always one column; keep this so a future grid change
-   cannot reintroduce a two-column settings hole at narrow widths. */
-@media (max-width: 950px) {
-  .settings-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+/* Stacked sections are always one column. */
 .scan-panel .self-player-shortcut {
   display: flex;
   align-items: center;

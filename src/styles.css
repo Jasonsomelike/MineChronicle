@@ -206,7 +206,7 @@ main {
 }
 @media (max-width: 950px) {
   .settings-layout {
-    grid-template-columns: minmax(0, 1fr);
+    /* Stacked flex; kept only as a guard if a future grid returns. */
   }
 }
 .app-nav {

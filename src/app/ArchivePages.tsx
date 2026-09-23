@@ -147,8 +147,9 @@ function SettingsBody({ state }: { state: AppState }) {
   const { report, pclStatus, setPclStatus, navigate } = state;
   return (
     <>
-      {/* One layout system: stacked full-width sections. Each id matches
-          SETTINGS_SECTIONS so the sticky jump nav is declarative (P1.2/P1.3). */}
+      {/* One layout system: stacked full-width sections. Nav targets are the
+          SETTINGS_SECTIONS ids (P1.2/P1.3); archive keeps its id on the
+          aria-busy card so qa-review-fixes can wait on readiness. */}
       <div className="settings-layout" hidden={state.view !== 'settings'}>
         <div id="settings-identity" className="settings-section">
           <SelfPlayerSettings report={report} />

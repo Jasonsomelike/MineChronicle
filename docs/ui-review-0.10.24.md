@@ -9,6 +9,24 @@
 
 ---
 
+## Fix log — 2026-09-23 (`93f048d` + nit pass)
+
+§4 executed in order. Independent review: all seven criteria **MET**, no critical.
+
+| #   | Item      | What shipped                                                                                                                                                                      |
+| --- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | P0.1      | `ReadStatus` 可见文本恢复 `最近更新 {time}`；常量「已缓存数据」删除                                                                                                               |
+| 2   | P1.1      | `body` 仅 `var(--page)`；双径向 wash 删除                                                                                                                                         |
+| 3   | P1.2+P1.3 | 设置页单列堆叠 `.settings-section`；5 个 `settings-*` id 与 `SETTINGS_SECTIONS` 对齐；窗口与显示归入 `#settings-startup`；去掉 `scan-title`；`#settings-archive` 保留 `aria-busy` |
+| 4   | P2.1      | 实例/世界搜索 `max-width: min(360px, 100%)`                                                                                                                                       |
+| 5   | P2.2      | 实例行内嵌世界（名称 + 已缺失/降级/玩家数）；`.list-meta` 对齐计数与档案路径                                                                                                      |
+
+**Verification** — `npm run verify` PASS（131 FE + Rust）· `qa-design-check` 14/14 · `qa-ruler-requirements` PASS · `qa-list-states` PASS · 四套 Playwright PASS · 快照 **14/14：0 真实差异，0 噪声**。
+
+**Journey** — PowerShell `Copy-Item dir dest` 会把源目录嵌进 dest，导致快照对比打到旧图；应用 `dest\*` 或先清空 dest。`#settings-archive` 的 id 必须留在带 `aria-busy` 的节点上，`qa-review-fixes` 依赖它。
+
+---
+
 ## 0. What is genuinely good — do not undo it
 
 I ran the checks before writing anything, and they pass. Say so plainly so the fixes

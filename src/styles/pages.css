@@ -3,6 +3,11 @@
 /* Empty vs one-row must not look the same. Empty is a deliberate instrument
    well (dashed sunken panel); a single row is a real measurement that happens
    to stand alone and keeps list chrome plus a count footer. */
+#settings-archive,
+.settings-section {
+  scroll-margin-top: 88px;
+}
+
 .list-empty {
   margin: var(--space-5) 0;
   padding: var(--space-6);
