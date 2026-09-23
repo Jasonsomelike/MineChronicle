@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { summarize } from './dashboard';
+import {
+  summarize,
+  rankingPanel,
+  RANKING_TABS,
+  RANKING_TITLES,
+} from './dashboard';
+import type { Ranking } from './dashboard';
 import type { ScanSummary, PlayerSummary } from './scan';
 const player = (uuid: string, ticks: string): PlayerSummary => ({
   uuid,
@@ -136,6 +142,59 @@ describe('career dashboard aggregation', () => {
         Array.from({ length: 13 }, (_, index) => BigInt((13 - index) * 20)),
       );
       expect(new Set(ranking.map((entry) => entry.path)).size).toBe(13);
+    }
+  });
+});
+
+/**
+ * The dashboard's ranking switch shipped crossed: the 世界排行 pill was lit while
+ * the panel beneath it was headed 实例排行 · 按根目录汇总 and listed instances.
+ * These lock the three together.
+ */
+describe('ranking panel wiring', () => {
+  const rows = (name: string): Ranking[] => [
+    { name, path: `D:/x/${name}`, ticks: 1n, shared: 0, missing: false },
+  ];
+  const data = { worlds: rows('a world'), roots: rows('an instance') };
+
+  it('gives the selected tab the list that matches its label', () => {
+    for (const dimension of ['worlds', 'instances'] as const) {
+      const panels = rankingPanel(dimension, data);
+      const selected = panels.filter((panel) => panel.active);
+      expect(selected).toHaveLength(1);
+      expect(selected[0].dimension).toBe(dimension);
+      expect(selected[0].title).toBe(RANKING_TITLES[dimension]);
+      expect(selected[0].rows).toBe(
+        dimension === 'worlds' ? data.worlds : data.roots,
+      );
+    }
+  });
+
+  it('leaves exactly one panel active, and never the other one', () => {
+    for (const dimension of ['worlds', 'instances'] as const) {
+      const panels = rankingPanel(dimension, data);
+      expect(panels.map((panel) => panel.active)).toEqual(
+        panels.map((panel) => panel.dimension === dimension),
+      );
+    }
+  });
+
+  it('never heads the worlds list with the instance title, or the reverse', () => {
+    const worlds = rankingPanel('worlds', data).find((panel) => panel.active)!;
+    const instances = rankingPanel('instances', data).find(
+      (panel) => panel.active,
+    )!;
+    expect(worlds.title).not.toBe(RANKING_TITLES.instances);
+    expect(instances.title).not.toBe(RANKING_TITLES.worlds);
+    expect(worlds.rows[0].name).toBe('a world');
+    expect(instances.rows[0].name).toBe('an instance');
+  });
+
+  it('heads each panel with its own tab label, extended but not contradicted', () => {
+    for (const dimension of ['worlds', 'instances'] as const) {
+      expect(
+        RANKING_TITLES[dimension].startsWith(RANKING_TABS[dimension]),
+      ).toBe(true);
     }
   });
 });

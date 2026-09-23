@@ -1,7 +1,7 @@
 import { Fragment, useId, useMemo, useState } from 'react';
 import type { ScanSummary } from '../lib/scan';
-import { summarize } from '../lib/dashboard';
-import type { Ranking } from '../lib/dashboard';
+import { summarize, rankingPanel, RANKING_TABS } from '../lib/dashboard';
+import type { Ranking, RankingDimension } from '../lib/dashboard';
 import {
   formatTickTotal,
   formatCompactTicks,
@@ -200,11 +200,14 @@ export default function Dashboard({
   playersNone?: boolean;
   onPlayers: (ids: string[], none?: boolean) => void;
 }) {
-  const [ranking, setRanking] = useState<'worlds' | 'instances'>('worlds');
+  const [ranking, setRanking] = useState<RankingDimension>('worlds');
   const data = useMemo(
     () => summarize(report, playersNone ? null : players),
     [report, players, playersNone],
   );
+  // One mapping drives the tab's pressed state AND the panel under it, so the
+  // selected pill, the panel heading and the rows cannot disagree.
+  const panels = useMemo(() => rankingPanel(ranking, data), [ranking, data]);
   const rankingScope = `${playersNone}|${[...players].sort().join('|')}`;
   const timelineScope = useMemo(
     () => ({ ...emptyScope, uuids: players, players_none: playersNone }),
@@ -273,7 +276,7 @@ export default function Dashboard({
                 above stays; what changes is that the card now shows how the total is
                 made up, which is the thing the number alone cannot say. */}
             <PlaytimeRuler
-              rows={ranking === 'worlds' ? data.worlds : data.roots}
+              rows={panels.find((panel) => panel.active)?.rows ?? data.worlds}
               onOpen={onOpen}
             />
           </div>
@@ -336,38 +339,33 @@ export default function Dashboard({
         </div>
       </div>
       <div className="ranking-switch" role="group" aria-label="排行维度">
-        <button
-          aria-pressed={ranking === 'worlds'}
-          onClick={() => setRanking('worlds')}
-        >
-          世界排行
-        </button>
-        <button
-          aria-pressed={ranking === 'instances'}
-          onClick={() => setRanking('instances')}
-        >
-          实例排行
-        </button>
+        {panels.map((panel) => (
+          <button
+            key={panel.dimension}
+            aria-pressed={panel.active}
+            onClick={() => setRanking(panel.dimension)}
+          >
+            {RANKING_TABS[panel.dimension]}
+          </button>
+        ))}
       </div>
-      {/* Ruler owns the selected dimension; the list always shows the other
-          slice so the same top names are not painted twice. */}
+      {/* Tab, heading and rows all come from `panels`, so the selected pill and
+          the list under it are the same slice by construction. */}
       <div className="ranking-grid ranking-unified">
-        <SessionPage active={ranking === 'instances'} label="世界排行">
-          <RankingList
-            key={`worlds:${rankingScope}`}
-            title="世界排行"
-            rows={data.worlds}
-            onOpen={onOpen}
-          />
-        </SessionPage>
-        <SessionPage active={ranking === 'worlds'} label="实例排行">
-          <RankingList
-            key={`roots:${rankingScope}`}
-            title="实例排行 · 按根目录汇总"
-            rows={data.roots}
-            onOpen={onOpen}
-          />
-        </SessionPage>
+        {panels.map((panel) => (
+          <SessionPage
+            key={panel.dimension}
+            active={panel.active}
+            label={panel.title}
+          >
+            <RankingList
+              key={`${panel.dimension}:${rankingScope}`}
+              title={panel.title}
+              rows={panel.rows}
+              onOpen={onOpen}
+            />
+          </SessionPage>
+        ))}
       </div>
       <p className="scan-note">
         按最近有效读数排行；不含已缺失世界与不可读统计。共享根目录只计算一次，复制世界尚未去重。

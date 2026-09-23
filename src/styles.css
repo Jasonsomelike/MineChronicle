@@ -243,8 +243,16 @@ main {
      text on it measures 1.92:1. */
   color: var(--text-on-strong);
 }
-.scan-panel input,
-.scan-panel select {
+/* Text-like fields only. A checkbox is an input, so it was picking up the
+   control metrics meant for a field: `min-width: 220px` and `min-height: var(
+   --control-md)`, i.e. 38px. The 档案与备份 card's 自动备份 checkbox measured 220x38
+   against the 16x16 the card asks for, which is the "enormous blue box" in the
+   report. `:where()` keeps this rule's specificity at the element level, so
+   `.archive-settings input:not([type='checkbox'])`, `.self-player-input > input`
+   and every other component rule still outrank it exactly as before. */
+:where(.scan-panel) :where(input, select):where(
+    :not([type='checkbox'], [type='radio'])
+  ) {
   min-width: 0;
   max-width: 100%;
   /* Matched to the button scale so a select and a button in one row sit flush.
@@ -265,7 +273,7 @@ main {
   gap: 16px;
   margin: 12px 0;
 }
-.scan-panel label > input {
+:where(.scan-panel) label > input:not([type='checkbox'], [type='radio']) {
   flex: 1;
   min-width: 220px;
 }
@@ -487,12 +495,20 @@ main {
   list-style: none;
 }
 .ranking li {
+  /* One line, not two. The row used to be a 64px column stack: the name on the
+     first line, the duration on the second. At the panel's width that put the
+     duration and its arrow 1498px apart on the same line and left 64px of height
+     carrying two lines of text. Name and value now share the line, so the value
+     column sits at the row's right edge and the row is as tall as its content.
+     --control-lg matches the other single-line controls in the app. */
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  height: 64px;
-  padding: 8px 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: auto;
+  min-height: var(--control-lg);
+  padding: 6px var(--space-3);
   border: 0;
   min-width: 0;
 }
@@ -680,6 +696,20 @@ button {
 }
 button:hover {
   background: var(--surface-strong-hover);
+}
+/* Any button that draws a glyph beside its label lays them out on one row.
+   `button` above is `display: block`, so an inline `<svg>` sized by lucide is
+   block-level inside it and the label wraps onto the next line: the 刷新观测
+   button measured 86x38 with the icon at y 292-306 and its text at y 307-324,
+   i.e. stacked rather than side by side. Component rules that already set a row
+   (.app-nav, .text-button, .library-toolbar, .instance-row, .timeline, …) keep
+   winning, because wrapping this in `:where()` drops its specificity to the bare
+   `button` element - lower than every class-qualified rule above. It is a
+   fallback, not an override; the 6px also matches the gap those rules use. */
+:where(button:has(> svg)) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .app-nav button:hover,
 .health-tabs button:hover {
@@ -1177,8 +1207,11 @@ footer {
 .rank-duration {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-left: 25px;
+  /* The value keeps the row's right edge with its arrow rather than being pushed
+     to the far side of it: `space-between` across a 1602px span measured a
+     1498px hole between the duration text and the glyph that belongs to it. */
+  flex: none;
+  gap: var(--space-2);
   font-variant-numeric: tabular-nums;
   /* Figures get the monospace family; see --font-mono. */
   font-family: var(--font-mono);
@@ -3238,7 +3271,10 @@ button.stat-icon:hover {
 }
 .observed-group[open] > summary {
   border-bottom: 1px solid var(--border-soft);
-  border-radius: var(--radius-md --radius-md 0 0);
+  /* Was `var(--radius-md --radius-md 0 0)`, which is not a valid value: the
+     shorthand takes commas. The declaration was dropped whole, so an open group
+     kept a fully rounded summary sitting directly on its own table. */
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 .observed-group > summary:hover {
   background: var(--surface-hover);
@@ -3277,7 +3313,14 @@ button.stat-icon:hover {
      other groups. */
   display: none;
 }
-.observed-group > p {
+/* The per-instance pager sits under that instance's own records, inside its
+   `<details>`, so it is never ambiguous which list a page number belongs to. It
+   borrows `.observation-pagination` for layout and only re-spaces it here. */
+.observation-group-pagination {
+  margin-top: 4px;
+  padding: 0 14px 12px;
+}
+.observed-group-rows > p {
   margin: 12px 14px;
 }
 
