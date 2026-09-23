@@ -91,16 +91,17 @@ main {
 }
 .settings-layout {
   /* Single stacked layout (P1.2). Two unequal columns left a 200px hole and
-     mixed with full-width bands below. */
+     mixed with full-width bands below. Tightened with the card padding; the column
+     is narrow now, so the gap was reading as slack rather than separation. */
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   margin: 22px 0;
 }
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
   scroll-margin-top: 88px;
 }
@@ -109,7 +110,11 @@ main {
   margin: 0;
 }
 .settings-card {
-  padding: 22px;
+  /* Trimmed from 22px. Measured, 30% of the cards' total height was not child
+     content, and at VISUAL_DENSITY 7 a settings form should sit tighter than that.
+     The narrow column already stops the copy from stretching, so the extra padding
+     was buying air rather than legibility. */
+  padding: 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
@@ -263,6 +268,19 @@ main {
 }
 .scan-panel select {
   max-width: 420px;
+}
+/* The player identity field had the same defect as the list search boxes above: a
+   text input stretched to its container, 1208px wide for typing a name or a UUID.
+   Same cap, so the button sits beside the field instead of 900px away from it. */
+.self-player-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.self-player-input > input {
+  flex: 1 1 260px;
+  min-width: 0;
+  max-width: min(360px, 100%);
 }
 .dashboard-heading {
   display: flex;
@@ -581,6 +599,25 @@ p {
 }
 .foundation {
   padding: 0;
+}
+/* Settings is a form, not a table. At the page's full 1320px a card held about 500px
+   of copy, so most of every card was empty and prose lines ran past 55 CJK
+   characters.
+
+   The cap has to sit on this element, not on `.settings-layout`: the archive notice
+   blocks and the health queue are siblings of the layout, not children, so capping
+   the layout alone left half the page at the old width.
+
+   And it has to be conditional, because `.foundation` wraps **every** page. An
+   unconditional cap here narrows the dashboard, the world library and the timeline
+   too - all of which genuinely use the full width for their rows.
+
+   The `:not([hidden])` is load-bearing. Visited pages stay mounted and are toggled
+   with `hidden` (SessionPage), so `.settings-layout` is present in the DOM on every
+   route. Without it, `:has()` matched everywhere and the cap applied to the whole
+   app. */
+.foundation:has(.settings-layout:not([hidden])) {
+  max-width: var(--content-max);
 }
 h2 {
   font-size: var(--type-title);

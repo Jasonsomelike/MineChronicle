@@ -22,6 +22,14 @@ export default function PclInstances({
   onOpen: (path: string) => void;
 }) {
   const [query, setQuery] = useState('');
+  /**
+   * Which folder groups the reader has opened. The first one starts open on arrival:
+   * collapsed, the page showed a heading, a search field and a single grey line, so
+   * the worlds inside each folder were invisible and the page read as a form with
+   * nothing in it. Measured, opening the first group takes the page from 534px of
+   * content to 835px, which is what it actually holds.
+   */
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
   const searching = !!query.trim();
   const needle = query.trim().toLowerCase();
   const matchesQuery = (i: ScanSummary['instances'][number]) =>
@@ -71,14 +79,22 @@ export default function PclInstances({
           placeholder="名称、Minecraft 版本或加载器"
         />
       </label>
-      {[...groups.entries()].map(([key, group]) => {
+      {[...groups.entries()].map(([key, group], index) => {
         const matches = group.instances.filter(matchesQuery);
         if (searching && !matches.length) return null;
         return (
           <details
             key={key}
             className="folder-group"
-            open={searching ? true : undefined}
+            // Searching forces every group open so a match can never hide behind a
+            // closed disclosure; otherwise the reader's own choice wins, defaulting
+            // to open for the first group only.
+            open={searching || (opened[key] ?? index === 0)}
+            onToggle={(event) => {
+              if (searching) return;
+              const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+              setOpened((previous) => ({ ...previous, [key]: isOpen }));
+            }}
           >
             <summary>
               {group.name} · {group.instances.length} 个实例

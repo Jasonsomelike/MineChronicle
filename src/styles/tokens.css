@@ -51,4 +51,9 @@
   --motion-reveal: 650ms;
   /* Compact chrome budget: header + nav + status stay under this at 100%. */
   --chrome-header: 48px;
+
+  /* Widest a form-style page may run. Reading pages and list pages keep the full
+     content width because their rows genuinely use it; a settings form does not,
+     and a 13px line stretched past ~55 CJK characters is hard to track back. */
+  --content-max: 900px;
 }

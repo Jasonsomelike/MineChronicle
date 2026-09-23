@@ -554,7 +554,10 @@ body {
 }
 .settings-section .settings-card {
   margin: 0;
-  padding: 22px;
+  /* The padding used to be repeated here at 22px. With a two-class selector it beat
+     the base `.settings-card` rule regardless of import order, so changing the base
+     padding silently did nothing. One source of truth: `.settings-card` in
+     styles.css owns the padding. */
 }
 .settings-section .pcl-connection {
   border: 1px solid var(--warm-line);

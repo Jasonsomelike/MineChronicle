@@ -268,3 +268,86 @@ mechanical broke. It says nothing about whether the result is any good. The meas
 in this document — column geometry, gradient size, control width, row heights — are the
 kind of check that catches what the gate cannot, and they are worth adding to
 `qa-design-check.mjs` rather than repeating by hand.
+
+---
+
+## 6. Follow-up verification — 2026-09-23 11:47, after `93f048d` and `5eb1911`
+
+Re-measured against the current tree. Five of six findings are closed.
+
+### 6.A Closed, with the measured value
+
+| #    | Finding                            | Was                                  | Now                                        |
+| ---- | ---------------------------------- | ------------------------------------ | ------------------------------------------ |
+| P0.1 | read status shows a time           | `已缓存数据` ×2 on the dashboard     | `最近更新 11:48:11`                        |
+| P1.1 | body paints no decorative gradient | 2 radial gradients, 1440×597         | `backgroundImage: none`                    |
+| P1.2 | settings columns end together      | right column 200px short of the left | one column, all cards `left=60 width=1320` |
+| P1.3 | headings live in settings sections | 窗口与显示 in `#root`                | all 7 headings in `settings-*` sections    |
+| P2.1 | search field capped                | 1252px                               | 360px                                      |
+
+P1.3 is worth a note: the first check of it was too strict, because it required _every_
+`h2` to sit in a `settings-*` section, including card titles like 首次导入历史 that are
+not sections at all. Corrected, the navigation now lines up.
+
+### 6.B Still open
+
+**1. The card is 1320px wide and its text uses 38% of that.** This is the same waste as
+the old column hole, redistributed to every row.
+
+| Element                 | Box width | Rendered text | Fill |
+| ----------------------- | --------- | ------------- | ---- |
+| `h2` 自己               | 1274px    | 35px          | 3%   |
+| `p` 设置自己的玩家身份… | 1274px    | 489px         | 38%  |
+| `label` 玩家名称 / UUID | 1274px    | 96px          | 8%   |
+| `p.scan-note` 已匹配…   | 1274px    | 360px         | 28%  |
+| `h2` 启动与界面         | 1274px    | 88px          | 7%   |
+
+Average across 25 text boxes: **38%**.
+
+The inner setting rows were already sized sensibly — `559px`, `608px`, `426px`, filling
+67–100%. So the card now runs **two width systems at once**: rows at ~450–600px, card
+copy at 1274px. That mismatch is what reads as "half empty" even though a naive
+box-width check reports 98% used.
+
+**Fix.** Constrain the content, not the card: give `.settings-card` a
+`max-width` around 720px for its copy, or wrap the copy in a column that matches the
+rows. The measured target is 608px — the widest text that already fills its box
+completely.
+
+**2. A 1208px text input for a player name.** Placeholder `例如 Steve 或玩家 UUID`. This
+is the identical defect to P2.1, in the same page group, unfixed. Apply the same cap.
+
+**3. The page grew 34%.** `#/settings` went **2152px → 2887px (+735px)**. Flattening
+removed the hole by making every row full width, which is a real gain in coherence and a
+real loss in length. A constrained content width (item 1) recovers most of it without
+bringing the hole back.
+
+**4. P2.2 is unchanged.** `#/instances` content ends at **534px** of 1000 (was 510).
+That finding asked for a content decision, not a CSS change, and none was made.
+
+### 6.C A version-number hazard
+
+The installer `MineChronicle_0.10.24_x64-setup.exe` was built at **10:18**. The fixes
+landed at **11:17 and 11:24**. Both the repository and the installed build report
+**0.10.24**.
+
+So the installed app claims a version that does not contain these changes, and any
+verification by version number is misled. Rebuilding without a bump defeats the check in
+§10 of `ui-redesign-brief.md` ("installed build reports the new version"), which only
+works if the version actually moves.
+
+**Fix.** Bump to 0.10.25 across all five sources and repackage, so the installed build
+can be identified.
+
+### 6.D Two of my own findings were wrong
+
+Recorded because being wrong twice in one review is itself a finding about method.
+
+- The "98% width used" figure in §6.B came from measuring **block boxes**, which span
+  their container regardless of how much text they hold. Measuring the text itself
+  (a `Range` over the contents) gives 38%. Same page, opposite conclusion.
+- The "three orphan tinted blocks below 档案与备份" was a screenshot reading. Measured,
+  `.import-summary` sits inside `.settings-card settings-import`. Not an orphan.
+
+Both mistakes have the same shape: a confident number or impression about an element I
+had not confirmed was the one I thought. Check the element, not just the metric.
