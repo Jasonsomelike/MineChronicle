@@ -149,6 +149,13 @@ Heights match the 2026-09-22 pass exactly. `#/statistics` no longer renders **10
 (`--shadow-pop` / `--shadow-modal`) and structural shadows (nav, field, focus glow,
 cutout, sticky settings jump) unchanged. `qa-design-check.mjs`: 14/14, 0 violations.
 
+**2026-09-23 step 3**: hero no longer stretches to the sidebar (`overview-grid`
+`align-items: start`); career column hugs its content so unfilled space cannot pool
+inside the card. Ruler max rows **5 → 7**. Measured with `qa-remeasure-baseline` +
+`qa-hero-space`: page height `1697 → 1697`, ruler rows shown `3` (fixture-limited;
+cap now 7), card dead space `1px` (content-fit), side panel `259 → 220` (no stretch).
+§9.5 via `qa-ruler-requirements.mjs` PASS.
+
 ### 4.B What already works — do not undo
 
 - **A seven-step type scale** 11/12/13/15/18/22/28. Two regressions, both in

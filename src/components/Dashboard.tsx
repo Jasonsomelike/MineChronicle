@@ -126,7 +126,10 @@ function PlaytimeRuler({
   const max = rows[0]?.ticks ?? 0n;
   if (max <= 0n) return null;
   const marks = [0n, 1n, 2n, 3n, 4n].map((i) => (max * BigInt(i)) / 4n);
-  const visible = rows.slice(0, 5);
+  // Dense instrument: more rows share one scale so the hero card fills with
+  // measurements instead of empty panel. Still capped so the ranking below
+  // stays on the first screen.
+  const visible = rows.slice(0, 7);
 
   return (
     <div className="playtime-ruler">

@@ -321,7 +321,10 @@ body {
 .dashboard .overview-grid {
   border: 0;
   gap: 18px;
-  align-items: stretch;
+  /* Cards hug their content. Stretching the hero to match the sidebar left
+     unfilled space inside the card whenever the ruler had fewer rows than the
+     observation stack — which read as unfinished rather than as breathing room. */
+  align-items: start;
 }
 .dashboard .metric-grid {
   padding: 0;
@@ -341,7 +344,7 @@ body {
 }
 .dashboard .career-total {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-3);
   min-width: 0;
 }
