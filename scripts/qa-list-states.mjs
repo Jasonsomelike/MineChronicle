@@ -93,15 +93,20 @@ for (const [name, route, table] of cases) {
   await page.screenshot({ path: file, fullPage: true });
   const empty = await page.locator('.list-empty:visible').count();
   const count = await page.locator('.list-result-count:visible').count();
-  const emptyText = await page.locator('.list-empty:visible').allTextContents();
-  const countText = await page
-    .locator('.list-result-count:visible')
-    .allTextContents();
-  console.log(
-    `${name}: empty=${empty} countFooter=${count} emptyText=${JSON.stringify(
-      emptyText.map((t) => t.slice(0, 24)),
-    )} countText=${JSON.stringify(countText)} -> ${file}`,
-  );
+  const expectEmpty = name.endsWith('-empty');
+  const ok = expectEmpty
+    ? empty === 1 && count === 0
+    : empty === 0 && count >= 1;
+  if (!ok) {
+    console.error(
+      `FAIL: ${name} expected empty=${expectEmpty ? 1 : 0} count=${
+        expectEmpty ? 0 : '>=1'
+      }, got empty=${empty} count=${count}`,
+    );
+    await browser.close();
+    process.exit(1);
+  }
+  console.log(`${name}: empty=${empty} countFooter=${count} -> ${file}`);
   await context.close();
 }
 

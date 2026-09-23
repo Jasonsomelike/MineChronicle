@@ -22,6 +22,12 @@ export default function PclInstances({
   onOpen: (path: string) => void;
 }) {
   const [query, setQuery] = useState('');
+  const searching = !!query.trim();
+  const needle = query.trim().toLowerCase();
+  const matchesQuery = (i: ScanSummary['instances'][number]) =>
+    `${i.name} ${i.minecraft_version ?? ''} ${i.mod_loader?.name ?? ''}`
+      .toLowerCase()
+      .includes(needle);
   const groups = new Map<
     string,
     { name: string; path: string; instances: ScanSummary['instances'] }
@@ -49,6 +55,8 @@ export default function PclInstances({
       });
     groups.get(key)?.instances.push(instance);
   }
+  const matchedCount = report.instances.filter(matchesQuery).length;
+  const total = report.instances.length;
   return (
     <section className="pcl-instances" aria-label="PCL 实例">
       <h2>PCL 实例 · {report.instances.length} 个</h2>
@@ -64,17 +72,13 @@ export default function PclInstances({
         />
       </label>
       {[...groups.entries()].map(([key, group]) => {
-        const matches = group.instances.filter((i) =>
-          `${i.name} ${i.minecraft_version ?? ''} ${i.mod_loader?.name ?? ''}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-        );
-        if (query && !matches.length) return null;
+        const matches = group.instances.filter(matchesQuery);
+        if (searching && !matches.length) return null;
         return (
           <details
             key={key}
             className="folder-group"
-            open={query ? true : undefined}
+            open={searching ? true : undefined}
           >
             <summary>
               {group.name} · {group.instances.length} 个实例
@@ -129,36 +133,25 @@ export default function PclInstances({
           </details>
         );
       })}
-      {(() => {
-        const anyMatch = [...groups.values()].some((g) =>
-          g.instances.some((i) =>
-            `${i.name} ${i.minecraft_version ?? ''} ${i.mod_loader?.name ?? ''}`
-              .toLowerCase()
-              .includes(query.toLowerCase()),
-          ),
-        );
-        const total = report.instances.length;
-        if (anyMatch) {
-          return (
-            <p className="list-result-count">
-              共 {total} 个实例
-              {query.trim() ? ' · 已按搜索过滤' : ''}
-            </p>
-          );
-        }
-        return (
-          <div className="list-empty" role="status">
-            <strong>
-              {query.trim() ? '没有匹配的实例' : '尚未识别到 PCL 实例'}
-            </strong>
-            <p>
-              {query.trim()
-                ? '可清除搜索，或到「导入与设置」重新扫描。'
-                : '在「导入与设置」关联 PCL 文件夹并扫描后，实例会出现在这里。已保存的历史统计不会被删除。'}
-            </p>
-          </div>
-        );
-      })()}
+      {!searching && !total ? (
+        <div className="list-empty" role="status">
+          <strong>尚未识别到 PCL 实例</strong>
+          <p>
+            在「导入与设置」关联 PCL
+            文件夹并扫描后，实例会出现在这里。已保存的历史统计不会被删除。
+          </p>
+        </div>
+      ) : searching && !matchedCount ? (
+        <div className="list-empty" role="status">
+          <strong>没有匹配的实例</strong>
+          <p>可清除搜索，或到「导入与设置」重新扫描。</p>
+        </div>
+      ) : (
+        <p className="list-result-count">
+          共 {searching ? matchedCount : total} 个实例
+          {searching ? ` · 档案共 ${total} 个` : ''}
+        </p>
+      )}
     </section>
   );
 }

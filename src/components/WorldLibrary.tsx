@@ -162,6 +162,9 @@ export default function WorldLibrary({
   const pages = Math.max(1, Math.ceil(listCount / pageSize));
   const current = Math.min(page, pages - 1);
   const search = !!query.trim();
+  // Empty copy keys off the same trimmed needle the list filters on, so a
+  // whitespace-only query cannot claim the archive is empty while rows show.
+  const searching = search;
   const previousQuery = useRef('');
   useEffect(() => {
     if (previousQuery.current === query) return;
@@ -256,11 +259,9 @@ export default function WorldLibrary({
       </div>
       {!listCount ? (
         <div className="list-empty" role="status">
-          <strong>
-            {query.trim() ? '没有匹配的世界' : '档案中还没有世界'}
-          </strong>
+          <strong>{searching ? '没有匹配的世界' : '档案中还没有世界'}</strong>
           <p>
-            {query.trim()
+            {searching
               ? '可清除搜索，或换用实例名、玩家名或 UUID 再试。'
               : '到「导入与设置」添加游戏根目录并扫描后，世界会出现在这里。'}
           </p>
