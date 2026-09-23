@@ -254,7 +254,22 @@ export default function WorldLibrary({
           </TextButton>
         ) : null}
       </div>
-      {!listCount ? <p>没有匹配的世界。</p> : null}
+      {!listCount ? (
+        <div className="list-empty" role="status">
+          <strong>
+            {query.trim() ? '没有匹配的世界' : '档案中还没有世界'}
+          </strong>
+          <p>
+            {query.trim()
+              ? '可清除搜索，或换用实例名、玩家名或 UUID 再试。'
+              : '到「导入与设置」添加游戏根目录并扫描后，世界会出现在这里。'}
+          </p>
+        </div>
+      ) : (
+        <p className="list-result-count">
+          共 {listCount} {mode === 'flat' ? '个世界' : '个目录'}
+        </p>
+      )}
       {mode === 'flat'
         ? flatWorlds
             .slice(current * pageSize, current * pageSize + pageSize)

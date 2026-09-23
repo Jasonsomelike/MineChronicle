@@ -210,7 +210,15 @@ export default function Timeline({
       {loading ? (
         <p role="status">正在读取时间线…</p>
       ) : !error && !data?.events.length ? (
-        <p>暂无符合条件的记录。可清除本页筛选，或调整统计玩家。</p>
+        <div className="list-empty" role="status">
+          <strong>暂无符合条件的记录</strong>
+          <p>
+            可清除本页筛选，或调整统计玩家。观察缺口表示当时未在观测，不代表没有游玩。
+          </p>
+        </div>
+      ) : null}
+      {data?.events.length ? (
+        <p className="list-result-count">本页共 {data.events.length} 条记录</p>
       ) : null}
       {data ? (
         <ol className="timeline-events">

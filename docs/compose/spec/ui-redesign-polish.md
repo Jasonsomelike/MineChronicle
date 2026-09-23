@@ -34,12 +34,12 @@ commits: 027e0ae..working-tree # filled at delivery
 
 **规则**：静息卡片 = 边框 + 表面色，**无** elevation 阴影；阴影只留给真正叠在内容之上的层。
 
-| 用途 | Token | 浅色 | 深色 | 处置 |
-| --- | --- | --- | --- | --- |
-| 静息卡片（`.settings-card`、dashboard 概览/排行卡） | 曾用 `--shadow-card` | 改为仅 `border` | 保持 `none` + 表面阶梯 | 去掉 elevation |
-| 命令/弹出层 | `--shadow-pop` | 保留 | `none` | 覆盖层，保留 |
-| 模态 | `--shadow-modal` | 保留 | `none` | 覆盖层，保留 |
-| 导航高光 / 字段内嵌 / focus glow / cutout | `--shadow-nav/field/focus-glow/cutout` | 保留 | 保留 | 结构阴影 |
+| 用途                                                | Token                                  | 浅色            | 深色                   | 处置           |
+| --------------------------------------------------- | -------------------------------------- | --------------- | ---------------------- | -------------- |
+| 静息卡片（`.settings-card`、dashboard 概览/排行卡） | 曾用 `--shadow-card`                   | 改为仅 `border` | 保持 `none` + 表面阶梯 | 去掉 elevation |
+| 命令/弹出层                                         | `--shadow-pop`                         | 保留            | `none`                 | 覆盖层，保留   |
+| 模态                                                | `--shadow-modal`                       | 保留            | `none`                 | 覆盖层，保留   |
+| 导航高光 / 字段内嵌 / focus glow / cutout           | `--shadow-nav/field/focus-glow/cutout` | 保留            | 保留                   | 结构阴影       |
 
 实现约束：
 
@@ -64,12 +64,12 @@ commits: 027e0ae..working-tree # filled at delivery
 
 **状态契约**（full state cycle，brief §8）：
 
-| 状态 | 必须可区分 | 最低要求 |
-| --- | --- | --- |
-| empty | 与 one-row 不同 | 明确空态文案 + 引导动作（若有）；禁止“空壳列表框” |
+| 状态    | 必须可区分               | 最低要求                                                     |
+| ------- | ------------------------ | ------------------------------------------------------------ |
+| empty   | 与 one-row 不同          | 明确空态文案 + 引导动作（若有）；禁止“空壳列表框”            |
 | one-row | 与 empty、与多行列表不同 | 单行数据仍可读；容器高度贴内容或有最小仪器感，不拉成整页空白 |
-| loading | 与 empty 不同 | 占位/`aria-busy`，不写“暂无” |
-| error | 与 empty 不同 | 保留边界词：`结束时间未知`、`缺少本地基线`、`已缺失` |
+| loading | 与 empty 不同            | 占位/`aria-busy`，不写“暂无”                                 |
+| error   | 与 empty 不同            | 保留边界词：`结束时间未知`、`缺少本地基线`、`已缺失`         |
 
 交付物：each 状态一张截图（dev 预览 1440×1000，Playwright / 现有 qa 脚本能力）。
 

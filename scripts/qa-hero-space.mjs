@@ -1,3 +1,4 @@
+/* global window, document, getComputedStyle */
 /** Measure dashboard hero dead space. Requires dev server. */
 import { chromium } from 'playwright-core';
 import { backend } from './qa-fixtures.mjs';
@@ -36,9 +37,6 @@ const m = await page.evaluate(() => {
           w: Math.round(el.getBoundingClientRect().width),
         }
       : null;
-  const cardH = r(card)?.h ?? 0;
-  const contentH =
-    (r(copy)?.h ?? 0) - (r(ruler)?.h ?? 0) + (r(ruler)?.h ?? 0); // full copy
   const copyBottom = copy ? copy.getBoundingClientRect().bottom : 0;
   const cardBottom = card ? card.getBoundingClientRect().bottom : 0;
   const padBottom = card ? parseFloat(getComputedStyle(card).paddingBottom) : 0;

@@ -1,5 +1,37 @@
 /* Density and clarity helpers for the UX pass. */
 
+/* Empty vs one-row must not look the same. Empty is a deliberate instrument
+   well (dashed sunken panel); a single row is a real measurement that happens
+   to stand alone and keeps list chrome plus a count footer. */
+.list-empty {
+  margin: var(--space-5) 0;
+  padding: var(--space-6);
+  border: 1px dashed var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.list-empty > strong {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-strong);
+  font-size: var(--type-title);
+}
+
+.list-empty > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-body);
+  line-height: 1.6;
+}
+
+.list-result-count {
+  margin: var(--space-3) 0 0;
+  color: var(--text-caption);
+  font-size: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+}
+
 .filter-tools {
   display: inline-flex;
   flex-wrap: wrap;

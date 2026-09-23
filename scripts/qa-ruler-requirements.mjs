@@ -1,3 +1,4 @@
+/* global window, document, getComputedStyle */
 /** §9.5 ruler requirements. Requires dev server. */
 import { chromium } from 'playwright-core';
 import { backend } from './qa-fixtures.mjs';
@@ -31,8 +32,8 @@ const data = await page.evaluate(() => {
     tag: el.tagName,
     text: el.textContent?.trim(),
   }));
-  const scale = [...document.querySelectorAll('.ruler-scale span')].map(
-    (el) => el.textContent?.trim(),
+  const scale = [...document.querySelectorAll('.ruler-scale span')].map((el) =>
+    el.textContent?.trim(),
   );
   return { fills, buttons, scale };
 });
@@ -76,7 +77,8 @@ console.log(
   ),
 );
 
-const pass = rowsAreButtons && animNone && tabHitRuler && data.buttons.length > 0;
+const pass =
+  rowsAreButtons && animNone && tabHitRuler && data.buttons.length > 0;
 console.log(pass ? 'PASS: ruler requirements' : 'FAIL: ruler requirements');
 await browser.close();
 process.exit(pass ? 0 : 1);

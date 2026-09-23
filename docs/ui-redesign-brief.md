@@ -156,6 +156,12 @@ inside the card. Ruler max rows **5 → 7**. Measured with `qa-remeasure-baselin
 cap now 7), card dead space `1px` (content-fit), side panel `259 → 220` (no stretch).
 §9.5 via `qa-ruler-requirements.mjs` PASS.
 
+**2026-09-23 step 4**: short pages distinguish empty from one-row. Shared
+`.list-empty` (dashed sunken well + title + guidance) vs `.list-result-count`
+footer on real lists. Screenshots: `output/list-states/{instances,worlds,timeline}-{empty,one-row}.png`
+via `scripts/qa-list-states.mjs` (visible-only assertions). Empty ≠ one-row on all
+three routes.
+
 ### 4.B What already works — do not undo
 
 - **A seven-step type scale** 11/12/13/15/18/22/28. Two regressions, both in

@@ -1,3 +1,4 @@
+/* global window, document, getComputedStyle */
 /**
  * Re-measure brief §4.A: page height, card count, shadowed-card count, type sizes.
  * Requires `npm run dev` on :1420.
@@ -90,7 +91,9 @@ console.log('| Route | Height | Cards | Shadowed | Type sizes |');
 console.log('| --- | --- | --- | --- | --- |');
 for (const r of results) {
   console.log(
-    `| \`#/${r.route}\` | ${r.height}px | ${r.cards} | ${r.shadowed} | ${r.typeSizes.join(',')} |`,
+    `| \`#/${r.route}\` | ${r.height}px | ${r.cards} | ${
+      r.shadowed
+    } | ${r.typeSizes.join(',')} |`,
   );
 }
 
