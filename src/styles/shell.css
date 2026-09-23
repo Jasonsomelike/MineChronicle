@@ -32,11 +32,11 @@
 
 .app-nav {
   position: sticky;
+  /* Reserves exactly the height the section nav stacks on. */
+  min-height: var(--chrome-nav);
   top: var(--chrome-header);
   z-index: 24;
-  scroll-margin-top: calc(
-    var(--chrome-header) + var(--control-sm) + var(--space-3)
-  );
+  scroll-margin-top: calc(var(--chrome-header) + var(--chrome-nav));
   /* Seven items were packing into the left 55% of a 1224px bar, leaving the rest of
      the row empty and the pills small enough to be fiddly targets. The row is spread
      across its width instead, with roomier pills. `space-between` rather than a fixed
@@ -71,7 +71,9 @@
 }
 
 .settings-jump {
-  top: calc(var(--chrome-header) + var(--control-sm) + var(--space-3));
+  /* Was `--chrome-header + --control-sm + --space-3`, which described a 28px nav that
+     no longer exists. Stacks on the nav's real height instead. */
+  top: calc(var(--chrome-header) + var(--chrome-nav));
   padding: var(--space-1);
   margin: 0 0 var(--space-3);
 }

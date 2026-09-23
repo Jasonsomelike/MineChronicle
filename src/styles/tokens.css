@@ -49,8 +49,19 @@
   --shadow-cutout: 0 0 0 2px var(--surface);
 
   --motion-reveal: 650ms;
-  /* Compact chrome budget: header + nav + status stay under this at 100%. */
-  --chrome-header: 48px;
+  /* Chrome heights, used as the sticky offsets so the three stacked bars cannot
+     overlap. Each is the real height of its element, and the element is pinned to it
+     rather than the other way round.
+
+     Both of these were wrong before: the header renders 53px while the token said 48,
+     and the nav's buttons moved from --control-sm to --control-md while its offset kept
+     using --control-sm, so at 145% zoom the primary nav sat 5px inside the header and
+     the section nav 15px inside the primary nav. */
+  --chrome-header: 56px;
+  /* The nav is its buttons plus its own vertical padding. */
+  /* Buttons plus the nav's own vertical padding, plus its 1px bottom border - which
+     is one pixel easy to forget and was enough to leave the section nav overlapping. */
+  --chrome-nav: calc(var(--control-md) + 2 * var(--space-2) + 1px);
 
   /* Retired. A single cap on a form page cannot be right: narrow leaves the right of
      the window empty, wide stretches the prose. The settings page uses two balanced
