@@ -1332,7 +1332,13 @@ footer {
   align-items: center;
   gap: 8px;
 }
-.pcl-connection {
+/* Scoped away from the card case. `.pcl-connection` and `.settings-card` are both one
+   class, and this rule comes later in the file, so `padding: 20px 0` quietly overrode
+   the card's 18px - leaving the 自动联动 card flush against its own edge while every
+   other settings card was inset. It also carried a bottom border and a margin the other
+   cards do not have, so that card looked wrong three ways at once. The rule is still
+   wanted where the block sits *inside* a card. */
+.pcl-connection:not(.settings-card) {
   padding: 20px 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
