@@ -1827,7 +1827,14 @@ footer {
 .stat-identity {
   display: flex;
   gap: 12px;
-  align-items: center;
+  /* Top, not centre: centring the label against the taller icon pushed the name's
+     first line 3-5px below the value and source columns, which is what makes the row
+     look misaligned when scanning across it. The icon carries the offset instead, so
+     the pair still reads as centred. */
+  align-items: flex-start;
+}
+.stat-icon {
+  margin-top: 4px;
 }
 .stat-description {
   min-width: 0;
@@ -1838,11 +1845,14 @@ footer {
   color: var(--text-label);
 }
 .stat-icon {
-  width: 56px;
-  height: 56px;
-  min-height: 56px;
-  padding: 4px;
-  flex: 0 0 56px;
+  /* Was 56px. The sprite is a 16x16 texture, so that was a 3.5x upscale with no extra
+     detail, and at 56px it set the row height to 65px for every one of 16,000 rows
+     and pushed the value and source columns onto different lines from the name. */
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 2px;
+  flex: 0 0 28px;
   display: grid;
   place-items: center;
   color: var(--text-muted);
@@ -1855,8 +1865,8 @@ button.stat-icon:hover {
   border-color: var(--border-strong);
 }
 .stat-sprite {
-  width: 48px;
-  height: 48px;
+  width: 24px;
+  height: 24px;
   display: block;
   object-fit: contain;
   image-rendering: auto;
@@ -2188,7 +2198,12 @@ button.stat-icon:hover {
   color: var(--text-label);
 }
 .statistics .statistics-table td {
-  vertical-align: middle;
+  /* Was `middle`. With three cells of unequal content height, centring put the name's
+     text at +12 from the row edge, the value at +13 and the source at +16 - the
+     columns did not share a line, which is what reads as "the text heights are not
+     aligned". Top alignment makes every cell start at the same place, and the base
+     `td` rule already asked for it. */
+  vertical-align: top;
   padding-top: 10px;
   padding-bottom: 10px;
 }
