@@ -94,13 +94,19 @@ main {
   display: none !important;
 }
 .settings-layout {
-  /* Single stacked layout (P1.2). Two unequal columns left a 200px hole and
-     mixed with full-width bands below. Tightened with the card padding; the column
-     is narrow now, so the gap was reading as slack rather than separation. */
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  /* Two balanced columns on a wide display. The earlier two-column attempt used a grid
+     and left a 200px hole when one side ran shorter; `columns` balances the sides
+     itself, so that cannot happen. Below 1400px there is not enough room for two
+     readable cards and the browser drops to one column on its own - the first value is
+     the maximum count and the second is the minimum width a column may take. */
+  columns: 2 640px;
+  column-gap: var(--space-5);
   margin: 22px 0;
+}
+
+.settings-layout > * {
+  /* A card split across two columns would be worse than any amount of whitespace. */
+  break-inside: avoid;
 }
 .settings-section {
   display: flex;
@@ -613,16 +619,12 @@ p {
    blocks and the health queue are siblings of the layout, not children, so capping
    the layout alone left half the page at the old width.
 
-   And it has to be conditional, because `.foundation` wraps **every** page. An
-   unconditional cap here narrows the dashboard, the world library and the timeline
-   too - all of which genuinely use the full width for their rows.
-
-   The `:not([hidden])` is load-bearing. Visited pages stay mounted and are toggled
-   with `hidden` (SessionPage), so `.settings-layout` is present in the DOM on every
-   route. Without it, `:has()` matched everywhere and the cap applied to the whole
-   app. */
+   The cap is gone. It left 424px of the window empty down the right edge, which is the
+   whitespace the reader kept reporting. The width is used by the two-column layout in
+   `.settings-layout` instead, which keeps each card narrow without leaving the page
+   half empty. */
 .foundation:has(.settings-layout:not([hidden])) {
-  max-width: var(--content-max);
+  min-width: 0;
 }
 h2 {
   font-size: var(--type-title);
