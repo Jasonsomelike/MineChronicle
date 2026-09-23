@@ -217,9 +217,9 @@
 }
 
 body {
-  background: radial-gradient(ellipse at 95% 0%, var(--wash-a), transparent 48%),
-    radial-gradient(ellipse at 0% 35%, var(--wash-b), transparent 50%),
-    var(--page);
+  /* Flat page ground only. A body-level radial wash measured as a smudge rather
+     than depth and fought the surface ladder (ui-review-0.10.24 P1.1). */
+  background: var(--page);
   /* The theme swap should read as a change of light, not a flash. Short enough
      to feel immediate, and the global reduced-motion rule disables it. */
   transition: background-color var(--motion-base) var(--ease-standard);
@@ -506,13 +506,14 @@ body {
   overflow-wrap: anywhere;
 }
 .settings-layout {
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
-.settings-column {
+.settings-section {
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-width: 0;
+  scroll-margin-top: 88px;
 }
 .instance-observation {
   margin-top: 24px;
@@ -551,21 +552,21 @@ body {
   padding-top: 20px;
   border-top: 1px solid var(--warm-line);
 }
-.settings-column > .session-page {
+.settings-section > .session-page {
   min-width: 0;
 }
-.settings-column .settings-card {
+.settings-section .settings-card {
   margin: 0;
   padding: 22px;
 }
-.settings-column .pcl-connection {
+.settings-section .pcl-connection {
   border: 1px solid var(--warm-line);
 }
-.settings-column .library-heading {
+.settings-section .library-heading {
   flex-wrap: wrap;
   gap: 8px;
 }
-.settings-column .settings-card > p {
+.settings-section .settings-card > p {
   line-height: 1.7;
 }
 .self-player-matches {
@@ -588,10 +589,8 @@ body {
   margin-top: 4px;
   font-size: var(--type-micro);
 }
-/* Load-bearing, not a duplicate of styles.css's identical rule: this file is
-   imported second, so the base `.settings-layout` rule below (two columns)
-   overrides styles.css's @media (max-width: 950px) single-column rule. Without
-   this block the narrow settings page keeps two columns and grows ~528px. */
+/* Stacked sections are always one column; keep this so a future grid change
+   cannot reintroduce a two-column settings hole at narrow widths. */
 @media (max-width: 950px) {
   .settings-layout {
     grid-template-columns: minmax(0, 1fr);

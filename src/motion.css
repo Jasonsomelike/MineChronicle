@@ -145,7 +145,7 @@ details > summary::-webkit-details-marker {
 
 /* The sidebar/tab switch inside settings gets the same treatment so navigating
    between panels feels like the same surface changing, not a fresh page. */
-.settings-layout > section {
+.settings-section > :is(section, .session-page) {
   transition: opacity var(--motion-base) var(--ease-standard),
     transform var(--motion-base) var(--ease-standard);
 }
@@ -164,7 +164,7 @@ details > summary::-webkit-details-marker {
     animation: none !important;
   }
   .session-page,
-  .settings-layout > section {
+  .settings-section > :is(section, .session-page) {
     transition: none !important;
   }
   button:active,

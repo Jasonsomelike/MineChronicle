@@ -32,6 +32,54 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Short-page meta: count and archive path share one quiet bar so bare lines
+   do not float under the list (P2.2). */
+.list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-caption);
+  font-size: var(--type-caption);
+}
+
+.list-meta .world-path {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.instance-worlds {
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border-soft);
+}
+
+.instance-worlds li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--type-caption);
+}
+
+.instance-world-name {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.instance-world-players {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .filter-tools {
   display: inline-flex;
   flex-wrap: wrap;

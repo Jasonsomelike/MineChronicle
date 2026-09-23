@@ -267,9 +267,16 @@ export default function WorldLibrary({
           </p>
         </div>
       ) : (
-        <p className="list-result-count">
-          共 {listCount} {mode === 'flat' ? '个世界' : '个目录'}
-        </p>
+        <div className="list-meta">
+          <span className="list-result-count">
+            共 {listCount} {mode === 'flat' ? '个世界' : '个目录'}
+          </span>
+          {report.saved && report.database_path ? (
+            <p className="world-path">
+              档案：{displayPath(report.database_path)}
+            </p>
+          ) : null}
+        </div>
       )}
       {mode === 'flat'
         ? flatWorlds

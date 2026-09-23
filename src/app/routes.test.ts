@@ -31,4 +31,19 @@ describe('app routes', () => {
     }
     expect(SETTINGS_SECTIONS.length).toBe(5);
   });
+
+  it('uses declared settings-* ids that stay unique', () => {
+    const ids = SETTINGS_SECTIONS.map(([id]) => id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) {
+      expect(id).toMatch(/^settings-[a-z]+$/);
+    }
+    expect(ids).toEqual([
+      'settings-identity',
+      'settings-startup',
+      'settings-import',
+      'settings-archive',
+      'settings-health',
+    ]);
+  });
 });

@@ -19,3 +19,4 @@ scripts/resources/stat-vanilla-entities.json
 # `.claude` holds the CLI's symlink to the same content, so both are excluded.
 .agents
 .claude
+agent

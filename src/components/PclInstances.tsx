@@ -89,47 +89,68 @@ export default function PclInstances({
                 此文件夹尚未完成实例识别。已保存的世界仍保留，可重新扫描同步。
               </p>
             ) : null}
-            {matches.map((instance) => (
-              <article key={instance.instance_path} className="instance-row">
-                <strong>{instance.name}</strong>
-                {sync?.last_checked &&
-                !sync.issues.length &&
-                !sync.current_instances.some(
-                  (p) => pathKey(p) === pathKey(instance.instance_path),
-                ) ? (
-                  <span className="scan-note"> · 配置中已移除，历史保留</span>
-                ) : null}
-                <p>
-                  Minecraft {instance.minecraft_version ?? '未知'} ·{' '}
-                  {instance.mod_loader
-                    ? `${instance.mod_loader.name} ${
-                        instance.mod_loader.version ?? ''
-                      }`
-                    : '原版 / 未识别加载器'}{' '}
-                  ·{' '}
-                  {instance.isolation === 'isolated'
-                    ? '独立游戏目录'
-                    : instance.isolation === 'shared'
-                    ? '共享游戏目录'
-                    : '按实例配置'}
-                </p>
-                <p className="world-path">
-                  游戏根目录：{displayPath(instance.game_root)}
-                </p>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => onOpen(instance.game_root)}
-                >
-                  <ArrowUpRight size={14} />
-                  查看世界 ·{' '}
-                  {report.roots.find(
-                    (r) => pathKey(r.path) === pathKey(instance.game_root),
-                  )?.worlds.length ?? 0}{' '}
-                  个
-                </button>
-              </article>
-            ))}
+            {matches.map((instance) => {
+              const root = report.roots.find(
+                (r) => pathKey(r.path) === pathKey(instance.game_root),
+              );
+              return (
+                <article key={instance.instance_path} className="instance-row">
+                  <strong>{instance.name}</strong>
+                  {sync?.last_checked &&
+                  !sync.issues.length &&
+                  !sync.current_instances.some(
+                    (p) => pathKey(p) === pathKey(instance.instance_path),
+                  ) ? (
+                    <span className="scan-note"> · 配置中已移除，历史保留</span>
+                  ) : null}
+                  <p>
+                    Minecraft {instance.minecraft_version ?? '未知'} ·{' '}
+                    {instance.mod_loader
+                      ? `${instance.mod_loader.name} ${
+                          instance.mod_loader.version ?? ''
+                        }`
+                      : '原版 / 未识别加载器'}{' '}
+                    ·{' '}
+                    {instance.isolation === 'isolated'
+                      ? '独立游戏目录'
+                      : instance.isolation === 'shared'
+                      ? '共享游戏目录'
+                      : '按实例配置'}
+                  </p>
+                  <p className="world-path">
+                    游戏根目录：{displayPath(instance.game_root)}
+                  </p>
+                  {root?.worlds.length ? (
+                    <ul className="instance-worlds">
+                      {root.worlds.map((w) => (
+                        <li key={w.path}>
+                          <span className="instance-world-name">{w.name}</span>
+                          {w.status === 'Missing' ? (
+                            <span className="scan-note">已缺失</span>
+                          ) : w.status === 'Degraded' ? (
+                            <span className="scan-note">读取降级</span>
+                          ) : (
+                            <span className="instance-world-players">
+                              {w.players.length} 位玩家
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="scan-note">此根目录下尚未发现世界。</p>
+                  )}
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => onOpen(instance.game_root)}
+                  >
+                    <ArrowUpRight size={14} />
+                    查看世界 · {root?.worlds.length ?? 0} 个
+                  </button>
+                </article>
+              );
+            })}
           </details>
         );
       })}
@@ -147,10 +168,17 @@ export default function PclInstances({
           <p>可清除搜索，或到「导入与设置」重新扫描。</p>
         </div>
       ) : (
-        <p className="list-result-count">
-          共 {searching ? matchedCount : total} 个实例
-          {searching ? ` · 档案共 ${total} 个` : ''}
-        </p>
+        <div className="list-meta">
+          <span className="list-result-count">
+            共 {searching ? matchedCount : total} 个实例
+            {searching ? ` · 档案共 ${total} 个` : ''}
+          </span>
+          {report.saved && report.database_path ? (
+            <p className="world-path">
+              档案：{displayPath(report.database_path)}
+            </p>
+          ) : null}
+        </div>
       )}
     </section>
   );

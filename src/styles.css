@@ -90,11 +90,23 @@ main {
   display: none !important;
 }
 .settings-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(340px, 1.15fr);
+  /* Single stacked layout (P1.2). Two unequal columns left a 200px hole and
+     mixed with full-width bands below. */
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-items: start;
   margin: 22px 0;
+}
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  scroll-margin-top: 88px;
+}
+.settings-section > .settings-card + .settings-card {
+  /* Cards inside one nav section stay distinct without nested grids. */
+  margin: 0;
 }
 .settings-card {
   padding: 22px;
@@ -241,6 +253,13 @@ main {
 .scan-panel label > input {
   flex: 1;
   min-width: 220px;
+}
+/* List search boxes do not need the full content width (P2.1). Cap them so
+   two results are not filtered through a 1252px field. */
+.pcl-instances label:has(input) > input,
+.library-toolbar label > input {
+  flex: 1 1 220px;
+  max-width: min(360px, 100%);
 }
 .scan-panel select {
   max-width: 420px;

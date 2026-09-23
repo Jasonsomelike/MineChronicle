@@ -35,7 +35,7 @@ function SettingsImport({ state }: { state: AppState }) {
   } = state;
   return (
     <section className="settings-card settings-import">
-      <h2 id="scan-title">读取本地存档</h2>
+      <h2>读取本地存档</h2>
       {runtime ? (
         <div className="import-summary" role="status">
           <strong>
@@ -147,18 +147,14 @@ function SettingsBody({ state }: { state: AppState }) {
   const { report, pclStatus, setPclStatus, navigate } = state;
   return (
     <>
+      {/* One layout system: stacked full-width sections. Each id matches
+          SETTINGS_SECTIONS so the sticky jump nav is declarative (P1.2/P1.3). */}
       <div className="settings-layout" hidden={state.view !== 'settings'}>
-        <div
-          className="settings-column"
-          role="group"
-          aria-label="个人与界面设置"
-        >
-          <div id="settings-identity">
-            <SelfPlayerSettings report={report} />
-          </div>
-          <div id="settings-startup">
-            <StartupSettings />
-          </div>
+        <div id="settings-identity" className="settings-section">
+          <SelfPlayerSettings report={report} />
+        </div>
+        <div id="settings-startup" className="settings-section">
+          <StartupSettings />
           <section className="settings-card">
             <h2>窗口与显示</h2>
             <p>
@@ -171,8 +167,8 @@ function SettingsBody({ state }: { state: AppState }) {
           </section>
         </div>
         <div
-          className="settings-column"
           id="settings-import"
+          className="settings-section"
           role="group"
           aria-label="联动与存档导入"
         >
@@ -186,10 +182,12 @@ function SettingsBody({ state }: { state: AppState }) {
           </SessionPage>
           <SettingsImport state={state} />
         </div>
+        <div className="settings-section">
+          <SessionPage active={state.view === 'settings'} label="档案与备份">
+            <ArchiveSettings />
+          </SessionPage>
+        </div>
       </div>
-      <SessionPage active={state.view === 'settings'} label="档案与备份">
-        <ArchiveSettings />
-      </SessionPage>
       {state.view === 'settings' && (
         <>
           {state.initialLibrary.error && (
@@ -270,7 +268,11 @@ function SettingsBody({ state }: { state: AppState }) {
         </div>
       ) : null}
       {report ? (
-        <div hidden={state.view !== 'settings'} id="settings-health">
+        <div
+          hidden={state.view !== 'settings'}
+          id="settings-health"
+          className="settings-section"
+        >
           <SessionPage active={state.view === 'settings'} label="数据健康">
             <DataHealth
               health={state.health}
