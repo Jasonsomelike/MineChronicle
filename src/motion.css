@@ -157,8 +157,11 @@ details > summary::-webkit-details-marker {
   .metric-grid article,
   .ranking li,
   /* The ruler's fills grow from zero on load. Under reduced motion they simply
-     appear at their measured width, which is the whole information. */
+     appear at their measured width, which is the whole information. The ranking
+     bar draws the same measurement against the same scale, so it is named here
+     too rather than leaning on the global reset alone. */
   .ruler-fill,
+  .rank-fill,
   .save-feedback,
   .setting-badge {
     animation: none !important;

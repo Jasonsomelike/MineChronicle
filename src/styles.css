@@ -1169,6 +1169,54 @@ footer {
 .rank-duration svg {
   color: var(--text-muted);
 }
+/* The ranking row's proportional bar.
+ *
+ * The row is rank / name / bar / value, and the bar is what stops the name and
+ * the value from being 1439px apart at the user's window width. It is not an
+ * underline: its fill is the row's play time as a percentage of the largest row
+ * in the same list, computed by `rowShare` in `src/lib/dashboard.ts` - the same
+ * helper the playtime ruler divides by, so a full-width bar means one thing on
+ * both surfaces. An underline that encoded nothing was removed from these rows
+ * in 8e2ed82; the measuring width is the difference.
+ *
+ * The track takes the slack and the other three columns size to their content,
+ * so the rail is as wide as the list allows and the value keeps the row's right
+ * edge. `flex-basis: auto` with a zero content width is what makes the rail
+ * absorb exactly the leftover rather than pushing the value off the row. */
+.rank-track {
+  display: block;
+  flex: 1 1 auto;
+  height: 12px;
+  min-width: 44px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+}
+.rank-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-bar);
+  /* Growing from the name's side, and from the left edge, so reading the bar
+     runs the same direction as reading the row. */
+  transform-origin: left center;
+  /* Shorter than the ruler's 650ms: this animates on every tab switch and on
+     every page of the list, so it is feedback rather than a set piece. */
+  animation: rank-fill-in var(--motion-base) var(--ease-standard) backwards;
+}
+@keyframes rank-fill-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+.rank-row-main {
+  /* `button` above is `display: block`, and a block child of a flex row will not
+     shrink below its text without this - a long world name would push the value
+     off the row instead of being ellipsised, which is what the rule on
+     `.ranking .text-button` is there to do. */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .health-summary {
   background: transparent;
   padding: 16px 0;
@@ -1244,9 +1292,6 @@ footer {
 @media (max-width: 620px) {
   .app-shell {
     padding: 0 18px;
-  }
-  header {
-    min-height: 60px;
   }
   main {
     margin-top: 20px;

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   summarize,
   rankingPanel,
+  rankingMax,
+  rowShare,
   RANKING_TABS,
   RANKING_TITLES,
 } from './dashboard';
@@ -195,6 +197,59 @@ describe('ranking panel wiring', () => {
       expect(
         RANKING_TITLES[dimension].startsWith(RANKING_TABS[dimension]),
       ).toBe(true);
+    }
+  });
+});
+
+/**
+ * The playtime ruler and the ranking row bars draw the same measurement, so they
+ * divide by the same number. These lock the shared scale: the ruler's own
+ * percentages and the row bars' both come from `rowShare`, and a second scale
+ * calculation appearing later is what these are here to catch.
+ *
+ * The ratio in the reference archive is extreme - 1449h 5m against 34 分钟 10 秒
+ * is about 2550:1 - so the small row legitimately reads under a hundredth of a
+ * percent. That is the honest reading, not a rounding bug.
+ */
+describe('the ranking scale shared by the ruler and the rows', () => {
+  const row = (ticks: bigint): Ranking => ({
+    name: String(ticks),
+    path: `D:/x/${ticks}`,
+    ticks,
+    shared: 0,
+    missing: false,
+  });
+
+  it('takes the maximum from the head of the list, which summarize sorts', () => {
+    expect(rankingMax([row(500n), row(120n), row(3n)])).toBe(500n);
+  });
+
+  it('reports no scale at all for an empty or all-zero list', () => {
+    // An absent scale is the caller's signal to draw no bar. Returning a
+    // non-zero maximum here would make every row of a zeroed archive fill the
+    // track and claim a measurement the data does not support.
+    expect(rankingMax([])).toBe(0n);
+    expect(rankingMax([row(0n), row(0n)])).toBe(0n);
+    expect(rowShare(0n, 0n)).toBe(0);
+    expect(rowShare(10n, 0n)).toBe(0);
+  });
+
+  it('gives the largest row the full track and a single row its own full track', () => {
+    expect(rowShare(500n, 500n)).toBe(100);
+    expect(rowShare(9n, 9n)).toBe(100);
+  });
+
+  it('keeps two decimals, so a small row does not round away to nothing', () => {
+    const max = 104326476n;
+    // 41000 ticks against the archive maximum: 0.04%, not 0 and not a lie.
+    expect(rowShare(41000n, max)).toBe(0.03);
+    expect(rowShare(max, max)).toBe(100);
+    expect(rowShare(max / 2n, max)).toBe(50);
+  });
+
+  it('never exceeds a full track, however the rows are ordered', () => {
+    for (const ticks of [0n, 1n, 41000n, 104326476n]) {
+      expect(rowShare(ticks, 104326476n)).toBeLessThanOrEqual(100);
     }
   });
 });

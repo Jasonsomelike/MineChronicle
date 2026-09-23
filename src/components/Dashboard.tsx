@@ -1,6 +1,12 @@
 import { Fragment, useId, useMemo, useState } from 'react';
 import type { ScanSummary } from '../lib/scan';
-import { summarize, rankingPanel, RANKING_TABS } from '../lib/dashboard';
+import {
+  summarize,
+  rankingPanel,
+  rankingMax,
+  rowShare,
+  RANKING_TABS,
+} from '../lib/dashboard';
 import type { Ranking, RankingDimension } from '../lib/dashboard';
 import {
   formatTickTotal,
@@ -42,36 +48,70 @@ function RankingList({
   const listId = useId();
   const visible = rows.slice(0, visibleCount);
   const remaining = rows.length - visible.length;
+  // The same maximum the ruler above divides by, from the same helper. The bar
+  // only exists when there is a scale to draw it against; see `rankingMax`.
+  const max = rankingMax(rows);
   return (
     <section className="ranking" aria-label={title}>
       <h3>{title}</h3>
       {visible.length ? (
         <>
           <ol id={listId}>
-            {visible.map((r, index) => (
-              <li key={r.path}>
-                <button
-                  type="button"
-                  className="text-button rank-row-main"
-                  title={displayPath(r.path)}
-                  onClick={() => onOpen(r.path)}
-                >
-                  <span className="rank-number">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>{' '}
-                  {r.name}
-                  {r.shared > 1 ? '（共享）' : ''}
-                  {r.missing ? '（已缺失）' : ''}
-                </button>
-                <span
-                  className="rank-duration"
-                  title={formatTickTotal(r.ticks.toString())}
-                >
-                  {formatCompactTicks(r.ticks.toString())}
-                  <ArrowUpRight size={14} />
-                </span>
-              </li>
-            ))}
+            {visible.map((r, index) => {
+              const share = rowShare(r.ticks, max);
+              return (
+                <li key={r.path}>
+                  <button
+                    type="button"
+                    className="text-button rank-row-main"
+                    title={displayPath(r.path)}
+                    onClick={() => onOpen(r.path)}
+                  >
+                    <span className="rank-number">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>{' '}
+                    {r.name}
+                    {r.shared > 1 ? '（共享）' : ''}
+                    {r.missing ? '（已缺失）' : ''}
+                  </button>
+                  {/* A proportional bar in the gap the row used to leave empty.
+                      It is a measurement, not a rule: the width is the row's play
+                      time against the largest row in this list, so it answers
+                      "how big is this next to the biggest" at a glance and ties
+                      the name to the value on the far side of it. An underline
+                      that encoded nothing was removed here in 8e2ed82; this is
+                      the opposite thing and the width proves it.
+
+                      No bar when the list has no scale (`max` is zero): a track
+                      with nothing measurable in it would be the stray rule
+                      again. A row that really is zero fills 0% - the honest
+                      reading, since the duration beside it already says 0s.
+
+                      Missing worlds keep the rail. They carry no current reading,
+                      so their fill is 0% and the row already says so, both in the
+                      name's 已缺失 suffix and in the value column; suppressing the
+                      bar here would make those rows the only ones whose shape
+                      differs, which reads as a rendering fault rather than a
+                      statement. The rail is the same width on every row, so a row
+                      with nothing in it is still legible as "nothing to measure". */}
+                  {max > 0n ? (
+                    <span className="rank-track" aria-hidden="true">
+                      <span
+                        className="rank-fill"
+                        style={{ width: `${share}%` }}
+                      />
+                    </span>
+                  ) : null}
+                  <span
+                    className="rank-duration"
+                    title={formatTickTotal(r.ticks.toString())}
+                  >
+                    {formatCompactTicks(r.ticks.toString())}
+                    <ArrowUpRight size={14} />
+                  </span>
+                </li>
+              );
+            })}
           </ol>
           <div className="ranking-footer">
             <span aria-live="polite">
@@ -122,8 +162,10 @@ function PlaytimeRuler({
   rows: Ranking[];
   onOpen: (path: string) => void;
 }) {
-  // Rows arrive sorted by play time, so the first is the maximum.
-  const max = rows[0]?.ticks ?? 0n;
+  // Rows arrive sorted by play time, so the first is the maximum. Both this and
+  // the ranking bar read the scale from `rankingMax`/`rowShare`, so the two
+  // surfaces are one calculation rather than two that happen to agree today.
+  const max = rankingMax(rows);
   if (max <= 0n) return null;
   const marks = [0n, 1n, 2n, 3n, 4n].map((i) => (max * BigInt(i)) / 4n);
   // Dense instrument: more rows share one scale so the hero card fills with
@@ -145,9 +187,9 @@ function PlaytimeRuler({
         </div>
         <span />
         {visible.map((row) => {
-          // Percentage with two decimals, matching how the ranking chart scales its
-          // bars, so the ruler and the chart cannot disagree.
-          const share = Number((row.ticks * 10000n) / max) / 100;
+          // The same helper the ranking bar below uses, so the ruler and the
+          // list cannot disagree about what a full-width bar means.
+          const share = rowShare(row.ticks, max);
           return (
             <Fragment key={row.path}>
               <button

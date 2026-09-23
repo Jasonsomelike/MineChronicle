@@ -34,6 +34,32 @@ export const RANKING_TITLES: Record<RankingDimension, string> = {
 };
 
 /**
+ * The one scale every bar in the app is drawn against.
+ *
+ * Both the playtime ruler and the ranking rows plot the same rows, so they have
+ * to divide by the same number or the two surfaces will disagree about what a
+ * full-width bar means. `summarize` sorts each list descending, which makes the
+ * first row the maximum; a list that is empty or all zeros has no scale at all
+ * and `0n` is the caller's signal to draw no bar rather than a uniform full one.
+ */
+export function rankingMax(rows: Ranking[]): bigint {
+  return rows[0]?.ticks ?? 0n;
+}
+
+/**
+ * What percentage of the largest row a value is, to two decimals.
+ *
+ * Integer arithmetic and a two-decimal result: the value goes straight into a
+ * `width: %`, and rounding to whole numbers would make small rows all read 0
+ * next to a large one. The ruler and the row bars both call this, so a shared
+ * scale is a property of the code rather than a coincidence between two copies.
+ */
+export function rowShare(ticks: bigint, max: bigint): number {
+  if (max <= 0n) return 0;
+  return Number((ticks * 10000n) / max) / 100;
+}
+
+/**
  * Which list belongs under which tab.
  *
  * The dashboard's ranking switch and the panel under it used to be wired by
