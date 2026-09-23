@@ -250,9 +250,8 @@ main {
    report. `:where()` keeps this rule's specificity at the element level, so
    `.archive-settings input:not([type='checkbox'])`, `.self-player-input > input`
    and every other component rule still outrank it exactly as before. */
-:where(.scan-panel) :where(input, select):where(
-    :not([type='checkbox'], [type='radio'])
-  ) {
+:where(.scan-panel)
+  :where(input, select):where(:not([type='checkbox'], [type='radio'])) {
   min-width: 0;
   max-width: 100%;
   /* Matched to the button scale so a select and a button in one row sit flush.
