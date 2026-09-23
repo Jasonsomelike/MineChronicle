@@ -1044,11 +1044,13 @@ footer {
   display: grid;
   /* Two cards side by side: the career total as the hero, the observation figures as
      a compact sidebar. Both are cards, matching the ranking panel below, rather than
-     one being a card inside a bordered band. */
+     one being a card inside a bordered band.
+
+     Alignment is decided in warmth.css by `.dashboard .overview-grid`, which wins on
+     specificity. It is deliberately `start`: see the note there. Do not set it here. */
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: var(--space-5);
   margin-bottom: var(--space-5);
-  align-items: start;
 }
 .career-total {
   color: var(--text);
