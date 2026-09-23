@@ -450,15 +450,26 @@ body {
 .timeline-events time {
   font-variant-numeric: tabular-nums;
 }
+/* The duration chip's fill for a row whose kind has no colour of its own. This
+   rule ties on specificity (0,2,0) with styles.css's `.event-increment /
+   .event-rollback / .event-initial_import .event-duration`, so it decides nothing
+   for those three - but a `mixed` span matches none of them, and measured, this
+   is the declaration that paints it (`--surface-hover`, `#eff2f1` light and
+   `#2c3633` dark). Deleting it repainted the mixed chip as `--surface-tint`.
+   It is the neutral base, so it stays. */
 .timeline-events .event-duration {
   display: inline-block;
   border-radius: var(--radius-sm);
   padding: 3px 8px;
   background: var(--surface-hover);
 }
-.timeline-events .event-rollback .event-duration {
-  background: var(--surface-danger);
-}
+/* Removed: `.timeline-events .event-rollback .event-duration { background:
+   var(--surface-danger) }`. It is dead, not redundant. It scores (0,3,0) but has
+   to beat styles.css's `.event-rollback .event-duration` (0,2,0) - which is a
+   LATER rule in a LATER sheet that sets both `background` and `color`, so the
+   rollback chip is painted from there. Measured either way:
+   `rgb(253,236,235)` on `rgb(180,35,24)` light and `rgb(42,26,26)` on
+   `rgb(248,113,113)` dark, unchanged by the deletion. */
 .event-details {
   margin-top: 6px;
   color: var(--text-summary);
