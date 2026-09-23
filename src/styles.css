@@ -333,11 +333,12 @@ main {
 }
 .ruler-grid {
   display: grid;
-  /* Name / track / value. The track takes most of the width because it is the
-     measurement; the name column is capped so a long name cannot push the scale out
-     of alignment between rows. Rows are spaced well clear of each other so the
-     graduations read as one scale rather than as per-row stripes. */
-  grid-template-columns: minmax(96px, 1.1fr) minmax(0, 3fr) auto;
+  /* Name / track / value. The track is the measurement, so it takes the slack.
+     The name column was `minmax(96px, 1.1fr)`, a fraction of the grid - which handed
+     it 152px on the dashboard for names that are 52 to 85px wide, wasting 245px across
+     three rows. Sized to its content instead, and floored so a very long world name
+     cannot squeeze the track below a usable width. */
+  grid-template-columns: minmax(0, auto) minmax(120px, 1fr) auto;
   align-items: center;
   gap: var(--space-3) var(--space-3);
 }
