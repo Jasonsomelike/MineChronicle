@@ -148,13 +148,48 @@ export default function AppShell({
   const { view, navigate, activeSection, setActiveSection, runtime } = state;
   return (
     <div className="app-shell">
-      <header className="app-header">
+      {/* The brand, the primary navigation and the two residency labels used to be two
+          stacked horizontal bars pinned to the top of the window: 149px of chrome before
+          a single number was on screen. They are one left-hand rail now, so content
+          starts at the top of the window and the cost is width rather than height.
+
+          The rail has to be a single grid item. Declared as three separate grid rows, the
+          content column spans them and the grid spreads its surplus height across all
+          three - measured 501px/710px/518px rows, which left the nav half way down the
+          window and the labels 1212px below the fold.
+
+          Below 860px the rail stops being a box (`display: contents`) and its three
+          children reflow into a top strip in this same DOM order, so there is no second
+          copy of the navigation to keep in sync. */}
+      <div className="app-rail">
         <span className="wordmark">
           <span className="brand-mark">
             <Sprout size={23} aria-hidden="true" />
           </span>
-          MineChronicle
+          <span className="wordmark-label">MineChronicle</span>
         </span>
+        <nav className="app-nav" aria-label="档案页面">
+          {PAGE_IDS.map((id) => {
+            const Icon = PAGE_ICONS[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                /* Carries the name for a pointer when the rail collapses to icons at
+                   1100px. The visible label is the same string, so the two cannot drift
+                   apart. */
+                title={PAGE_LABELS[id]}
+                aria-current={view === id ? 'page' : undefined}
+                onClick={() => navigate(id)}
+              >
+                <Icon size={15} aria-hidden="true" />
+                {/* An element, not a bare text node, because the icon tier has to hide it
+                    and a text node cannot be selected. */}
+                <span className="app-nav-label">{PAGE_LABELS[id]}</span>
+              </button>
+            );
+          })}
+        </nav>
         <div className="header-tools">
           <span className="local-label" title="数据仅存本机，无账号无遥测">
             本地档案
@@ -166,28 +201,12 @@ export default function AppShell({
             托盘驻留
           </span>
         </div>
-      </header>
-      <main>
+      </div>
+      <main className="main-column">
         <section
           className="foundation scan-panel"
           aria-label="MineChronicle 档案"
         >
-          <nav className="app-nav" aria-label="档案页面">
-            {PAGE_IDS.map((id) => {
-              const Icon = PAGE_ICONS[id];
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  aria-current={view === id ? 'page' : undefined}
-                  onClick={() => navigate(id)}
-                >
-                  <Icon size={15} aria-hidden="true" />
-                  {PAGE_LABELS[id]}
-                </button>
-              );
-            })}
-          </nav>
           <StatusSummary state={state} />
           {view === 'settings' && (
             <nav className="settings-jump" aria-label="设置分区">

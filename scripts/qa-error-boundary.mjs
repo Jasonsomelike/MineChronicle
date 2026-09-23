@@ -3,8 +3,8 @@
  *
  * Run this while a component is temporarily made to throw (see the QA crash
  * injection in Statistics.tsx). It asserts that:
- *   1. the app shell (.app-header) is still rendered, i.e. the crash did not
- *      unmount the whole tree, and
+ *   1. the app shell is still rendered (its nav landmark and its seven page
+ *      buttons), i.e. the crash did not unmount the whole tree, and
  *   2. the boundary fallback is visible for that page.
  * Then it navigates to the same page without the crash flag and confirms the
  * page recovers (the resetKey retry path).
@@ -48,12 +48,12 @@ const page = await browser.newPage();
 await page.goto(crashUrl, { waitUntil: 'domcontentloaded' });
 await delay(2000);
 
-const header = await page.locator('.app-header').count();
+const shellNav = await page.locator('.app-shell .app-nav button').count();
 const fallback = await page.locator('.error-boundary').count();
 const alertText = fallback
   ? await page.locator('.error-boundary h2').innerText()
   : '';
-console.log(`crashed page: header=${header} fallback=${fallback}`);
+console.log(`crashed page: shellNavButtons=${shellNav} fallback=${fallback}`);
 if (alertText) console.log(`  fallback heading: ${alertText}`);
 
 // Same page without the crash flag: the boundary must retry and render.
@@ -68,7 +68,7 @@ console.log(
 await browser.close();
 
 const pass =
-  header > 0 && fallback > 0 && fallbackAfter === 0 && pageVisible > 0;
+  shellNav > 0 && fallback > 0 && fallbackAfter === 0 && pageVisible > 0;
 console.log(
   pass
     ? 'PASS: crash contained, shell survived, page recovered on revisit'

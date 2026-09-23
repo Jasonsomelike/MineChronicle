@@ -65,9 +65,6 @@
   --wash-a: #eef1f080;
   --wash-b: #e9efec80;
 
-  /* Header is translucent and blurs what scrolls under it. */
-  --header-surface: #f7f8f8ed;
-
   --text-status: #0b5c3e;
   --text-hint: #3d4a45;
   --text-caption: #52605a;
@@ -163,8 +160,6 @@
   --wash-a: #16201e80;
   --wash-b: #121a1880;
 
-  --header-surface: #0c100fed;
-
   --text-status: #5ce0ae;
   --text-hint: #a5b1ad;
   --text-caption: #a5b1ad;
@@ -224,13 +219,14 @@ body {
      to feel immediate, and the global reduced-motion rule disables it. */
   transition: background-color var(--motion-base) var(--ease-standard);
 }
-.app-header {
-  background: var(--header-surface);
-  backdrop-filter: blur(16px);
-  margin-inline: -28px;
-  padding-inline: 28px;
-  border-color: var(--warm-line);
-}
+/* The brand sits in the navigation rail now, on the page floor. It keeps the page
+   ground rather than taking a panel of its own: every other element in the app that
+   carries a surface is a card, and the chrome is not a card. The rail says "I am chrome"
+   with one hairline edge, drawn in styles/shell.css.
+
+   `--header-surface` is gone with it. It was a translucent copy of the page ground that
+   existed so the sticky header could blur what scrolled under it; nothing scrolls under
+   a column, so there is nothing to blur and no role to name. */
 .wordmark {
   gap: 10px;
   color: var(--text-label);
@@ -247,24 +243,36 @@ body {
 .wordmark .brand-mark svg {
   color: var(--warm-green);
 }
-.app-nav {
-  border-color: var(--warm-line);
-}
 .app-nav button {
-  border-radius: var(--radius-md);
-  padding: 0 var(--space-4);
-  /* Uses the shared control scale rather than its own 42px. The nav was the only
-     place on the page with a 42px control, so it sat one step off every button
-     below it. */
-  min-height: var(--control-sm);
+  border-radius: var(--radius-sm);
+  /* Transparent at rest, so the rail is a column of labels rather than a column of
+     boxes. The current page is the only filled chip in it. */
+  background: transparent;
+  color: var(--text-muted);
 }
+/* The rail's current page is a jade tint, not the jade fill.
+
+   The fill was right for a horizontal bar, where the current chip sat in a row of seven
+   and had to survive a glance from across the screen. In a vertical rail it would put a
+   solid green block in the top-left corner of every screen, next to a chart whose bars
+   are the same green - the accent would stop meaning "data". A tint plus the accent text
+   colour still separates the current item from six muted ones, and `--text-accent` on
+   `--surface-hover` is measured well past AA in both themes (verified by
+   scripts/qa-design-check.mjs). */
 .app-nav button[aria-current='page'] {
-  background: var(--surface-strong);
-  box-shadow: var(--shadow-nav);
+  background: var(--surface-hover);
+  color: var(--text-accent);
+  font-weight: 600;
 }
 .app-nav button:not([aria-current='page']):hover {
   background: var(--surface-hover);
-  color: var(--text-label);
+  color: var(--text-strong);
+}
+/* Hover pair for the current item. Was `--surface-strong-hover` with
+   `--text-on-strong`; both belonged to the filled-chip version. */
+.app-nav button[aria-current='page']:hover {
+  background: var(--surface-active);
+  color: var(--text-accent);
 }
 .status-center {
   background: var(--surface-sunken);
@@ -652,8 +660,13 @@ footer {
   .app-nav button svg {
     transition: transform var(--motion-base) ease;
   }
+  /* The rail is a column, so the confirm-the-target nudge goes sideways now. It was
+     `translateY(-2px) rotate(-5deg)`, which read as a lift for a chip in a horizontal
+     row; in a column a vertical nudge just crowds the item above it. Same
+     MOTION_INTENSITY 3 budget: one small movement, and the global reduced-motion reset
+     above still disables it. */
   .app-nav button:hover svg {
-    transform: translateY(-2px) rotate(-5deg);
+    transform: translateX(2px);
   }
   .scan-panel
     :is(.secondary-button, .ranking-switch button):active:not(:disabled) {
@@ -670,27 +683,16 @@ footer {
     transform: translateY(0);
   }
 }
-@media (max-width: 1100px) {
-}
+/* The 1100px and 760px blocks that used to tune the horizontal nav's gap, padding and
+   font size are gone. The rail's collapse is staged in styles/shell.css, which is the
+   sheet that owns chrome geometry; leaving responsive nav tweaks here as well is how the
+   two-sheet duplicate started in the first place (the card styles). */
 @media (max-width: 760px) {
-  .app-nav {
-    gap: 4px;
-  }
-  .app-nav button {
-    padding: 8px 10px;
-    font-size: var(--type-body);
-  }
   .status-center-hint {
     margin-left: 17px;
   }
   .dashboard .overview-grid {
     gap: 12px;
-  }
-}
-@media (max-width: 620px) {
-  .app-header {
-    margin-inline: -18px;
-    padding-inline: 18px;
   }
 }
 
@@ -766,7 +768,10 @@ footer {
   transition: background-color var(--motion-base) var(--ease-standard);
 }
 body,
-.app-header,
+.wordmark,
+.app-nav,
+.app-nav button,
+.header-tools,
 .settings-card,
 .ranking-switch,
 .theme-choice {

@@ -49,19 +49,22 @@
   --shadow-cutout: 0 0 0 2px var(--surface);
 
   --motion-reveal: 650ms;
-  /* Chrome heights, used as the sticky offsets so the three stacked bars cannot
-     overlap. Each is the real height of its element, and the element is pinned to it
-     rather than the other way round.
 
-     Both of these were wrong before: the header renders 53px while the token said 48,
-     and the nav's buttons moved from --control-sm to --control-md while its offset kept
-     using --control-sm, so at 145% zoom the primary nav sat 5px inside the header and
-     the section nav 15px inside the primary nav. */
-  --chrome-header: 56px;
-  /* The nav is its buttons plus its own vertical padding. */
-  /* Buttons plus the nav's own vertical padding, plus its 1px bottom border - which
-     is one pixel easy to forget and was enough to leave the section nav overlapping. */
-  --chrome-nav: calc(var(--control-md) + 2 * var(--space-2) + 1px);
+  /* Sidebar rail. The primary navigation became a left column, so the three chrome
+     heights this file used to carry (--chrome-header, --chrome-nav, and the
+     `--chrome-header + --chrome-nav` sum the section nav stacked on) are gone with the
+     elements that needed them. They are deleted rather than zeroed on purpose: a stale
+     offset is exactly the bug they were introduced to fix, and one left behind would be
+     invisible until the next person stacked something under the nav again.
+
+     What replaces them is one width, and the two derived values the settings section nav
+     still needs while it is sticky. */
+  --sidebar-w: 220px;
+  /* The rail's width when it drops the labels and keeps only the icons. 72 and not 64:
+     the two residency labels are four CJK characters each, which is 48px at
+     --type-caption, and a 64px rail minus its padding and border left 47px for them -
+     measured overflowing by 9px on both. */
+  --sidebar-w-compact: 72px;
 
   /* Retired. A single cap on a form page cannot be right: narrow leaves the right of
      the window empty, wide stretches the prose. The settings page uses two balanced

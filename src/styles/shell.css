@@ -1,19 +1,81 @@
-/* Shell chrome: header, primary nav, status strip, settings jump.
-   Compact vertical budget so 150% zoom leaves the first screen for content. */
+/* Shell chrome: the left navigation rail, the body-column layout, the status strip and
+   the settings section nav.
 
-.app-header {
-  min-height: var(--chrome-header);
-  padding: var(--space-2) 0;
-  gap: var(--space-3);
-  flex-wrap: nowrap;
-  background: var(--header-surface, var(--page));
-  backdrop-filter: blur(10px);
+   The primary navigation used to be two stacked horizontal bars (a 56px header and a
+   55px nav) pinned to the top of the window, which cost 149px of vertical budget on a
+   1200px-high window before a single number was on screen. It is a column now, so the
+   chrome at the top of the content is 0px and the same 149px is spent on width that a
+   2048px window has to spare.
+
+   Geometry only. Colours live in warmth.css. */
+
+/* The whole shell is one grid: a rail and a content column, with the footer across both.
+   `.app-shell` stays a block container (`container-type: inline-size`) inside the grid,
+   so the two `@container` blocks in styles.css keep working. */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  column-gap: var(--space-6);
+  /* Default `stretch`, deliberately: the rail's right edge is a full-height divider, so
+     a short rail next to tall content still reads as the page's spine. The rail's own
+     children are a flex column, so they stay at the top of it. */
+  align-items: stretch;
 }
 
+/* The rail is ONE grid item holding three things: the brand, the primary nav, the two
+   residency labels.
+
+   It has to be one item. With the brand, the nav and the labels as three separate grid
+   rows, the content column spans those rows, and a spanning item larger than their
+   combined content height makes the grid distribute the surplus across them: measured
+   `grid-template-rows: 501.8px 709.8px 517.8px`, which put the nav at y=502 and the
+   labels at y=1212, i.e. off the window entirely. `max-content` rows do not fix it -
+   the distribution happens precisely because the item's size exceeds their sum. */
+.app-rail {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* The one edge that says "this is chrome". Every other panel in the app is a card with
+     a border on all four sides; a rail that drew four would read as a third card
+     column. */
+  padding-right: var(--space-4);
+  border-right: 1px solid var(--border);
+}
+
+.main-column {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  /* `main` carries `margin: 16px auto 24px` from styles.css, added to centre it inside a
+     width cap that `.app-shell` has owned for a while - the comment above that rule even
+     says so. On a block-level box the auto inline margins do nothing; on a GRID ITEM
+     they stop it stretching to fill its area and size it to `fit-content` instead, which
+     floors at MIN-CONTENT.
+
+     That is not academic. At 620px with the observation page's disclosures open, the
+     content's min-content width is 643px inside a 584px column: the page gained 41px of
+     horizontal overflow. Measured `grid-template-columns: 524px 48px` with the item
+     643px wide, i.e. the tracks were right and the item refused to fit them. The grid
+     column is the width now, so the auto margins are not redundant, they are the bug. */
+  margin-inline: 0;
+}
+
+.app-shell > footer {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+/* --- Brand ---------------------------------------------------------------- */
+
 .wordmark {
-  font-size: var(--type-title);
+  display: flex;
+  align-items: center;
+  font-size: var(--type-lead);
   font-weight: 700;
   gap: var(--space-2);
+  padding-bottom: var(--space-5);
 }
 
 .wordmark .brand-mark svg {
@@ -21,43 +83,56 @@
   height: 20px;
 }
 
+/* The two residency labels sit at the foot of the rail's navigation, so they stack
+   rather than reading as a row of tags. */
 .header-tools {
-  gap: var(--space-3);
-  flex-wrap: nowrap;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* Twice the gap below the navigation, so the two facts are legibly separate from the
+     list of destinations without being pushed to the bottom of the document. */
+  padding-top: var(--space-8);
 }
 
 .local-label {
   white-space: nowrap;
 }
 
+/* --- The rail's navigation ------------------------------------------------ */
+
 .app-nav {
-  position: sticky;
-  /* Reserves exactly the height the section nav stacks on. */
-  min-height: var(--chrome-nav);
-  top: var(--chrome-header);
-  z-index: 24;
-  scroll-margin-top: calc(var(--chrome-header) + var(--chrome-nav));
-  /* Seven items were packing into the left 55% of a 1224px bar, leaving the rest of
-     the row empty and the pills small enough to be fiddly targets. The row is spread
-     across its width instead, with roomier pills. `space-between` rather than a fixed
-     gap because the bar's width is not known here, and the wrap still handles narrow
-     windows. */
-  justify-content: space-between;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  padding: var(--space-2) 0;
-  margin-bottom: var(--space-3);
-  background: var(--header-surface, var(--page));
-  backdrop-filter: blur(10px);
+  /* A column that scrolls with its content, which is also the right behaviour: the rail
+     is the top of the document, not a toolbar. It was `position: sticky` as a horizontal
+     bar; leaving that on would also make it a stacking context that the settings
+     section nav's `z-index: 20` could never rise above. */
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
 }
 
 .app-nav button {
-  min-height: var(--control-md);
-  padding: 0 var(--space-4);
-  gap: var(--space-2);
+  /* 36px, not --control-md: a vertical rail spends height on every item, and seven 38px
+     chips read as a list of buttons rather than as navigation. One step off the control
+     scale is deliberate, and the rail still clears the 28px chip step. */
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
   font-size: var(--type-body);
-  border-radius: var(--radius-md);
+  text-align: left;
+  white-space: nowrap;
 }
+
+.app-nav button > svg {
+  flex-shrink: 0;
+}
+
+/* --- The status strip ------------------------------------------------------ */
 
 .status-center {
   margin: 0 0 var(--space-3);
@@ -70,29 +145,140 @@
   font-size: var(--type-caption);
 }
 
+/* --- Settings section nav -------------------------------------------------- */
+
+/* Page-scoped, not app navigation: the five settings sections anchor within one page, so
+   they stay in the content column where they describe what they belong to. */
 .settings-jump {
-  /* Was `--chrome-header + --control-sm + --space-3`, which described a 28px nav that
-     no longer exists. Stacks on the nav's real height instead. */
-  top: calc(var(--chrome-header) + var(--chrome-nav));
+  /* Nothing is above it at the top of the window any more, so it pins to the very top.
+     It used to stack on `--chrome-header + --chrome-nav`. */
+  top: 0;
   padding: var(--space-1);
   margin: 0 0 var(--space-3);
 }
 
+/* Keeps the sticky section nav off the headings it scrolls to. No chrome above it now,
+   so this is the section nav's own height rather than a chrome sum. */
 [id^='settings-'] {
-  scroll-margin-top: calc(
-    var(--chrome-header) + var(--control-sm) + var(--control-sm) +
-      var(--space-4)
-  );
+  scroll-margin-top: calc(var(--control-sm) + var(--space-4));
 }
 
-@media (max-width: 760px) {
+/* --- Staged collapse -------------------------------------------------------
+   Three tiers, so the layout degrades on its own terms instead of being crushed.
+
+   1100px  the labelled rail is gone; a 64px icon rail keeps every destination one click
+           away. Placed here rather than lower because the settings page is a two-column
+           layout from 1400px down to 1332px, and below that a labelled rail would start
+           eating the width the two columns need.
+    860px  the rail is given up entirely and the same three elements reflow into a top
+           strip, in DOM order, with no second copy of the markup.
+    620px  the residency labels drop and the brand step comes down, so the strip stays a
+           strip.
+
+   Below 860px the primary nav intentionally stops sticking. Both it and the settings
+   section nav used to pin at once, and the section nav's `top` cannot be a constant when
+   the nav above it wraps to one or two rows: measured at 620px, a sticky nav occupied
+   0-85px while the section nav pinned at 16px and sat inside it. The one that stays
+   pinned is the one that is useful while scrolling a 2700px page; the primary nav is the
+   top of the document and scrolls with it. */
+
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: var(--sidebar-w-compact) minmax(0, 1fr);
+    column-gap: var(--space-4);
+  }
+  .app-rail {
+    padding-right: var(--space-3);
+  }
+  /* Icon-only, so the label would not fit on one line. It is removed from the box tree
+     rather than allowed to overflow, which is what it did while the label was a bare
+     text node: nothing could select it, so `display: none` had no target and seven
+     labels ran out of a 47px rail and over the content beside it. `title` on the button
+     is now the accessible name for these. */
+  .app-nav-label,
+  .wordmark-label {
+    display: none;
+  }
+  .wordmark {
+    justify-content: center;
+  }
+  .app-nav button {
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-3);
+  }
+  /* The rail stops being a box, so its three children become grid items of the shell and
+     land back in a top strip without a second copy of the markup. `display: contents` is
+     safe on a bare div: the caveat about dropping children from the accessibility tree
+     applies to elements that carry a role, and this one carries none. */
+  .app-rail {
+    display: contents;
+  }
+  .wordmark {
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: row;
+    justify-content: flex-start;
+    font-size: var(--type-lead);
+    padding-bottom: 0;
+  }
+  /* Both labels come back with the rail's width. */
+  .app-nav-label,
+  .wordmark-label {
+    display: inline;
+  }
+  .header-tools {
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
+    padding-top: 0;
+  }
+  .app-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    padding: 0 0 var(--space-2);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-3);
+  }
+  .app-nav button {
+    justify-content: center;
+    padding: 0 var(--space-3);
+  }
+  /* The content column and the footer keep their base placement for the wide layout, so
+     both have to be re-placed here. Leaving them on `grid-row: 1` / `grid-row: 2` put the
+     whole page in column 2 while the brand and the nav were crushed into column 1 -
+     measured at 620px, `main` 572px wide starting at the top of the window with the top
+     strip invisible. */
+  .main-column {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .app-shell > footer {
+    grid-row: 4;
+  }
+  [id^='settings-'] {
+    /* One extra step, for the content column's own top margin. */
+    scroll-margin-top: calc(var(--control-sm) + var(--space-6));
+  }
+}
+
+@media (max-width: 620px) {
   .header-tools .local-label:last-child {
     display: none;
   }
-  .app-nav button {
-    padding: 0 var(--space-2);
-  }
-  .wordmark {
-    font-size: var(--type-lead);
+  .wordmark .brand-mark {
+    width: 30px;
+    height: 30px;
   }
 }
