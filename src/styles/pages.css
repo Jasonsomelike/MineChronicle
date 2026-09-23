@@ -133,10 +133,21 @@
   color: var(--warning);
 }
 
+/* Four facts across, and told to take the rest of the row. As a 2x2 grid inside a
+   flex parent it sized to its own content, so the panel's right half sat empty
+   beside it. */
 .observation-facts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex: 1 1 520px;
   gap: var(--space-3) var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .observation-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex-basis: 100%;
+  }
 }
 
 .observation-facts > div {
@@ -383,4 +394,16 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
+}
+
+/* The figure the instance list is ordered by. Shown so the order is legible rather
+   than something the reader has to trust. */
+.instance-ticks,
+.folder-ticks {
+  margin-left: var(--space-2);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

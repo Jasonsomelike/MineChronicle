@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { PclLink, ScanSummary } from '../lib/scan';
 import { displayPath, pathKey } from '../lib/path';
+import { worldTicks } from '../lib/worlds';
+import { formatPlayTicks } from '../lib/duration';
 import { ArrowUpRight } from 'lucide-react';
 import type { PclSyncStatus } from '../lib/pclSync';
 
@@ -63,6 +65,45 @@ export default function PclInstances({
       });
     groups.get(key)?.instances.push(instance);
   }
+  /**
+   * Play ticks reachable through a game root. Two instances on the same root share
+   * these worlds, so callers dedupe by root before summing rather than adding each
+   * instance's figure.
+   */
+  const ticksForRoot = (gameRoot: string) =>
+    (
+      report.roots.find((r) => pathKey(r.path) === pathKey(gameRoot))?.worlds ??
+      []
+    ).reduce((sum, world) => sum + worldTicks(world), 0n);
+  const groupTicks = (instances: ScanSummary['instances']) => {
+    const seen = new Set<string>();
+    let sum = 0n;
+    for (const instance of instances) {
+      const key = pathKey(instance.game_root);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      sum += ticksForRoot(instance.game_root);
+    }
+    return sum;
+  };
+  /** Longest first; ties fall back to the name so the list is stable. */
+  const orderedGroups = [...groups.entries()]
+    .map(([key, group]) => ({
+      key,
+      group,
+      ticks: groupTicks(group.instances),
+      instances: [...group.instances].sort((a, b) => {
+        const delta = ticksForRoot(b.game_root) - ticksForRoot(a.game_root);
+        if (delta !== 0n) return delta > 0n ? 1 : -1;
+        return a.name.localeCompare(b.name, 'zh-CN');
+      }),
+    }))
+    .sort((a, b) => {
+      const delta = b.ticks - a.ticks;
+      if (delta !== 0n) return delta > 0n ? 1 : -1;
+      return a.group.name.localeCompare(b.group.name, 'zh-CN');
+    });
+
   const matchedCount = report.instances.filter(matchesQuery).length;
   const total = report.instances.length;
   return (
@@ -79,8 +120,8 @@ export default function PclInstances({
           placeholder="名称、Minecraft 版本或加载器"
         />
       </label>
-      {[...groups.entries()].map(([key, group], index) => {
-        const matches = group.instances.filter(matchesQuery);
+      {orderedGroups.map(({ key, group, ticks, instances }, index) => {
+        const matches = instances.filter(matchesQuery);
         if (searching && !matches.length) return null;
         return (
           <details
@@ -98,6 +139,11 @@ export default function PclInstances({
           >
             <summary>
               {group.name} · {group.instances.length} 个实例
+              {ticks > 0n ? (
+                <span className="folder-ticks">
+                  {formatPlayTicks(ticks.toString())}
+                </span>
+              ) : null}
             </summary>
             <p className="world-path">{displayPath(group.path)}</p>
             {!group.instances.length ? (
@@ -112,6 +158,14 @@ export default function PclInstances({
               return (
                 <article key={instance.instance_path} className="instance-row">
                   <strong>{instance.name}</strong>
+                  {(() => {
+                    const ticks = ticksForRoot(instance.game_root);
+                    return ticks > 0n ? (
+                      <span className="instance-ticks">
+                        {formatPlayTicks(ticks.toString())}
+                      </span>
+                    ) : null;
+                  })()}
                   {sync?.last_checked &&
                   !sync.issues.length &&
                   !sync.current_instances.some(

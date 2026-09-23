@@ -1700,11 +1700,19 @@ footer {
   font-family: var(--font-mono);
 }
 .event-increment .event-duration {
-  color: var(--text-label);
+  /* A gain is the thing the row exists to report, so it takes the accent fill.
+     It used to differ from the neutral chip only by a slightly warmer text colour,
+     which left losses marked in red and gains marked in almost nothing - the page
+     read as dead because the good news was the quietest thing on it. Measured
+     5.85:1 light and 8.44:1 dark against this fill. */
+  background: var(--success-surface);
+  color: var(--success);
+  font-weight: 600;
 }
 .event-rollback .event-duration {
   background: var(--danger-surface);
   color: var(--danger);
+  font-weight: 600;
 }
 .event-initial_import .event-duration {
   background: var(--surface-sunken);
@@ -2374,10 +2382,17 @@ button.stat-icon:hover {
     padding: 10px 4px;
   }
 }
-.statistics-table small {
+/* The category/key line and the source line sit under their label, so they are
+   blocks. The unit suffix is not one of those: it belongs beside the number, and
+   while this rule caught it too the inline box split and every reading rendered as
+   two lines, doubling the row height of a 16,000-row table. Excluded by name. */
+.statistics-table small:not(.stat-unit) {
   display: block;
   color: var(--text-muted);
   margin-bottom: 4px;
+}
+.statistics-table .stat-unit {
+  color: var(--text-muted);
 }
 .statistics-table pre {
   white-space: pre-wrap;
@@ -2620,7 +2635,11 @@ button.stat-icon:hover {
   gap: var(--space-2) var(--space-6);
   margin: var(--space-4) 0;
   padding: var(--space-4) var(--space-5);
-  background: var(--surface-hover);
+  /* `--surface-tint` is the role this panel was meant to use; `--surface-hover` is a
+     hover state, and as a resting fill it made the summary look disabled. The border
+     gives it an edge so it reads as a defined panel rather than a wash. */
+  background: var(--surface-tint);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 /* The headline figure leads, because it is what the list below sums to. */

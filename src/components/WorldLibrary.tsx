@@ -1,24 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronsDownUp, Search, History, BarChart3 } from 'lucide-react';
 import type { ScanSummary, WorldSummary } from '../lib/scan';
-import { worldGroups } from '../lib/worlds';
+import { worldGroups, worldTicks, byPlayTimeDesc } from '../lib/worlds';
 import type { PageId } from '../app/routes';
 import { displayPath } from '../lib/path';
 import { formatPlayTicks } from '../lib/duration';
 import PlayerName from './PlayerName';
 import { SecondaryButton, TextButton, Tabs, Pagination } from './ui';
-function WorldTotal({ world }: { world: WorldSummary }) {
+function WorldTotal({
+  world,
+  maxTicks,
+}: {
+  world: WorldSummary;
+  maxTicks: bigint;
+}) {
   const readable = world.players.filter((p) => p.play_ticks !== null);
-  const total = readable.reduce(
-    (sum, player) => sum + BigInt(player.play_ticks as string),
-    0n,
-  );
+  const total = worldTicks(world);
+  // The bar used to be a fixed 55%, which made every world look the same size. It is
+  // now a share of the largest total in the list, so the lengths compare.
+  const share = maxTicks > 0n ? Number((total * 10000n) / maxTicks) / 100 : 0;
   return (
     <span className="world-total">
       {readable.length ? formatPlayTicks(total.toString()) : '—'}
       {readable.length ? (
         <span className="world-mini-bar" aria-hidden="true">
-          <i style={{ width: '55%' }} />
+          <i style={{ width: `${share}%` }} />
         </span>
       ) : null}
     </span>
@@ -28,6 +34,7 @@ function WorldTotal({ world }: { world: WorldSummary }) {
 function World({
   world,
   instanceName,
+  maxTicks,
   search,
   busy,
   saved,
@@ -38,6 +45,7 @@ function World({
 }: {
   world: WorldSummary;
   instanceName?: string;
+  maxTicks: bigint;
   search: boolean;
   busy: boolean;
   saved: boolean;
@@ -66,7 +74,7 @@ function World({
             {instanceName}
           </span>
         ) : null}
-        <WorldTotal world={world} />
+        <WorldTotal world={world} maxTicks={maxTicks} />
         <span className="world-status">
           {world.status === 'Missing'
             ? '目录已缺失 · 历史保留'
@@ -148,12 +156,25 @@ export default function WorldLibrary({
 }) {
   const groups = useMemo(() => worldGroups(report, query), [report, query]);
   const [mode, setMode] = useState<'flat' | 'grouped'>('flat');
+  // Longest first. The page is a reading of how much each world has been played, so
+  // ordering by name buried the answer; `worldGroups` still sorts the grouped view by
+  // name, which is right for a folder tree.
   const flatWorlds = useMemo(
     () =>
-      groups.flatMap((g) =>
-        g.worlds.map((world) => ({ world, instanceName: g.name })),
-      ),
+      groups
+        .flatMap((g) =>
+          g.worlds.map((world) => ({ world, instanceName: g.name })),
+        )
+        .sort(byPlayTimeDesc),
     [groups],
+  );
+  const maxWorldTicks = useMemo(
+    () =>
+      flatWorlds.reduce(
+        (max, w) => (worldTicks(w.world) > max ? worldTicks(w.world) : max),
+        0n,
+      ),
+    [flatWorlds],
   );
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
@@ -286,6 +307,7 @@ export default function WorldLibrary({
                 key={world.path}
                 world={world}
                 instanceName={instanceName}
+                maxTicks={maxWorldTicks}
                 search={search}
                 busy={busy}
                 saved={report.saved}
@@ -338,6 +360,9 @@ export default function WorldLibrary({
                         <World
                           key={world.path}
                           world={world}
+                          // The same maximum as the flat view, so a bar means the same
+                          // length in both modes.
+                          maxTicks={maxWorldTicks}
                           search={search}
                           busy={busy}
                           saved={report.saved}
