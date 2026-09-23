@@ -407,3 +407,17 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* Pseudo-server time on an instance row. Deliberately quieter than the world totals it
+   sits near: this is not play time the archive recorded, it is time the instance ran
+   with no world progress, and the two must not read as the same fact. */
+.instance-pseudo {
+  margin: 4px 0 0;
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+}
+.instance-pseudo-value {
+  color: var(--text-label);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

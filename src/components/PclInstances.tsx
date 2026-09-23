@@ -5,6 +5,8 @@ import { worldTicks } from '../lib/worlds';
 import { formatPlayTicks } from '../lib/duration';
 import { ArrowUpRight } from 'lucide-react';
 import type { PclSyncStatus } from '../lib/pclSync';
+import type { TrackingSummary } from '../lib/tracking';
+import { formatSeconds } from '../lib/duration';
 
 export function folderOf(path: string) {
   return pathKey(path)
@@ -16,11 +18,13 @@ export default function PclInstances({
   report,
   link,
   sync,
+  tracking,
   onOpen,
 }: {
   report: ScanSummary;
   link: PclLink | null;
   sync: PclSyncStatus | null;
+  tracking: TrackingSummary | null;
   onOpen: (path: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -103,6 +107,23 @@ export default function PclInstances({
       if (delta !== 0n) return delta > 0n ? 1 : -1;
       return a.group.name.localeCompare(b.group.name, 'zh-CN');
     });
+
+  /**
+   * Pseudo-server seconds per game root: time an instance was observed running while
+   * none of its worlds progressed, which is play whose statistics the archive cannot
+   * see. Keyed by normalised root because that is what the instance rows group on.
+   */
+  const pseudoByRoot = new Map<string, bigint>();
+  for (const entry of tracking?.pseudo ?? []) {
+    if (!entry.seconds) continue;
+    const key = pathKey(entry.game_root);
+    pseudoByRoot.set(
+      key,
+      (pseudoByRoot.get(key) ?? 0n) + BigInt(entry.seconds),
+    );
+  }
+  const pseudoFor = (gameRoot: string) =>
+    pseudoByRoot.get(pathKey(gameRoot)) ?? 0n;
 
   const matchedCount = report.instances.filter(matchesQuery).length;
   const total = report.instances.length;
@@ -190,6 +211,25 @@ export default function PclInstances({
                   <p className="world-path">
                     游戏根目录：{displayPath(instance.game_root)}
                   </p>
+                  {(() => {
+                    const seconds = pseudoFor(instance.game_root);
+                    if (seconds <= 0n) return null;
+                    // Labelled in full rather than shown as a bare duration: this is
+                    // wall-clock time with no world progress, not play time the
+                    // statistics recorded, and the two must not be confused.
+                    return (
+                      <p className="instance-pseudo">
+                        伪服务器时长{' '}
+                        <span className="instance-pseudo-value">
+                          {formatSeconds(seconds.toString())}
+                        </span>
+                        <span className="scan-note">
+                          {' '}
+                          · 实例运行但世界无进度，统计不在本档案内
+                        </span>
+                      </p>
+                    );
+                  })()}
                   {root?.worlds.length ? (
                     <ul className="instance-worlds">
                       {root.worlds.map((w) => (

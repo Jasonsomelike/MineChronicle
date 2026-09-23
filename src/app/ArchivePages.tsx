@@ -473,6 +473,7 @@ export default function ArchivePages({ state }: { state: AppState }) {
               report={report}
               link={pcl}
               sync={pclStatus}
+              tracking={tracking}
               onOpen={(path) => {
                 setWorldQuery(path);
                 navigate('worlds');
