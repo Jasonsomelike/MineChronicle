@@ -514,7 +514,7 @@ Run before delivering. **Not optional.** A box you cannot tick honestly is a def
 - [ ] `npm run verify` exits 0?
 - [ ] Four Playwright suites pass?
 - [ ] Snapshot: 0 real differences, with the actual noise count reported?
-- [ ] Installed build reports the new version in `last-startup.json`?
+- [x] Installed build reports the new version in `last-startup.json`? (0.10.24, 2026-09-23)
 
 ---
 
