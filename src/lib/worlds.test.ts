@@ -1,5 +1,10 @@
 import { expect, it } from 'vitest';
-import { worldGroups, worldTicks, byPlayTimeDesc } from './worlds';
+import {
+  worldGroups,
+  worldTicks,
+  byPlayTimeDesc,
+  byPlayTimeDescWorld,
+} from './worlds';
 import type { ScanSummary, WorldSummary } from './scan';
 
 const root = String.raw`\\?\D:\Games\.minecraft`;
@@ -134,5 +139,74 @@ it('breaks ties by name so the order is stable between reads', () => {
   expect(rows.sort(byPlayTimeDesc).map((r) => r.world.name)).toEqual([
     'A',
     'B',
+  ]);
+});
+
+const plugin = (path: string, ticks: string): WorldSummary => ({
+  path,
+  name: path.split('\\').pop() ?? path,
+  status: 'Present',
+  data_version: null,
+  minecraft_version: null,
+  players: [
+    {
+      uuid: `uuid-${path}`,
+      preferred_name: null,
+      name_source: null,
+      play_ticks: ticks,
+      initial_play_ticks: null,
+      source_paths: [],
+      conflicting: false,
+    },
+  ],
+});
+
+/** Two roots whose name order is the reverse of their play order. */
+const twoRoots = (): ScanSummary => ({
+  instances: [],
+  roots: [
+    {
+      path: String.raw`\?\D:\Games\aaa`,
+      requested_paths: [],
+      enumeration_complete: true,
+      worlds: [plugin(String.raw`\?\D:\Games\aaa\saves\one`, '60')],
+    },
+    {
+      path: String.raw`\?\D:\Games\zzz`,
+      requested_paths: [],
+      enumeration_complete: true,
+      worlds: [
+        plugin(String.raw`\?\D:\Games\zzz\saves\big`, '90000'),
+        plugin(String.raw`\?\D:\Games\zzz\saves\small`, '20'),
+      ],
+    },
+  ],
+  issues: [],
+  cancelled: false,
+  saved: false,
+  database_path: null,
+  last_scan: null,
+  historical_ticks: '0',
+});
+
+it('orders folder groups by play time, longest first', () => {
+  const groups = worldGroups(twoRoots(), '');
+  // "zzz" holds 90000 ticks and "aaa" holds 60. Alphabetically aaa came first, which
+  // is what the grouped view used to show.
+  expect(groups.map((g) => g.root.path.endsWith('zzz'))).toEqual([true, false]);
+});
+
+it('orders the worlds inside a root by play time too', () => {
+  const groups = worldGroups(twoRoots(), '');
+  const zzz = groups.find((g) => g.root.path.endsWith('zzz'));
+  expect(zzz?.worlds.map((w) => w.name)).toEqual(['big', 'small']);
+});
+
+it('orders bare worlds the same way the wrapped comparator does', () => {
+  const big = plugin(String.raw`\\?\\D:\\zw\\big`, '90000');
+  const small = plugin(String.raw`\\?\\D:\\zw\\small`, '20');
+  expect([small, big].sort(byPlayTimeDescWorld).map((w) => w.name)).toEqual([
+    'big',
+    'small',
   ]);
 });

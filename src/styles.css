@@ -1862,14 +1862,16 @@ footer {
   color: var(--text-label);
 }
 .stat-icon {
-  /* Was 56px. The sprite is a 16x16 texture, so that was a 3.5x upscale with no extra
-     detail, and at 56px it set the row height to 65px for every one of 16,000 rows
-     and pushed the value and source columns onto different lines from the name. */
-  width: 28px;
-  height: 28px;
-  min-height: 28px;
-  padding: 2px;
-  flex: 0 0 28px;
+  /* 56px set the row height to 65px for every one of 16,000 rows and pushed the value
+     and source columns onto different lines from the name, so it came down. 28px was
+     too far the other way - the sprite is the only visual identity the row has and it
+     read as cramped. 40px keeps the alignment fix, because the label column is still
+     taller than the icon, without shrinking the drawing into a smudge. */
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 3px;
+  flex: 0 0 40px;
   display: grid;
   place-items: center;
   color: var(--text-muted);
@@ -1882,8 +1884,8 @@ button.stat-icon:hover {
   border-color: var(--border-strong);
 }
 .stat-sprite {
-  width: 24px;
-  height: 24px;
+  width: 34px;
+  height: 34px;
   display: block;
   object-fit: contain;
   image-rendering: auto;

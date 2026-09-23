@@ -30,6 +30,13 @@ export function byPlayTimeDesc<T extends { world: WorldSummary }>(
   return a.world.name.localeCompare(b.world.name, 'zh-CN');
 }
 
+/** The same ordering for a bare world, for lists not wrapped in a row object. */
+export function byPlayTimeDescWorld(a: WorldSummary, b: WorldSummary): number {
+  const delta = worldTicks(b) - worldTicks(a);
+  if (delta !== 0n) return delta > 0n ? 1 : -1;
+  return a.name.localeCompare(b.name, 'zh-CN');
+}
+
 export function worldGroups(report: ScanSummary, query: string) {
   const text = pathKey(query.trim());
   const instances = new Map<string, string[]>();
@@ -64,9 +71,22 @@ export function worldGroups(report: ScanSummary, query: string) {
       };
     })
     .filter((g) => g.worlds.length)
-    .sort(
-      (a, b) =>
+    .map((g) => ({
+      ...g,
+      // Longest first inside a root as well, so the grouped view reads the same way the
+      // flat one does instead of falling back to whatever order the scan produced.
+      worlds: [...g.worlds].sort(byPlayTimeDescWorld),
+      ticks: g.worlds.reduce((sum, world) => sum + worldTicks(world), 0n),
+    }))
+    .sort((a, b) => {
+      // Longest first, by the root's total. This sorted by name, which on a real
+      // archive buried the folders holding the play time under folders holding one
+      // world each.
+      const delta = b.ticks - a.ticks;
+      if (delta !== 0n) return delta > 0n ? 1 : -1;
+      return (
         a.name.localeCompare(b.name, 'zh-CN') ||
-        a.root.path.localeCompare(b.root.path),
-    );
+        a.root.path.localeCompare(b.root.path)
+      );
+    });
 }
