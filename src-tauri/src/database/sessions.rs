@@ -41,6 +41,12 @@ pub struct ObservationQuery {
     pub status: String,
     pub boundary: Option<i64>,
     pub snapshot: Option<String>,
+    /// Which page of each instance's own records to return, newest first.
+    ///
+    /// Absent means page 1. This replaced a page number that addressed the whole
+    /// filtered set: one pager over every instance could only ever describe a
+    /// list spanning instances the reader was not looking at.
+    pub group_page: Option<i64>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ObservationInstance {
@@ -58,7 +64,7 @@ pub struct ObservationInstance {
 pub struct ObservationGroup {
     pub game_root: String,
     pub name: String,
-    /// Sessions in this group on the current page, newest first.
+    /// Sessions in this group on this group's own page, newest first.
     pub sessions: Vec<ObservedSession>,
     /// Total sessions for this instance across all history, not just this page.
     pub session_count: i64,
@@ -69,6 +75,52 @@ pub struct ObservationGroup {
     pub unknown_sessions: i64,
     /// Sessions excluded because a first local baseline could not be attributed.
     pub baseline_sessions: i64,
+    /// Which page of *this instance's* records `sessions` holds.
+    pub page: i64,
+    /// How many pages this instance's records span at the current page size.
+    pub page_count: i64,
+}
+
+/// Fill in each group's own page: how many pages it spans, which one is showing,
+/// and the rows that belong to it.
+///
+/// Every instance is paged on its own cursor, so advancing one instance leaves the
+/// others where they were. That is the whole point: a single pager spanning every
+/// instance is what made 「第 1 / 3 页 · 共 43 条」 describe a list the reader was
+/// not looking at.
+///
+/// `group_page` is one number for all groups because a reader moves one pager at a
+/// time. A group that does not span the requested page clamps to its own last
+/// page, so every rendered pager still shows a page that exists.
+pub(crate) fn assign_group_pages(
+    groups: Vec<ObservationGroup>,
+    filtered: &[ObservedSession],
+    group_page: Option<i64>,
+    page_size: i64,
+) -> Vec<ObservationGroup> {
+    let size = page_size.max(1);
+    let requested = group_page.unwrap_or(1).max(1);
+    let pages = |count: i64| ((count + size - 1) / size).max(1);
+    groups
+        .into_iter()
+        .map(|mut group| {
+            // `filtered` is the whole filtered set in the same newest-first order
+            // the group's rows are in, so an instance's own page is a skip/take
+            // over its occurrences and needs no knowledge of any other instance.
+            let rows = filtered
+                .iter()
+                .filter(|session| session.game_root == group.game_root);
+            let count = rows.clone().count() as i64;
+            group.page = requested.min(pages(count));
+            group.page_count = pages(count);
+            group.sessions = rows
+                .skip(((group.page - 1) * size) as usize)
+                .take(size as usize)
+                .cloned()
+                .collect();
+            group
+        })
+        .collect()
 }
 
 /// What a manual end time is allowed to be, for one session.
@@ -205,6 +257,11 @@ pub(crate) fn group_sessions(sessions: &[ObservedSession]) -> Vec<ObservationGro
                 seconds: String::new(),
                 unknown_sessions: 0,
                 baseline_sessions: 0,
+                // Totals only. Which page of the instance's records to return is
+                // decided by `assign_group_pages`, which is the only place that
+                // knows the page size and the requested page.
+                page: 1,
+                page_count: 1,
             }
         });
         entry.session_count += 1;
@@ -565,16 +622,9 @@ impl Repository {
             })
             .collect();
         let mut groups = group_sessions(&history);
-        // Attach this page's rows to their group. `group_sessions` only computes
-        // totals, so without this every group would render collapsed with nothing
-        // to expand.
-        for group in &mut groups {
-            group.sessions = sessions
-                .iter()
-                .filter(|s| s.game_root == group.game_root)
-                .cloned()
-                .collect();
-        }
+        // Each instance slices its own records; no group's page depends on
+        // another's, and the global `page` no longer moves group contents.
+        groups = assign_group_pages(groups, &history, query.group_page, page_size);
         let result = ObservedSessionsPage {
             groups,
             sessions,

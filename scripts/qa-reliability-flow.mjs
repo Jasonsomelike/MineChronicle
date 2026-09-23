@@ -5,6 +5,25 @@ import { chromium } from 'playwright-core';
 import { backend } from './qa-fixtures.mjs';
 import { installObservationFixture } from './qa-observation-fixture.mjs';
 
+/**
+ * Poll a locator's rendered text against a pattern.
+ *
+ * `playwright-core` ships no `expect`, and the built-in `assert` cannot poll. The
+ * instance groups are collapsed when this is used, so a visibility-filtered
+ * locator would never resolve: `textContent` is read directly instead.
+ */
+async function waitText(locator, pattern, timeout = 15000) {
+  const deadline = Date.now() + timeout;
+  let seen = '';
+  for (;;) {
+    seen = (await locator.textContent()) ?? '';
+    if (pattern.test(seen)) return seen;
+    if (Date.now() > deadline)
+      throw new Error(`timed out waiting for ${pattern}; last text: ${seen}`);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 fs.mkdirSync('output/playwright/reliability', { recursive: true });
 try {
@@ -97,7 +116,21 @@ try {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('http://127.0.0.1:1420/#/observation');
-  await page.getByRole('status').filter({ hasText: '第 1 / 3 页' }).waitFor();
+  // Pagination is per instance, so the pager under test is `D:\QA\root`'s own. It
+  // holds 36 of the fixture's 51 records over 2 pages; `D:\QA\server` holds 15
+  // over 1. The groups start collapsed, so the pager's text is in the DOM but
+  // nothing is rendered, which is why this reads `textContent` rather than using
+  // a visibility-filtered locator.
+  const group = (name) =>
+    page.locator('.observed-group').filter({ hasText: name });
+  const pagerText = (name) =>
+    group(name).locator('.observation-group-pagination span');
+  await waitText(pagerText('QA Instance'), /第 1 \/ 2 页 · 共 36 条/);
+  // The pager's text can appear while the page is still settling (the previous
+  // fixture revision is rendered before the post-mount read lands), and this
+  // assertion counts calls. Let the mount finish so `before` is a settled number
+  // rather than a snapshot taken mid-flight.
+  await page.waitForTimeout(800);
   const before = await page.evaluate(
     () => window.__qa.counts.observed_sessions_page,
   );
@@ -116,27 +149,43 @@ try {
     window.__qa.revision++;
   });
   await page.getByRole('button', { name: /有 1 条新观测/ }).waitFor();
-  await page.getByRole('button', { name: '下一页', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: '第 2 / 3 页' }).waitFor();
-  // Groups start collapsed, so the rows' text is in the DOM but not rendered and
-  // `innerText` would return only the summaries. Open them before reading rows.
+  // The list-level pager is gone: 上一页 / 下一页 now belong to an instance, so a
+  // bare `getByRole('button', { name: '下一页' })` would match two groups' buttons
+  // and Playwright's strict mode would refuse to click either. The groups are open
+  // by this point, so the buttons are rendered and the click is a real one.
   await page.evaluate(() => {
     document
       .querySelectorAll('.observed-group:not([open])')
       .forEach((group) => group.setAttribute('open', ''));
   });
+  await group('QA Instance')
+    .getByRole('button', { name: '下一页', exact: true })
+    .click();
+  await waitText(pagerText('QA Instance'), /第 2 \/ 2 页 · 共 36 条/);
   // Rows are identified by their start time now that the instance name heads a
-  // group instead of appearing on every row. id 32 is the last record of page 1 and
-  // id 31 the first of page 2, so their timestamps (00:32 and 00:31) mark the
-  // boundary without depending on the instance name.
-  assert.match(
-    await page.locator('.observed-sessions').innerText(),
-    /08:31:00/,
+  // group instead of appearing on every row. Measured, not derived: the fixture's
+  // `at()` is indexed by position while its `id` is `51 - i`, so a session's id is
+  // not its minute offset. `D:\QA\root` holds 36 records, its own page 1 is
+  // 08:51 down to 08:32, and its own page 2 is 08:16 down to 08:01.
+  //
+  // The assertion this replaces matched /08:31:00/ and rejected /08:32:00/ - a
+  // *list-wide* boundary that no longer describes anything. With per-instance
+  // pagers the boundary is the instance's own.
+  assert.match(await group('QA Instance').innerText(), /08:16:00/);
+  assert.match(await group('QA Instance').innerText(), /08:01:00/);
+  // The discriminating assertion: `D:\QA\server` was never paged, so it still shows
+  // its whole first page. Its oldest record (08:17) must not appear under
+  // `D:\QA\root`, and `D:\QA\root`'s 16 rows here are exactly one page of that
+  // instance. Under a shared cursor either the count or the membership changes.
+  assert.doesNotMatch(await group('QA Instance').innerText(), /08:17:00/);
+  assert.equal(
+    await group('QA Instance').locator('tbody tr').count(),
+    16,
+    'page 2 of one instance holds that instance\u2019s own remainder',
   );
-  assert.doesNotMatch(
-    await page.locator('.observed-sessions').innerText(),
-    /08:32:00/,
-  );
+  // `D:\QA\server` was never paged, so its first page is still on screen. Without
+  // this the suite would pass with one cursor shared by every instance.
+  await waitText(pagerText('香草纪元：食旅纪行'), /第 1 \/ 1 页 · 共 15 条/);
   // The filters live in a drawer that is collapsed while nothing is filtering, so
   // open it before reaching for a control inside it - the same first step a user
   // takes. The summary states "未筛选" while collapsed, which the next assertion

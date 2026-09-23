@@ -130,22 +130,21 @@ impl ObservationCache {
             .filter_map(|i| live(snapshot.history.sessions[*i].id))
             .collect();
         // Groups cover the whole filtered set so a collapsed instance reports its
-        // real totals; only this page's rows are attached to each group. Built with
-        // the same helper as the direct query so the two cannot disagree.
+        // real totals; each group's rows are that instance's own requested page,
+        // so one instance paging forward does not move another's. Built with the
+        // same helper as the direct query so the two cannot disagree about what a
+        // group's page contains.
         let filtered: Vec<_> = snapshot
             .indices
             .iter()
             .filter_map(|i| live(snapshot.history.sessions[*i].id))
             .collect();
-        let mut groups = super::sessions::group_sessions(&filtered);
-        // Attach this page's rows; the groups' own totals stay whole-history.
-        for group in &mut groups {
-            group.sessions = rows
-                .iter()
-                .filter(|s| s.game_root == group.game_root)
-                .cloned()
-                .collect();
-        }
+        let groups = super::sessions::assign_group_pages(
+            super::sessions::group_sessions(&filtered),
+            &filtered,
+            query.group_page,
+            20,
+        );
         Ok(ObservedSessionsPage {
             groups,
             sessions: rows,

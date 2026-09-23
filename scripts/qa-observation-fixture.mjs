@@ -65,9 +65,14 @@ export function installObservationFixture(table) {
         if (qa.failLibrary) throw Error('QA temporary library failure');
       }
       if (command === 'observed_sessions_page') {
-        if (qa.failObservationPage === args.page)
-          throw Error('QA temporary observation failure');
         const query = args.query ?? {};
+        // The pager that can fail is an instance's own, so the failure is keyed
+        // on the instance page rather than the list page: `failObservationPage`
+        // used to mean "this page of the whole list", and the whole list no
+        // longer has pages.
+        const requestedGroupPage = query.group_page?.['D:\\QA\\root'] ?? 1;
+        if (qa.failObservationPage === requestedGroupPage)
+          throw Error('QA temporary observation failure');
         const boundary = query.boundary ?? qa.rows[0]?.id ?? 0;
         const filtered = qa.rows.filter(
           (s) =>
@@ -79,11 +84,13 @@ export function installObservationFixture(table) {
           1,
           Math.min(Math.max(1, Math.ceil(filtered.length / 20)), args.page),
         );
-        // Groups mirror what the backend now returns: totals across the whole
-        // filtered set, with only this page's rows attached. Built here so the
-        // collapsible view is exercised rather than falling back to the single
-        // synthetic group the component uses for older archives.
+        // Groups mirror what the backend returns: totals across the whole
+        // filtered set, with each instance carrying its OWN page of records.
+        // `group_page` is a map keyed by game_root because one instance paging
+        // forward must not move another instance's page - the bug this fixture
+        // exists to catch.
         const pageRows = filtered.slice((page - 1) * 20, page * 20);
+        const groupPage = query.group_page ?? null;
         const byRoot = new Map();
         for (const row of filtered) {
           const entry = byRoot.get(row.game_root) ?? {
@@ -94,6 +101,8 @@ export function installObservationFixture(table) {
             seconds: '0',
             unknown_sessions: 0,
             baseline_sessions: 0,
+            page: 1,
+            page_count: 1,
           };
           entry.session_count += 1;
           if (!row.ended_at) entry.unknown_sessions += 1;
@@ -105,9 +114,13 @@ export function installObservationFixture(table) {
           byRoot.set(row.game_root, entry);
         }
         for (const entry of byRoot.values()) {
-          entry.sessions = pageRows.filter(
-            (r) => r.game_root === entry.game_root,
+          const own = filtered.filter((r) => r.game_root === entry.game_root);
+          entry.page_count = Math.max(1, Math.ceil(own.length / 20));
+          entry.page = Math.max(
+            1,
+            Math.min(entry.page_count, groupPage?.[entry.game_root] ?? 1),
           );
+          entry.sessions = own.slice((entry.page - 1) * 20, entry.page * 20);
         }
         return {
           sessions: pageRows,

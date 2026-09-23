@@ -17,18 +17,17 @@ export default function InstanceObservation({
 }) {
   const active = usePageActive();
   const [query, setQuery] = useState<ObservationQuery>(empty);
-  const [page, setPage] = useState(1);
   const boundary = useRef<number | undefined>(undefined);
   const snapshot = useRef<string | undefined>(undefined);
   const [generation, setGeneration] = useState(0);
   const request = useResource(
     () =>
-      loadObservedSessionsPage(page, {
+      loadObservedSessionsPage(1, {
         ...query,
         boundary: boundary.current,
         snapshot: snapshot.current,
       }),
-    JSON.stringify({ query, page, revision, generation }),
+    JSON.stringify({ query, revision, generation }),
     active,
   );
   const data = request.data;
@@ -36,19 +35,33 @@ export default function InstanceObservation({
     if (data) {
       boundary.current = data.boundary;
       snapshot.current = data.snapshot;
-      setPage(data.page);
     }
   }, [data]);
+  /**
+   * Move one instance's pager without moving any other instance's.
+   *
+   * Only the instance that was paged comes back, so `group_page` is replaced
+   * rather than merged: leaving the previous instance's page in the query would
+   * pull *its* records onto the new instance's page number.
+   */
+  const pageGroup = (gameRoot: string, groupPage: number) =>
+    setQuery((previous) => ({
+      ...previous,
+      group_page: { ...(previous.group_page ?? {}), [gameRoot]: groupPage },
+    }));
+  const resetPaging = (next: ObservationQuery): ObservationQuery => ({
+    ...next,
+    group_page: null,
+  });
   const change = (next: ObservationQuery) => {
     boundary.current = undefined;
     snapshot.current = undefined;
-    setPage(1);
-    setQuery(next);
+    setQuery(resetPaging(next));
   };
   const refreshHistory = () => {
     boundary.current = undefined;
     snapshot.current = undefined;
-    setPage(1);
+    setQuery(resetPaging);
     setGeneration((v) => v + 1);
   };
   // How many filters are narrowing the list, so the collapsed bar can say so
@@ -169,7 +182,7 @@ export default function InstanceObservation({
         <ObservedSessions
           data={data}
           loading={request.loading}
-          onPage={setPage}
+          onGroupPage={pageGroup}
           // A manual end changes durations and totals, so the whole page is
           // re-read rather than patched in place: the backend recomputes
           // attribution, and the dashboard's summary must follow.

@@ -111,12 +111,25 @@ export interface ObservationQuery {
   status: string;
   boundary?: number;
   snapshot?: string;
+  /**
+   * Which page of each instance's own records to read, newest first, keyed by
+   * `game_root`. A missing key means page 1.
+   *
+   * This replaced a page number that addressed every record at once. One pager
+   * over all instances reads as 「第 1 / 3 页 · 共 43 条」 while the reader is
+   * looking at one instance, so the number described a list they were not
+   * looking at.
+   *
+   * Only paged instances appear here, so an instance the reader never touched
+   * stays on page 1 instead of following someone else's cursor.
+   */
+  group_page?: Record<string, number> | null;
 }
 
 export interface ObservationGroup {
   game_root: string;
   name: string;
-  /** Sessions in this group on the current page. */
+  /** This instance's records on its own current page. */
   sessions: NonNullable<TrackingSummary['sessions']>;
   /** Sessions for this instance across all history, not just this page. */
   session_count: number;
@@ -124,6 +137,10 @@ export interface ObservationGroup {
   seconds: string;
   unknown_sessions: number;
   baseline_sessions: number;
+  /** Which page of this instance's records `sessions` holds. */
+  page?: number;
+  /** How many pages this instance's records span at `page_size`. */
+  page_count?: number;
 }
 export function loadObservedSessionsPage(
   page: number,
@@ -133,6 +150,7 @@ export function loadObservedSessionsPage(
     ? invoke<ObservedSessionsPage>('observed_sessions_page', { page, query })
     : Promise.resolve<ObservedSessionsPage>({
         sessions: [],
+        groups: [],
         total: 0,
         page: 1,
         page_size: 20,

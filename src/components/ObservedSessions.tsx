@@ -120,15 +120,61 @@ function SessionTable({
   );
 }
 
+/** One instance's own pager. Rendered inside the group it belongs to. */
+function GroupPagination({
+  page,
+  pageCount,
+  recordCount,
+  loading,
+  onPage,
+}: {
+  page: number;
+  pageCount: number;
+  recordCount: number;
+  loading: boolean;
+  onPage: (page: number) => void;
+}) {
+  const single = pageCount <= 1;
+  return (
+    <nav
+      className="observation-pagination observation-group-pagination"
+      aria-label="本实例观测记录分页"
+    >
+      <span role="status">
+        {loading
+          ? '正在读取…'
+          : `第 ${page} / ${pageCount} 页 · 共 ${recordCount} 条`}
+      </span>
+      <button
+        type="button"
+        className="secondary-button"
+        disabled={loading || page <= 1}
+        onClick={() => onPage(page - 1)}
+      >
+        上一页
+      </button>
+      <button
+        type="button"
+        className="secondary-button"
+        disabled={loading || single || page >= pageCount}
+        onClick={() => onPage(page + 1)}
+      >
+        下一页
+      </button>
+    </nav>
+  );
+}
+
 export default function ObservedSessions({
   data,
   loading,
-  onPage,
+  onGroupPage,
   onEdited,
 }: {
   data: ObservedSessionsPage;
   loading: boolean;
-  onPage: (page: number) => void;
+  /** Page one instance's records without moving any other instance's. */
+  onGroupPage: (gameRoot: string, page: number) => void;
   /** Called after a manual end is saved or undone, so totals are re-read. */
   onEdited: () => void;
 }) {
@@ -137,6 +183,10 @@ export default function ObservedSessions({
   // Falls back to one synthetic group when the backend sent none, which keeps the
   // preview fixture and any older archive rendering instead of showing an empty
   // list.
+  //
+  // The fallback is also why `page` / `page_count` are optional on the type: an
+  // archive written before per-instance paging sends groups without them, and one
+  // page of one instance is the honest reading for a synthetic group.
   const groups: NonNullable<ObservedSessionsPage['groups']> = data.groups
     ?.length
     ? data.groups
@@ -159,6 +209,8 @@ export default function ObservedSessions({
             .toString(),
           unknown_sessions: sessions.filter((s) => !s.ended_at).length,
           baseline_sessions: sessions.filter((s) => s.missing_baseline).length,
+          page: 1,
+          page_count: 1,
         },
       ]
     : [];
@@ -167,7 +219,6 @@ export default function ObservedSessions({
       sum + (s.missing_baseline ? 0n : BigInt(s.pseudo_seconds ?? '0')),
     0n,
   );
-  const pages = Math.max(1, Math.ceil(data.total / data.page_size));
   return (
     <section className="observed-sessions settings-card" aria-busy={loading}>
       <h3>
@@ -242,7 +293,10 @@ export default function ObservedSessions({
       {groups.length ? (
         <div className="observed-sessions-scroll">
           {groups.map((group) => {
-            const hidden = group.session_count - group.sessions.length;
+            // The pager is per instance, so these describe this instance's
+            // records only - never a slice of every instance's records at once.
+            const pageCount = Math.max(1, group.page_count ?? 1);
+            const page = Math.min(Math.max(1, group.page ?? 1), pageCount);
             return (
               <details
                 key={group.game_root}
@@ -261,7 +315,7 @@ export default function ObservedSessions({
                   </span>
                   <span className="observed-group-count">
                     {group.session_count} 次观测
-                    {hidden > 0 ? ` · 本页 ${group.sessions.length} 条` : ''}
+                    {pageCount > 1 ? ` · 共 ${pageCount} 页` : ''}
                   </span>
                   {group.unknown_sessions ? (
                     <span className="observed-group-note">
@@ -274,13 +328,31 @@ export default function ObservedSessions({
                     </span>
                   ) : null}
                 </summary>
-                {group.sessions.length ? (
-                  <SessionTable sessions={group.sessions} onEdit={setEditing} />
-                ) : (
-                  <p className="muted">
-                    该实例的观测记录在其他页，翻页后可查看。
-                  </p>
-                )}
+                <div className="observed-group-rows">
+                  {group.sessions.length ? (
+                    <SessionTable
+                      sessions={group.sessions}
+                      onEdit={setEditing}
+                    />
+                  ) : (
+                    // Reached when this instance's next page sits beyond the
+                    // records the payload carried. Page 1 is the one case where
+                    // "other page" would be wrong: the reader is on the first
+                    // page and the group simply is not in it yet.
+                    <p className="muted">
+                      {page > 1
+                        ? '该实例的观测记录在其他页，翻页后可查看。'
+                        : '本次读取未包含该实例的记录，刷新观测后可查看。'}
+                    </p>
+                  )}
+                  <GroupPagination
+                    page={page}
+                    pageCount={pageCount}
+                    recordCount={group.session_count}
+                    loading={loading}
+                    onPage={(next) => onGroupPage(group.game_root, next)}
+                  />
+                </div>
               </details>
             );
           })}
@@ -290,29 +362,9 @@ export default function ObservedSessions({
           暂无符合条件的观测。可清除筛选；检测到 PCL 实例运行后会自动记录。
         </p>
       )}
-      <nav className="observation-pagination" aria-label="观测记录分页">
-        <span role="status">
-          {loading
-            ? '正在读取…'
-            : `第 ${data.page} / ${pages} 页 · 共 ${data.total} 条`}
-        </span>
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={loading || data.page <= 1}
-          onClick={() => onPage(data.page - 1)}
-        >
-          上一页
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={loading || data.page >= pages}
-          onClick={() => onPage(data.page + 1)}
-        >
-          下一页
-        </button>
-      </nav>
+      {/* There is no list-level pager here on purpose. One pager over every
+          instance could only ever say 「第 1 / 3 页 · 共 43 条」 while the reader
+          was looking at one instance's records, so each group carries its own. */}
       {editing ? (
         <SessionEndDialog
           session={editing}
