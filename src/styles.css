@@ -42,7 +42,9 @@ button {
 }
 .app-shell {
   container-type: inline-size;
-  max-width: 1440px;
+  /* The one width cap in the app. Was 1440px, which with the side padding gave an
+     effective 1384px and left the right third of a 2048px window empty. */
+  max-width: 1680px;
   margin: 0 auto;
   padding: 0 28px;
 }
@@ -82,7 +84,9 @@ footer {
   font-size: var(--type-caption);
 }
 main {
-  max-width: 1320px;
+  /* No cap of its own. `.app-shell` owns the width; a second one here only made the
+     real limit harder to find, and at 1320px it was the binding one on narrower
+     windows while being invisible on wider ones. */
   margin: 16px auto 24px;
 }
 

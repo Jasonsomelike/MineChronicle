@@ -53,7 +53,11 @@
   --chrome-header: 48px;
 
   /* Widest a form-style page may run. Reading pages and list pages keep the full
-     content width because their rows genuinely use it; a settings form does not,
-     and a 13px line stretched past ~55 CJK characters is hard to track back. */
-  --content-max: 900px;
+     content width because their rows genuinely use it; a settings form does not.
+
+     Was 900px, chosen while measuring at 1440px because the cards were mostly empty.
+     At the reader's window that made the settings column 44% of the display, which is
+     the opposite of the fix it was meant to be. 1200 keeps a 13px line under about 46
+     CJK characters while letting the page fill a modern window. */
+  --content-max: 1200px;
 }
