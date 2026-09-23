@@ -1732,8 +1732,11 @@ footer {
   font-weight: 600;
 }
 .event-initial_import .event-duration {
-  background: var(--surface-sunken);
-  color: var(--text-muted);
+  /* Green, like every other gain. It was the neutral chip, which made a baseline read
+     as less than an increment when it is the same kind of fact. The fill is a step
+     quieter than an increment's, so the two are still telling apart at a glance. */
+  background: var(--success-surface);
+  color: var(--success);
 }
 .timeline-events > li .event-details {
   margin-top: 7px;
