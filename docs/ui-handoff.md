@@ -43,16 +43,42 @@
 
 `PclInstances` 目前**不接收** `tracking`，需要从上层传下来（看 `src/app/ArchivePages.tsx` 怎么组装 props）。
 
-### 2. 统计页工具行对齐 —— **真因未找到**
+### 2. 统计页工具行对齐 —— **未解决，但线索很具体**
 
 用户截图显示"玩家选择与其他页面同步；其他筛选仅影响本页。"比右侧控件低约 **10px**。
 
-但我实测 `.filter-summary`（`display:flex; align-items:center`，高 51px）里：
+逐层实测（`.filter-summary`，宽 1624、高 **51px**、`display:flex`、`align-items:center`）：
 
-- 说明文字 textTop = **+18**
-- 右侧控件容器 boxTop = 0、高 51
+```
+textTop=18  <span>                       "玩家选择与其他页面同步…"
+textTop=10  <button>                     "紧凑"
+textTop=10  <button>                     "舒适"
+textTop= 7  <label class=setting-switch>  "显示技术字段"
+textTop=17  <button class=text-button>    "清除本页筛选"
+```
 
-**两个数对不上 —— 说明我量的不是用户看的那个元素。** 下一步应该逐层量右侧控件**内部**的文字位置，而不是它容器的盒子。
+**11px 跨度，症状是真的。**
+
+对齐链（`getComputedStyle`）：
+
+```
+<button>                   display=block  h=38px  top=475
+<div class=health-tabs>    display=flex   align-items=normal   h=51px  top=475
+<div class=filter-tools>   display=flex   align-items=center   h=51px  top=475
+<div class=filter-summary> display=flex   align-items=center   h=51px  top=475
+```
+
+**矛盾点（关键线索）**：`.health-tabs` 是 **51px 的 flex 容器**，里面是 **38px 的按钮**。我给它加了 `align-items: center`，并且**用 `getComputedStyle` 确认规则真的生效了**（返回 `center`）—— **但按钮的 top 仍等于容器顶部，文字位置一个像素都没动。**
+
+51px 的 `align-items: center` 容器里，38px 的子元素不可能停在 0。**所以某个测量量的不是我以为的元素。** 下一步：
+
+1. 用 DevTools 的 Elements 面板直接看那个按钮的盒子，而不是 `getBoundingClientRect()`
+2. **查 `.health-tabs` 有没有 `padding`** —— 若 padding-top 是 6.5px，内容盒顶部就在 6.5，按钮在内容盒顶部，那"按钮 top = 容器 top"就是 padding 造成的错觉
+3. 查按钮除 `height` 外的因素：`line-height`、`vertical-align`、`margin`
+
+**别再从 `align-items` 入手** —— 那条路走过三次，都没用。
+
+**另外**：改完 CSS **不要立刻测量**。Vite HMR 要几秒；我因此误判过一次"修复无效"并撤回了本来是正确方向的改动。**等 5 秒以上**。
 
 ### 3. 设置页"气泡"对齐（`#2`）
 
