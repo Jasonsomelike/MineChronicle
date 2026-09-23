@@ -1059,7 +1059,8 @@ footer {
   /* No gap: the two readouts are regions of one panel, divided by a hairline, not
      two cards that sit apart. */
   gap: 0;
-  margin-bottom: var(--space-5);
+  /* Paired with `.ranking-switch`'s margin-top; see the note there. */
+  margin-bottom: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
@@ -2976,10 +2977,16 @@ button.stat-icon:hover {
 .ranking-switch {
   display: flex;
   gap: 8px;
-  margin-top: 24px;
+  /* Was 24px, and lowering it alone would have done nothing: margins collapse, and
+     `.overview-grid` above ends with 20px, so the visible gap stayed at whatever the
+     larger value was. Both ends were reduced to actually close it. */
+  margin-top: 6px;
   margin-bottom: 12px;
 }
 .ranking-switch button {
+  /* Pills, so the label needs more room than a plain button's padding gives. */
+  padding: 0 var(--space-5);
+  min-height: var(--control-md);
   background: var(--surface-hover);
   color: var(--text-label);
   border: 1px solid var(--border);
