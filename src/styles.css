@@ -41,6 +41,8 @@ button {
   font: inherit;
 }
 .app-shell {
+  /* Still a block container: it is the query container for the two `@container` blocks
+     further down. It became a grid in styles/shell.css, and an element can be both. */
   container-type: inline-size;
   /* The one width cap in the app. Was 1440px, which with the side padding gave an
      effective 1384px and left the right third of a 2048px window empty. */
@@ -48,35 +50,10 @@ button {
   margin: 0 auto;
   padding: 0 28px;
 }
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 64px;
-  border-bottom: 1px solid var(--border);
-  gap: 14px;
-  flex-wrap: wrap;
-  padding: 12px 0;
-  background: var(--page);
-}
-.wordmark {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: var(--type-heading);
-  font-weight: 750;
-}
+/* The brand and the two residency labels moved into the navigation rail. Their geometry
+   is in styles/shell.css; only what every `.wordmark svg` needs stays here. */
 .wordmark svg {
   color: var(--text-label);
-}
-.header-tools {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
 }
 .local-label,
 footer {
@@ -224,25 +201,11 @@ main {
     /* Stacked flex; kept only as a guard if a future grid returns. */
   }
 }
-.app-nav {
-  scroll-margin-top: 76px;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 16px;
-  margin-bottom: 20px;
-}
-.app-nav button {
-  background: transparent;
-  color: var(--text-muted);
-}
-.app-nav button[aria-current='page'] {
-  background: var(--surface-strong);
-  /* `--text-on-strong`, not white: the dark accent fill is a bright jade, so white
-     text on it measures 1.92:1. */
-  color: var(--text-on-strong);
-}
+/* The primary nav's colours moved to warmth.css and its geometry to styles/shell.css.
+   The three declarations that used to live here were colour, not geometry, so this is
+   where they went rather than being deleted. Restating the layout here for a second time
+   is the duplicate-declaration trap this repo has already been bitten by once (the card
+   styles, declared in both warmth.css and this file). */
 /* Text-like fields only. A checkbox is an input, so it was picking up the
    control metrics meant for a field: `min-width: 220px` and `min-height: var(
    --control-md)`, i.e. 38px. The 档案与备份 card's 自动备份 checkbox measured 220x38
@@ -595,9 +558,6 @@ main {
   .foundation {
     padding: 20px;
   }
-  .app-nav button {
-    padding: 9px 10px;
-  }
   .tracking-state {
     gap: 16px;
   }
@@ -710,12 +670,11 @@ button:hover {
   align-items: center;
   gap: 6px;
 }
-.app-nav button:hover,
+/* The primary nav's hover pair moved to warmth.css with the rest of its colours. */
 .health-tabs button:hover {
   background: var(--surface-hover);
   color: var(--text-strong);
 }
-.app-nav button[aria-current='page']:hover,
 .health-tabs button[aria-selected='true']:hover {
   background: var(--surface-strong-hover);
   color: var(--text-on-strong);
@@ -974,9 +933,6 @@ footer {
   .app-shell {
     padding: 0 20px;
   }
-  header {
-    min-height: 76px;
-  }
   .local-label {
     max-width: 70px;
     line-height: 1.8;
@@ -998,15 +954,10 @@ footer {
 }
 
 /* Dashboard sections stay unframed; stable rows keep chart transitions aligned. */
-.app-nav {
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-}
-.app-nav button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
+/* The `.app-nav { padding-bottom; margin-bottom }` and `.app-nav button { display;
+   align-items; gap }` pair that used to sit here moved to styles/shell.css. It was the
+   second of two declarations of the same element in the same file, which is exactly how
+   one of them silently wins without anyone noticing. */
 .scan-panel .watch-status .tracking-toggle {
   display: inline-flex;
   align-items: center;
@@ -1746,11 +1697,18 @@ footer {
   color: var(--text-muted);
 }
 .event-duration {
-  /* The figure the row exists to communicate, so it gets a filled chip. */
+  /* The figure the row exists to communicate, so it gets a filled chip.
+
+     Green by default, not neutral. Every duration chip on this page is a measured
+     amount of recorded play time; the only one that is not a gain is a rollback, and
+     that is the exception with its own rule below. Making the base neutral meant any
+     event class nobody had thought about fell through to grey - which is what the
+     reader kept seeing while the individual variants were being chased one at a time.
+     5.85:1 light, 8.44:1 dark on this fill. */
   padding: 2px 9px;
   border-radius: var(--radius-sm);
-  background: var(--surface-tint);
-  color: var(--text-strong);
+  background: var(--success-surface);
+  color: var(--success);
   font-variant-numeric: tabular-nums;
   /* Figures get the monospace family; see --font-mono. */
   font-family: var(--font-mono);
@@ -1770,12 +1728,25 @@ footer {
   color: var(--danger);
   font-weight: 600;
 }
-.event-initial_import .event-duration {
-  /* Green, like every other gain. It was the neutral chip, which made a baseline read
-     as less than an increment when it is the same kind of fact. The fill is a step
-     quieter than an increment's, so the two are still telling apart at a glance. */
+/* Every gain class names the fill explicitly, at the same specificity as
+   \.timeline-events .event-duration\ in warmth.css and in a later sheet, so it wins.
+
+   That warmth rule sets \ackground: var(--surface-hover)\ - the grey fill - and at
+   (0,2,0) it beats a bare \.event-duration\ (0,1,0). Which gain classes had their own
+   colour rule therefore decided which ones looked green, and \vent-mixed\ never had
+   one. That is the grey chip the reader kept reporting: a previous agent measured
+   \vent-initial_import\, found it green, and concluded the report did not reproduce.
+
+   The selector must NOT be \.timeline-events .event-duration\: that ties on specificity
+   with the rollback rule and, sitting later in the file, would paint losses green too.
+   Naming the gain classes individually leaves \.event-rollback .event-duration\ to win
+   for its own class. */
+.event-initial_import .event-duration,
+.event-increment .event-duration,
+.event-mixed .event-duration {
   background: var(--success-surface);
   color: var(--success);
+  font-weight: 600;
 }
 .timeline-events > li .event-details {
   margin-top: 7px;
@@ -2386,13 +2357,6 @@ button.stat-icon:hover {
   }
 }
 @container (max-width: 420px) {
-  .app-header {
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .app-header .local-label {
-    display: none;
-  }
   .statistics-categories {
     gap: 2px;
   }
@@ -3002,9 +2966,6 @@ button.stat-icon:hover {
   .dashboard .ranking,
   .dashboard .tracking-state {
     padding: 14px;
-  }
-  .app-header .local-label:last-child {
-    display: none;
   }
 }
 .ranking-unified {
