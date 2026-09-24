@@ -18,12 +18,12 @@
 /* Tailwind's preflight sets `small { font-size: 80% }`. Nested inside a parent that is
    already small this compounded to 9.6px and 10.4px - below any readable minimum.
 
-   The first attempt used `max(var(--text-micro), 85%)`, which does not work: the
-   percentage is resolved against the parent first, so on 13px text it yields 11.05px,
+   The first attempt used `max(var(--type-caption), 85%)`, which does not work: the
+   percentage is resolved against the parent first, so on 12px text it yields 10.2px,
    the max picks that, and the result is still off-scale. <small> is now pinned to the
-   micro step outright. Components that want a different size already set one. */
+   caption step outright. Components that want a different size already set one. */
 small {
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
 }
 * {
   box-sizing: border-box;
@@ -70,25 +70,75 @@ main {
 [hidden] {
   display: none !important;
 }
-.settings-layout {
-  /* Two balanced columns on a wide display. The earlier two-column attempt used a grid
-     and left a 200px hole when one side ran shorter; `columns` balances the sides
-     itself, so that cannot happen. Below 1400px there is not enough room for two
-     readable cards and the browser drops to one column on its own - the first value is
-     the maximum count and the second is the minimum width a column may take. */
-  columns: 2 640px;
-  column-gap: var(--space-5);
-  margin: 22px 0;
+/* Visually hidden, still announced. Not `display: none` and not `visibility: hidden` -
+   both take the element out of the accessibility tree, which is the one thing a live
+   region must not be. `position: absolute` keeps it out of flow, so a status region
+   inside a flex row cannot add a gap to that row. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
+.settings-layout {
+  /* One column, capped and centred, and every other block on the settings page is
+     capped and centred by the same rule (`.settings-section`, `.settings-block`).
+     It was `columns: 2 640px`, which was the second width system on this page rather
+     than a layout: measured, two columns appeared only from 1600px up (1563px and
+     below rendered one), and above that the cards were 654px wide while the health
+     block below them - a sibling of this element, not a child - stayed 1328px. Two
+     widths on one page, chosen by a rule nobody can see.
 
-.settings-layout > * {
-  /* A card split across two columns would be worse than any amount of whitespace. */
-  break-inside: avoid;
+     What the two columns were buying was a readable line length, and a cap buys that
+     at every width instead of only above 1600px. 1280px is the same figure the
+     settings nav and the health block now share. */
+  display: flex;
+  flex-direction: column;
+  /* The between-group step, and it has to be the largest number on the page. Each child is
+     one nav section - 身份 / 启动与显示 / 导入与联动 / 档案与备份 - so this is the gap the
+     reader uses to see where a group ends. It was 16px, i.e. half the 32px between two cards
+     inside one of those groups, so the page drew its grouping inside out. */
+  gap: var(--space-9);
+  max-width: 1280px;
+  /* 24 above, where the sticky settings nav ends and the content starts; `--space-9` below,
+     because what follows is another group - the import/issue blocks and `#settings-health`. */
+  margin: var(--space-6) auto var(--space-9);
+}
+/* The blocks that sit beside `.settings-layout` rather than inside it: the import
+   summary and the issue list. They are `hidden` unless the settings page is showing,
+   so the cap is how they stay in the same width system as the cards. `#settings-health`
+   needs no extra class - it is a `.settings-section` already.
+
+   `width: 100%` is what makes the cap a cap: these are flex items inside
+   `.settings-layout`, and an `auto` inline margin on a flex item sizes it to its
+   content instead of stretching it - measured, the first section came out 565px wide
+   with its cards inset from the rest of the page. */
+.settings-section,
+.settings-block {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+}
+/* The two blocks that follow `.settings-layout` are their own group, so they take the group
+   step too - otherwise the page would answer "where does 导入结果 end and 问题清单 start?"
+   with an accident of a child's margin. */
+.settings-block + .settings-block {
+  margin-top: var(--space-9);
 }
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  /* The step between the cards inside one group. Cards used to sit 16px apart while each
+     card held 18px of its own padding, so the two gaps differed by 2px and the card
+     boundary stopped reading as a boundary. The four numbers on this page now only go one
+     way: 8 inside a card (see `.settings-card h2`), 24 of card padding, 32 between two
+     cards, 48 between two groups. */
+  gap: var(--space-8);
   min-width: 0;
   scroll-margin-top: 88px;
 }
@@ -97,11 +147,11 @@ main {
   margin: 0;
 }
 .settings-card {
-  /* Trimmed from 22px. Measured, 30% of the cards' total height was not child
-     content, and at VISUAL_DENSITY 7 a settings form should sit tighter than that.
-     The narrow column already stops the copy from stretching, so the extra padding
-     was buying air rather than legibility. */
-  padding: 18px;
+  /* Trimmed from 22px to 18px, then put back to 24px: the trim was judged against the
+     card in isolation, but the page is read as groups, and 18 inside against a 16px gap
+     between cards is not a grouping. 24 sits where it belongs in the ladder - above the
+     8px inside the card, below the 32px to the next card and the 48px to the next group. */
+  padding: var(--space-6);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
@@ -113,8 +163,11 @@ main {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 0 0 18px;
-  font-size: var(--type-title);
+  /* The inside-the-card step, one rung down from the card's own 24px padding. The two
+     numbers only work as a pair: <h2> is the first thing in the card, so its bottom
+     margin is what separates "the card's name" from "the card's content". */
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-heading);
 }
 .setting-row {
   display: flex;
@@ -146,7 +199,12 @@ main {
   font-size: var(--type-body);
 }
 .setting-switch input {
-  accent-color: #397858;
+  /* This checkbox, the tracking switch and the two picker lists each checked themselves
+     with `accent-color` set to a literal green - three values, none of them the green the
+     app already calls its strong surface, and no theme could ever move them. They all
+     point at `--surface-strong` now; a fourth name for the same colour would only be a
+     fifth place to forget. */
+  accent-color: var(--surface-strong);
   width: 18px;
   height: 18px;
 }
@@ -159,9 +217,13 @@ main {
   font-size: var(--type-caption);
 }
 .settings-import .import-summary {
-  margin-bottom: 18px;
-  padding: 14px;
-  background: #f5f8f5;
+  margin-bottom: 16px;
+  padding: 16px;
+  /* Was a literal pale green that was not any of the surface tokens. `--surface-tint`
+     is the role for exactly this block - the tinted card a summary sits in - so the
+     import summary now follows the theme like the observation and health summaries it
+     sits beside. */
+  background: var(--surface-tint);
 }
 .settings-import .pcl-link {
   max-height: 340px;
@@ -329,9 +391,25 @@ main {
   justify-content: space-between;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   font-variant-numeric: tabular-nums;
   line-height: 1;
+}
+/* Five graduations need about 355px of track at the caption step, and the Chinese units
+   are what pushed them over it: measured, the five labels wrapped onto two lines inside
+   a 342px track and sat on one line from 371px up.
+
+   Below that width the scale keeps its two ENDS and drops the three between them. The
+   ends are the two labels that can sit exactly on their own graduation (space-between
+   puts them flush with the track's edges); a middle label that no longer fits beside
+   its line would be read against the wrong one, and the quarter marks are still drawn
+   on the track for anyone reading between the ends. */
+@container (max-width: 1300px) {
+  .ruler-scale span:nth-child(2),
+  .ruler-scale span:nth-child(3),
+  .ruler-scale span:nth-child(4) {
+    display: none;
+  }
 }
 .ruler-name {
   /* A button so the row is keyboard reachable, styled back down to text. */
@@ -357,6 +435,25 @@ main {
   height: 12px;
   border-radius: var(--radius-xs);
   background: var(--surface-sunken);
+  /* The empty rail is half the instrument: "this row is 34 minutes out of 60 days" is
+     read off the part that is NOT filled, so the rail has to be an object rather than an
+     implied one.
+
+     The edge is what meets the 3:1 floor, and this is a deliberate choice between the two
+     the review offered. The rail's own surface is still `--surface-sunken`, so it is still
+     1.165:1 against the card in light and 1.347:1 in dark - below the floor on its own. A
+     solid rail cannot be raised past it: the strongest neutral rung the palette has
+     (`--border-strong`) reaches 1.54:1, the next step up is a text grey at 6.12:1, and a
+     rail painted that dark would make the empty part of every bar read as data while the
+     fill - the thing being measured - is 6.53:1. The 1px edge marks where the scale ends
+     at 6.12:1 (light) and 6.55:1 (dark) without spending the fill's weight. The innermost
+     text token is borrowed for it because no line-role token clears 3:1: `--border` is
+     1.30:1 and its sibling `--border-strong` is 1.54:1.
+
+     Every other pair in the graphic clears the floor: fill against rail 5.61:1 and
+     10.15:1, edge against rail 4.29:1 and 8.83:1. */
+  outline: 1px solid var(--text-faint);
+  outline-offset: -1px;
 }
 .ruler-fill {
   display: block;
@@ -387,7 +484,7 @@ main {
 .ruler-value {
   color: var(--text-strong);
   font-family: var(--font-mono);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -408,7 +505,7 @@ main {
 }
 .metric-grid strong {
   display: block;
-  font-size: var(--type-title);
+  font-size: var(--type-heading);
   margin: 10px 0;
   font-variant-numeric: tabular-nums;
   /* Figures get the monospace family; see --font-mono. */
@@ -440,15 +537,6 @@ main {
 .health-summary h3 {
   font-size: var(--type-lead);
   margin: 0 0 12px;
-}
-.ranking-body {
-  position: relative;
-}
-.ranking-chart {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.18;
 }
 .ranking ol {
   position: relative;
@@ -581,7 +669,7 @@ p {
 }
 .welcome p {
   margin: 0;
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
 }
 .foundation {
   padding: 0;
@@ -590,19 +678,20 @@ p {
    of copy, so most of every card was empty and prose lines ran past 55 CJK
    characters.
 
-   The cap has to sit on this element, not on `.settings-layout`: the archive notice
-   blocks and the health queue are siblings of the layout, not children, so capping
-   the layout alone left half the page at the old width.
-
-   The cap is gone. It left 424px of the window empty down the right edge, which is the
-   whitespace the reader kept reporting. The width is used by the two-column layout in
-   `.settings-layout` instead, which keeps each card narrow without leaving the page
-   half empty. */
+   The cap has moved rather than gone: the settings page is one capped column again,
+   but the cap lives on the settings blocks themselves - `.settings-layout`,
+   `.settings-section` and `.settings-block`, one column at 1280px, centred. It has to
+   sit there because the archive notices and the health queue are siblings of the
+   layout rather than children of it, so a cap on the layout alone leaves half the page
+   at the old width; and it must not sit HERE, because this element wraps every page
+   and a width on it would narrow the dashboard and the statistics table as well. All
+   that is left here is the reason this element has a rule at all: it may not shrink
+   below its content. */
 .foundation:has(.settings-layout:not([hidden])) {
   min-width: 0;
 }
 h2 {
-  font-size: var(--type-title);
+  font-size: var(--type-heading);
   margin: 0;
 }
 .foundation > div > p {
@@ -612,14 +701,14 @@ h2 {
 ul {
   list-style: none;
   padding: 0;
-  margin: 22px 0;
+  margin: 24px 0;
 }
 li {
   display: grid;
   grid-template-columns: 150px 1fr;
-  gap: 14px;
+  gap: 16px;
   border-top: 1px solid var(--border);
-  padding: 15px 0;
+  padding: 16px 0;
   font-size: var(--type-body);
   line-height: 1.7;
 }
@@ -743,7 +832,7 @@ button:disabled {
   font-size: var(--type-body);
 }
 .scan-panel form {
-  margin-top: 22px;
+  margin-top: var(--space-6);
 }
 .scan-panel label {
   display: flex;
@@ -765,12 +854,19 @@ button:disabled {
   min-height: 98px;
   max-height: 280px;
   margin: 10px 0;
-  padding: 12px 14px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-input);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text);
-  font: 13px/1.8 'Consolas', 'Microsoft YaHei', monospace;
+  /* Was the shorthand `font: 13px/1.8 ...`, which no rule in the type scale could
+     reach: the size was a literal, so it stayed at 13 while every other field moved
+     to the body step. The family is kept as written rather than pointed at
+     `--font-mono` - this is a path field, the values in it are what Consolas was
+     chosen for. */
+  font-family: 'Consolas', 'Microsoft YaHei', monospace;
+  font-size: var(--type-body);
+  line-height: 1.8;
 }
 /* Covered by the shared :focus-visible rule above; this only overrides the
    offset so the ring clears the textarea's own border. */
@@ -797,28 +893,46 @@ button:disabled {
 .connection-check button:hover:not(:disabled) {
   background: var(--surface-active);
 }
+/* A row at the foot of the status bar, not a second status strip under the page. The top
+   margin, the top rule and the caption size were all there to separate it from whatever
+   page content sat above it; inside the bar the rule separates it from the bar's own
+   details instead. Both of the blocks that used to define this selector - one for the
+   strip, one further down for the row - are folded in here, so there is one definition
+   of the component rather than one that overrides the other. */
 .connection-check {
-  margin: 24px 0 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-soft);
   font-size: var(--type-caption);
   color: var(--text-muted);
 }
-.connection-check > summary {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  width: fit-content;
-  cursor: pointer;
-  list-style: none;
+.connection-check button {
+  padding: 8px 12px;
+  font-size: var(--type-caption);
 }
-.connection-check[open] > summary {
-  margin-bottom: 12px;
+.connection-check .runtime-status {
+  margin: 0;
+  min-height: 0;
 }
 .scan-error {
   color: var(--danger);
   font-size: var(--type-body);
   margin-top: 16px;
+}
+/* The neutral twin of `.scan-error`, in the same slot on the page: a cancelled scan is an
+   outcome the user asked for, so it is stated rather than alerted. Same geometry, so the
+   two read as one message area that changes tone rather than as two components. */
+.scan-notice {
+  color: var(--text-label);
+  font-size: var(--type-body);
+  margin-top: 16px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-tint);
 }
 .scan-results {
   border-top: 1px solid var(--border);
@@ -897,11 +1011,20 @@ button:disabled {
   min-width: 0;
   text-align: right;
 }
+/* The status line is the row's own width, so it wraps under the name and the reading
+   instead of joining them. Three `!important`s used to carry that, and one of them
+   (`color`) is what stopped `--warning` from ever reaching a degraded world: the
+   pages.css rule that paints it is `.world-result[data-status='Degraded'] .world-status`
+   - more specific than this one, and still losing to an `!important`. Nothing here was
+   actually competing for the declarations, so the flags are gone and the specificity
+   order decides. `scripts/qa-design-check.mjs` marks one world in its payload Degraded
+   and fails the run if this line stops resolving to `--warning`, because an `!important`
+   added here later for some unrelated reason would otherwise take it away silently. */
 .world-status {
   flex-basis: 100%;
-  color: var(--text-faint) !important;
-  font-size: var(--type-micro) !important;
-  margin-left: 0 !important;
+  color: var(--text-faint);
+  font-size: var(--type-caption);
+  margin-left: 0;
 }
 .world-path {
   overflow-wrap: anywhere;
@@ -925,7 +1048,7 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 14px;
+  gap: 8px 16px;
 }
 .player-name > strong {
   font-size: var(--type-lead);
@@ -943,11 +1066,14 @@ button:disabled {
   border-radius: var(--radius-sm);
   padding: 8px;
   font: inherit;
-  background: white;
+  /* Through the token, not the word `white`. In the dark theme `--text` is a light
+     grey, so a literal white field measured 1.205:1 against the text typed into it -
+     and it is the only rule in the app that wrote a colour out longhand. */
+  background: var(--warm-surface);
   color: var(--text);
 }
 .player-name button {
-  padding: 7px 12px;
+  padding: 8px 12px;
   font-size: var(--type-caption);
 }
 .import-summary {
@@ -978,7 +1104,7 @@ button:disabled {
   color: var(--warning);
 }
 .scan-issues code {
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   overflow-wrap: anywhere;
 }
 footer {
@@ -986,7 +1112,7 @@ footer {
   justify-content: space-between;
   gap: 18px;
   border-top: 1px solid var(--border);
-  padding: 22px 0;
+  padding: 24px 0;
 }
 @media (max-width: 620px) {
   .app-shell {
@@ -1030,7 +1156,7 @@ footer {
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
-  accent-color: #26835c;
+  accent-color: var(--surface-strong);
   cursor: pointer;
 }
 .watch-status {
@@ -1049,15 +1175,40 @@ footer {
 .watch-status button {
   padding: 6px 8px;
 }
+/* One dot per state, and the base rule is the idle grey rather than the accent green.
+   It used to be `--surface-strong` - the same colour as `.active` - so "no state at all"
+   and "syncing" were the same dot, and `ready`/`error` had no rule at all even though
+   both were in the markup. The circle itself stays in every one of them: a dot that
+   changes shape per state reads as a different kind of thing, not as the same readout. */
 .watch-dot {
   width: 7px;
   height: 7px;
   border-radius: var(--radius-pill);
-  background: var(--surface-strong);
+  background: var(--text-faint);
   flex: 0 0 7px;
 }
+/* The other grey, on purpose: the first frames have no reading at all, so this dot must
+   not look like a settled one. It is the quieter of the two neutral tones, and the two
+   are never on screen together - only one state is ever shown. */
+.watch-dot.loading {
+  background: var(--text-muted);
+}
+.watch-dot.idle {
+  background: var(--text-faint);
+}
+/* Amber, not the idle grey: 追踪已暂停 means recording is switched off, so playtime is
+   not being written anywhere. That is a state the reader has to notice rather than a
+   quiet one, and it is what keeps the four dots distinct - sharing the grey is what made
+   「已就绪」 and 「已暂停」 look like the same answer. `--warning` rather than
+   `--danger`: nothing has failed, the user switched it off. */
+.watch-dot.paused {
+  background: var(--warning);
+}
 .watch-dot.active {
-  background: var(--surface-strong);
+  background: var(--success);
+}
+.watch-dot.error {
+  background: var(--danger);
 }
 .dashboard {
   animation: view-enter var(--motion-slow) ease-out backwards;
@@ -1067,7 +1218,7 @@ footer {
   margin-bottom: 20px;
 }
 .dashboard-heading h2 {
-  font-size: var(--type-title);
+  font-size: var(--type-heading);
 }
 .dashboard-heading p {
   margin: 7px 0 0;
@@ -1139,7 +1290,7 @@ footer {
   min-width: 0;
 }
 .metric-grid strong {
-  font-size: var(--type-title);
+  font-size: var(--type-heading);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -1183,11 +1334,11 @@ footer {
   grid-column: 1 / -1;
   margin: 0;
   color: var(--text-faint);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   line-height: 1.6;
 }
 .ranking-grid {
-  padding-top: 22px;
+  padding-top: 24px;
   gap: 36px;
 }
 .ranking {
@@ -1201,10 +1352,6 @@ footer {
 }
 .ranking li:hover {
   background: var(--surface-info);
-}
-.ranking-chart {
-  opacity: 0.4;
-  top: 28px;
 }
 .rank-number {
   margin-right: 7px;
@@ -1249,6 +1396,13 @@ footer {
   min-width: 44px;
   border-radius: var(--radius-xs);
   background: var(--surface-sunken);
+  /* The same rail as the ruler's, so it takes the same edge; the measurements and the
+     reason for an edge rather than a darker fill are in `.ruler-track` above. Nothing
+     renders this row today - the dashboard's second ranking was deleted in favour of
+     the world page - so the rule is being kept consistent rather than left as a trap
+     for whoever puts a bar back on this row. */
+  outline: 1px solid var(--text-faint);
+  outline-offset: -1px;
 }
 .rank-fill {
   display: block;
@@ -1310,20 +1464,6 @@ footer {
 .rollback-list p {
   margin: 4px 0;
 }
-.connection-check {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-.connection-check button {
-  padding: 7px 10px;
-  font-size: var(--type-caption);
-}
-.connection-check .runtime-status {
-  margin: 0;
-  min-height: 0;
-}
 @keyframes view-enter {
   from {
     opacity: 0;
@@ -1356,7 +1496,7 @@ footer {
     margin-top: 20px;
   }
   .dashboard-heading {
-    gap: 14px;
+    gap: 16px;
   }
   .scan-panel .dashboard-heading label {
     width: 100%;
@@ -1461,7 +1601,7 @@ footer {
 }
 .connection-actions input {
   width: auto;
-  accent-color: #248258;
+  accent-color: var(--surface-strong);
 }
 .scan-panel .connection-actions input {
   flex: 0 0 16px;
@@ -1488,7 +1628,7 @@ footer {
   gap: 6px;
 }
 .pcl-connection details label {
-  gap: 14px;
+  gap: 16px;
 }
 .pcl-link-strip {
   display: flex;
@@ -1638,7 +1778,7 @@ footer {
   min-width: 16px;
   height: 16px;
   flex: 0 0 16px;
-  accent-color: #248258;
+  accent-color: var(--surface-strong);
 }
 .picker-options span {
   min-width: 0;
@@ -1647,7 +1787,7 @@ footer {
 }
 .picker-options small {
   display: block;
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   color: var(--text-muted);
   margin-top: 3px;
 }
@@ -1668,7 +1808,7 @@ footer {
   flex-wrap: wrap;
   gap: 10px 20px;
   font-size: var(--type-caption);
-  padding-bottom: 14px;
+  padding-bottom: 16px;
 }
 .active-games > span {
   display: flex;
@@ -1717,7 +1857,7 @@ footer {
   grid-template-columns: 132px minmax(0, 1fr);
   gap: 20px;
   border-bottom: 1px solid var(--border);
-  padding: 15px 4px;
+  padding: 16px 4px;
   font-size: var(--type-body);
   transition: background var(--motion-fast, var(--motion-fast))
     var(--ease-standard, ease);
@@ -1776,7 +1916,7 @@ footer {
   border-radius: var(--radius-pill);
   background: var(--surface-sunken);
   color: var(--text-muted);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   font-weight: 400;
   white-space: nowrap;
 }
@@ -1793,11 +1933,18 @@ footer {
 .event-meta {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   margin: 7px 0 0;
   overflow-wrap: anywhere;
 }
 .event-player {
+  /* A button - the row's copy action used to hang off a span, so it was invisible to the
+     keyboard. `.text-button` supplies the reset and the hover underline; this adds the
+     only two things a bare button still needs: the pointer the row used to advertise with
+     `cursor: copy`, and a flex row so the copy confirmation sits beside the name. */
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
   color: var(--text-muted);
 }
 .event-duration {
@@ -1910,16 +2057,16 @@ footer {
 .compact-timeline {
   margin-top: 28px;
   border-top: 1px solid var(--border);
-  padding-top: 22px;
+  padding-top: 24px;
 }
 .statistics-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
-  margin: 22px 0;
+  margin: 24px 0;
 }
 .statistics-metrics > div {
-  padding: 14px 16px 14px 0;
+  padding: 16px 16px 16px 0;
   border-bottom: 1px solid var(--border);
   min-width: 0;
 }
@@ -1975,7 +2122,7 @@ footer {
 }
 .stat-description code {
   display: block;
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   color: var(--text-label);
 }
 .stat-icon {
@@ -2040,7 +2187,7 @@ button.stat-icon:hover {
   margin-bottom: 12px;
 }
 .statistics .library-heading h2 {
-  font-size: var(--type-title);
+  font-size: var(--type-heading);
   font-weight: 650;
 }
 .statistics .activity-filters {
@@ -2152,7 +2299,7 @@ button.stat-icon:hover {
 }
 .stat-icon-details code {
   display: block;
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   color: var(--text-label);
   margin-top: 2px;
 }
@@ -2160,7 +2307,7 @@ button.stat-icon:hover {
   display: inline-block;
   padding: 1px 6px;
   border-radius: var(--radius-pill);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   border: 1px solid transparent;
 }
 .stat-detail-badge.status-cached {
@@ -2261,9 +2408,11 @@ button.stat-icon:hover {
   font-weight: 600;
 }
 .statistics-categories small {
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   font-weight: 400;
-  opacity: 0.8;
+  /* No `opacity` here. 80% of --text-muted on the page floor measures 4.31:1, below
+     AA, and the count is already the quieter element: it is a caption in the muted
+     tone beside a body-weight label. */
   font-variant-numeric: tabular-nums;
   /* Figures get the monospace family; see --font-mono. */
   font-family: var(--font-mono);
@@ -2292,8 +2441,8 @@ button.stat-icon:hover {
 }
 /* The input inside this wrapper drops its own outline so the ring can wrap the
    whole search box. That only works if the wrapper's ring is actually visible:
-   it was #d7eae2, about 1.2:1 against white, so a keyboard user saw the same
-   faint border as before. The token colour is used instead. */
+   it was a pale mint of about 1.2:1 against the card, so a keyboard user saw the
+   same faint border as before. The token colour is used instead. */
 .scan-panel .statistics-toolbar label:focus-within {
   border-color: var(--focus-ring);
   outline: var(--focus-ring-width) solid var(--focus-ring);
@@ -2332,6 +2481,20 @@ button.stat-icon:hover {
   background: var(--surface-hover);
   font-weight: 600;
   color: var(--text-label);
+  /* Frozen, because this table is the page and it runs well past the fold: scrolling a
+     hundred rows without their headings is a column of numbers with no units. Same shape
+     as the icon-detail table's sticky head above (`.stat-icon-details th`); `z-index: 1`
+     is the app's one stacking level for a sticky band, not a number picked per rule. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+/* The reading column is right-aligned, headings included, so every figure in it shares
+   one right edge and two rows can be compared by their digits rather than by reading
+   them. The table is three fixed columns, so the reading is always the second. */
+.statistics .statistics-table th:nth-child(2),
+.statistics .statistics-table td:nth-child(2) {
+  text-align: right;
 }
 .statistics .statistics-table td {
   /* Was `middle`. With three cells of unequal content height, centring put the name's
@@ -2347,19 +2510,23 @@ button.stat-icon:hover {
   background: var(--surface-hover);
 }
 .statistics .stat-label {
-  font-size: var(--type-lead);
+  /* Body step, not the lead step it had: at 15px/650 the field name outweighed the
+     13px reading it explains. The hierarchy this page wants is the reading at
+     `--type-lead` (see `.stat-value`) over its label at `--type-body`, with weight and
+     colour carrying the rest. */
+  font-size: var(--type-body);
   line-height: 1.4;
   font-weight: 650;
   color: var(--text);
   margin: 3px 0;
 }
 .statistics .stat-description code {
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   color: var(--text-muted);
   line-height: 1.5;
 }
 .statistics .stat-description > small {
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   margin-bottom: 0;
 }
 .stat-image-dialog {
@@ -2436,7 +2603,7 @@ button.stat-icon:hover {
   margin-top: 14px;
 }
 .stat-image-source {
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   line-height: 1.6;
   color: var(--text-muted);
   overflow-wrap: anywhere;
@@ -2491,7 +2658,7 @@ button.stat-icon:hover {
   }
 }
 .stat-provenance {
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   line-height: 1.6;
 }
 .stat-provenance summary {
@@ -2769,10 +2936,10 @@ button.stat-icon:hover {
 }
 .observed-sessions summary span {
   margin-left: 14px;
-  /* Was #6b7b72, which measured 4.47:1 on white and 4.23:1 on the page
-     background - just under the 4.5:1 AA threshold for normal text at 12px.
-     #627268 is already used elsewhere in this file, so this removes a
-     near-duplicate colour rather than adding one. Worst case is now 4.55:1. */
+  /* The faint grey that used to be written out here measured 4.47:1 on the card and
+     4.23:1 on the page ground - just under the 4.5:1 AA threshold for normal text at
+     the caption step. `--text-muted` is the same role one step further in and clears
+     it in both themes. */
   color: var(--text-muted);
   font-size: var(--type-caption);
   font-weight: 400;
@@ -2843,7 +3010,7 @@ button.stat-icon:hover {
 }
 .observation-facts dt {
   color: var(--text-faint);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
 }
 .observation-facts dd {
   margin: 0;
@@ -2855,7 +3022,7 @@ button.stat-icon:hover {
 }
 .observation-facts small {
   color: var(--text-faint);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
 }
 .observation-excluded {
   flex-basis: 100%;
@@ -2903,7 +3070,7 @@ button.stat-icon:hover {
   border-radius: var(--radius-pill);
   background: var(--surface-tint);
   color: var(--text-accent);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   font-weight: 400;
 }
 .filter-badge-idle {
@@ -2970,10 +3137,14 @@ button.stat-icon:hover {
 }
 .status-center {
   margin: 12px 0 20px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  background: #f0f4eaf0;
+  /* The resting surface. Every tone class in styles/pages.css paints its own - the
+     four states are the whole point of this bar - so this is only the value behind
+     them; it used to be a translucent pale green written out longhand, which no
+     theme could reach. */
+  background: var(--surface-raised);
 }
 .status-center > summary {
   display: flex;
@@ -3018,7 +3189,7 @@ button.stat-icon:hover {
 }
 .error-boundary h2 {
   margin: 14px 0 8px;
-  font-size: var(--type-title);
+  font-size: var(--type-heading);
 }
 .error-boundary p {
   margin: 0 0 10px;
@@ -3027,7 +3198,7 @@ button.stat-icon:hover {
 }
 .error-boundary-detail {
   margin: 0 0 18px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   border: 1px solid var(--border-danger);
@@ -3040,7 +3211,7 @@ button.stat-icon:hover {
 .background-warning {
   color: var(--warning);
   background: var(--surface-warning);
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-radius: var(--radius-sm);
 }
 /* `.dashboard`-scoped card chrome. This rule exists twice - here and in warmth.css -
@@ -3085,13 +3256,13 @@ button.stat-icon:hover {
 }
 @media (max-width: 700px) {
   .status-center-hint {
-    font-size: var(--type-micro);
+    font-size: var(--type-caption);
   }
   .dashboard .career-total,
   .dashboard .metric-grid article,
   .dashboard .ranking,
   .dashboard .tracking-state {
-    padding: 14px;
+    padding: 16px;
   }
 }
 .ranking-unified {
@@ -3102,11 +3273,12 @@ button.stat-icon:hover {
 .ranking-switch {
   display: flex;
   gap: 8px;
-  /* Was 24px, and lowering it alone would have done nothing: margins collapse, and
-     `.overview-grid` above ends with 20px, so the visible gap stayed at whatever the
-     larger value was. Both ends were reduced to actually close it. */
-  margin-top: 6px;
-  margin-bottom: 12px;
+  /* In the card it changes. The switch stands between the hero's caption and the ruler
+     it redraws, so the space above it belongs to the caption and the space below it is
+     the ruler's own `margin-top`. It used to sit under the whole card, where its two
+     margins had to be balanced against `.overview-grid`'s 20px instead - that balance
+     is gone with the position. */
+  margin: var(--space-3) 0 0;
 }
 .ranking-switch button {
   /* Pills, so the label needs more room than a plain button's padding gives. */
@@ -3122,6 +3294,13 @@ button.stat-icon:hover {
 }
 .pagination input {
   width: 76px;
+}
+
+/* The dashboard's way to the complete ranking, where the second copy of the list used
+   to start. One line, left-aligned under the card it belongs to. */
+.ranking-link {
+  display: flex;
+  margin: 0 0 var(--space-2);
 }
 
 /* Settings navigation and compact recovery states follow the existing warm palette. */
@@ -3140,7 +3319,7 @@ button.stat-icon:hover {
   flex-wrap: wrap;
   gap: var(--space-1);
   padding: var(--space-2);
-  border: 1px solid var(--border, #dde5d9);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
   /* Sticky, because the page is around 2700px tall and the list of sections is the
@@ -3218,6 +3397,76 @@ button.stat-icon:hover {
   color: var(--text-caption);
   justify-content: space-between;
 }
+
+/* --- The statistics page's tool band ---------------------------------------
+   Everything that filters the table, in one block above it. The page used to stack
+   nine control and information bands between its heading and its first row of data -
+   the icon toolbar, the reading-mode tabs, the read status, the filter summary, the
+   overview and the category chips were each a band - and the table started at y=568
+   in a 900px viewport, so two thirds of the first screen was chrome.
+
+   Inside the band the rows are separated by the band's own gap, so the outer margins
+   each control brought with it (written when each was its own band) are cancelled
+   here rather than in seven rules further up the file. */
+.statistics-toolband {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.statistics-toolband .activity-filters,
+.statistics-toolband .statistics-toolbar,
+.statistics-toolband .statistics-categories,
+.statistics-toolband .filter-summary {
+  margin: 0;
+  padding-bottom: 0;
+}
+/* The pickers and the search answer the same question, so they are one row. */
+.statistics-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: var(--space-4);
+  align-items: end;
+}
+.statistics-filters .statistics-toolbar {
+  flex-wrap: nowrap;
+}
+/* The reading-mode tabs drew a rule under themselves; as a row of one band that rule
+   reads as a section break between two halves of the same thing. With the rule gone,
+   the 12px the underline-tab style uses to clear it is orphaned padding.
+
+   The density pills sit in the same band and are not underlined tabs at all - they
+   carry `aria-pressed` rather than `aria-selected` - so the same 12px strip is not
+   theirs either. Removing the two is worth 25px of the first screen. */
+.statistics-toolband .statistics-context {
+  border-bottom: 0;
+}
+.statistics-toolband .statistics-context .health-tabs,
+.statistics-toolband .filter-tools .health-tabs {
+  padding-bottom: 0;
+}
+/* The maintenance disclosure, shaped like the overview above it so the two read as the
+   same kind of thing: a summary line, closed until asked for. */
+.stat-icon-resources {
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: var(--space-4);
+}
+.stat-icon-resources > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-size: var(--type-caption);
+  color: var(--text-label);
+  list-style: none;
+  flex-wrap: wrap;
+}
+.stat-icon-resources > summary > svg {
+  transition: transform var(--motion-fast) ease;
+}
+.stat-icon-resources[open] > summary > svg {
+  transform: rotate(180deg);
+}
 .observation-filters {
   flex-wrap: wrap;
 }
@@ -3294,9 +3543,10 @@ button.stat-icon:hover {
   gap: 10px;
 }
 .session-end-facts dt {
-  /* Same AA fix as .observed-sessions summary span: #6b7b72 failed at 4.23:1
-     against the dialog's white surface. */
-  color: #627268;
+  /* Same AA fix as .observed-sessions summary span: that faint grey failed at
+     4.23:1 against the dialog's surface, and a second near-duplicate of it lived
+     here rather than in the token file. */
+  color: var(--text-muted);
 }
 .session-end-facts dd {
   margin: 0;
@@ -3329,7 +3579,7 @@ button.stat-icon:hover {
   border-radius: var(--radius-pill);
   background: var(--success-surface);
   color: var(--text-accent);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
   white-space: nowrap;
 }
 
@@ -3351,7 +3601,7 @@ button.stat-icon:hover {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 10px;
-  padding: 11px 14px;
+  padding: 12px 16px;
   cursor: pointer;
   border-radius: var(--radius-md);
 }
@@ -3404,7 +3654,7 @@ button.stat-icon:hover {
    borrows `.observation-pagination` for layout and only re-spaces it here. */
 .observation-group-pagination {
   margin-top: 4px;
-  padding: 0 14px 12px;
+  padding: 0 16px 12px;
 }
 .observed-group-rows > p {
   margin: 12px 14px;

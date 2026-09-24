@@ -39,7 +39,7 @@ import type {
   StatisticsGroup,
 } from '../lib/activity';
 import type { ScanSummary } from '../lib/scan';
-import { formatTickTotal } from '../lib/duration';
+import { UNKNOWN_DURATION, formatTickTotal } from '../lib/duration';
 import ActivityFilters from './ActivityFilters';
 import StatIconPreview from './StatIconPreview';
 import type { IconSelection } from './StatIconPreview';
@@ -263,302 +263,190 @@ export default function Statistics({
           更多统计
         </h2>
         <span title="按当前玩家筛选的有效统计份数；不等于档案内全部世界数">
-          所选玩家 {data?.sources ?? 0} 份有效统计
+          {/* Not a 0 before the first read arrives: "所选玩家 0 份有效统计" reads as
+              "there is nothing", which is a different statement from "not read yet". */}
+          所选玩家 {data ? data.sources : UNKNOWN_DURATION} 份有效统计
         </span>
       </div>
-      <ActivityFilters
-        report={report}
-        scope={scope}
-        onChange={(s) => {
-          setOffset(0);
-          onScope(s);
-        }}
-      />
-      <div className="stat-icon-toolbar">
-        <span role="status" className="stat-icon-status">
-          {checkingResources
-            ? '正在检查游戏图标…'
-            : resourceStatus || '图标：打开页面自动用缓存，完整检查需手动'}
-        </span>
-        <button
-          type="button"
-          className="text-button"
-          title="从本机已安装实例查找模型并补齐本页图标；不会写入游戏文件。打开页面只自动应用已有缓存。"
-          disabled={loading || !data || checkingResources}
-          onClick={() => void checkResources()}
-        >
-          检查本页游戏图标
-        </button>
-        <button
-          type="button"
-          className="text-button"
-          disabled={resourceDetails.length === 0}
-          aria-expanded={detailsOpen}
-          onClick={() => setDetailsOpen((open) => !open)}
-        >
-          {detailsOpen
-            ? '收起明细'
-            : resourceDetails.length
-            ? `查看明细（${resourceDetails.length}）`
-            : '查看明细'}
-        </button>
-      </div>
-      <div className="statistics-context">
-        <div className="health-tabs" role="tablist" aria-label="统计口径">
-          {[
-            ['current', '最近存档读数'],
-            ['initial', '首次导入历史'],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={mode === id}
-              onClick={() => {
-                setMode(id);
-                setOffset(0);
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {data?.unavailable ? (
-          <span className="stat-unavailable">
-            {data.unavailable} 份来源暂不可读
-          </span>
-        ) : null}
-      </div>
-      {detailsOpen && resourceDetails.length > 0 ? (
-        <div
-          className="stat-icon-details"
-          role="region"
-          aria-label="图标补齐明细"
-        >
-          {detailsMode === 'cache' ? (
-            <p className="stat-detail-banner">
-              下列结果来自<strong>缓存查询</strong>
-              （未扫描 mods）。若仍缺图，请点击「检查本页游戏图标」做完整检查。
-            </p>
-          ) : null}
-          <div className="stat-detail-chips" aria-label="结果汇总">
-            <span className="stat-detail-badge status-cached">
-              缓存 {resourceDetails.filter((d) => d.status === 'cached').length}
-            </span>
-            <span className="stat-detail-badge status-resolved">
-              材质{' '}
-              {resourceDetails.filter((d) => d.status === 'resolved').length}
-            </span>
-            <span className="stat-detail-badge status-rendered">
-              已渲染{' '}
-              {resourceDetails.filter((d) => d.status === 'rendered').length}
-            </span>
-            <span className="stat-detail-badge status-missing">
-              未找到{' '}
-              {resourceDetails.filter((d) => d.status === 'missing').length}
-            </span>
-            <span className="stat-detail-badge status-error">
-              错误 {resourceDetails.filter((d) => d.status === 'error').length}
-            </span>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>统计</th>
-                <th>结果</th>
-                <th>来源 / 原因</th>
-              </tr>
-            </thead>
-            <tbody>
-              {resourceDetails.map((detail) => (
-                <tr key={detail.id} data-status={detail.status}>
-                  <td>
-                    <strong>{detail.label}</strong>
-                    <code>{detail.id}</code>
-                  </td>
-                  <td>
-                    <span
-                      className={`stat-detail-badge status-${detail.status}`}
-                    >
-                      {detail.status === 'cached'
-                        ? '缓存'
-                        : detail.status === 'resolved'
-                        ? '材质'
-                        : detail.status === 'rendered'
-                        ? '已渲染'
-                        : detail.status === 'error'
-                        ? '错误'
-                        : '未找到'}
-                    </span>
-                  </td>
-                  <td>
-                    <small title={detail.source}>{detail.source || '—'}</small>
-                    <div className="stat-detail-reason">{detail.reason}</div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-      <ReadStatus {...request} />
-      <div className="filter-summary">
-        <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
-        <div className="filter-tools">
-          <div className="health-tabs" role="group" aria-label="表格密度">
-            <button
-              type="button"
-              aria-pressed={density === 'compact'}
-              onClick={() => setDensity('compact')}
-            >
-              紧凑
-            </button>
-            <button
-              type="button"
-              aria-pressed={density === 'comfortable'}
-              onClick={() => setDensity('comfortable')}
-            >
-              舒适
-            </button>
-          </div>
-          <label className="setting-switch">
-            <input
-              type="checkbox"
-              role="switch"
-              checked={showTech}
-              onChange={(e) => setShowTech(e.target.checked)}
-            />
-            显示技术字段
-          </label>
-          <button type="button" className="text-button" onClick={clearFilters}>
-            清除本页筛选
-          </button>
-        </div>
-      </div>
-      <details className="statistics-overview">
-        <summary>
-          <ChevronDown size={16} />
-          <span>统计概览</span>
-          <strong>
-            {data?.sources
-              ? formatTickTotal(data.counters.play_ticks ?? '0')
-              : '暂无数据'}
-          </strong>
-          <span className="stat-overview-caption">
-            {data?.sources ?? 0} 份统计
-          </span>
-        </summary>
-        <p className="scan-note">
-          {mode === 'current'
-            ? '不含已缺失世界和当前不可读来源。'
-            : '首次有效导入时的累计读数。'}
-          共享根目录只计算一次，复制世界尚未去重。
-        </p>
-        <div className="statistics-metrics">
-          {metrics.map(([key, label]) => (
-            <div key={key}>
-              <span>{label}</span>
-              <strong>
-                {loading || error
-                  ? '…'
-                  : !data?.sources
-                  ? '暂无数据'
-                  : key === 'play_ticks'
-                  ? formatTickTotal(data.counters[key] ?? '0')
-                  : key.endsWith('_cm')
-                  ? formatDistance(data.counters[key] ?? '0')
-                  : formatCount(data.counters[key] ?? '0')}
-                {key.endsWith('_cm') ? (
-                  <small className="stat-unit">m</small>
-                ) : key === 'play_ticks' ? null : (
-                  <small className="stat-unit">次</small>
-                )}
-              </strong>
-            </div>
-          ))}
-        </div>
-      </details>
-      <div
-        className="statistics-categories"
-        ref={categoryTabs}
-        role="tablist"
-        aria-label="统计类别"
-      >
-        {statisticsGroups.map(([id, label], index) => {
-          const Icon = groupIcons[id];
-          const count =
-            id === 'all'
-              ? categoryTotal
-              : data?.categories.find((category) => category.id === id)
-                  ?.count ?? 0;
-          return (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={group === id}
-              tabIndex={group === id ? 0 : -1}
-              key={id}
-              onClick={() => {
-                setGroup(id);
-                setOffset(0);
-              }}
-              onKeyDown={(event) => {
-                const direction =
-                  event.key === 'ArrowRight'
-                    ? 1
-                    : event.key === 'ArrowLeft'
-                    ? -1
-                    : 0;
-                if (!direction && event.key !== 'Home' && event.key !== 'End')
-                  return;
-                event.preventDefault();
-                const next =
-                  event.key === 'Home'
-                    ? 0
-                    : event.key === 'End'
-                    ? statisticsGroups.length - 1
-                    : (index + direction + statisticsGroups.length) %
-                      statisticsGroups.length;
-                setGroup(statisticsGroups[next][0]);
-                setOffset(0);
-                const tabs =
-                  categoryTabs.current?.querySelectorAll<HTMLButtonElement>(
-                    'button',
-                  );
-                tabs?.item(next).focus();
-              }}
-            >
-              <Icon size={15} />
-              <span>{label}</span>
-              <small title={`${count.toLocaleString('zh-CN')} 项`}>
-                {new Intl.NumberFormat('zh-CN', {
-                  notation: 'compact',
-                  maximumFractionDigits: 1,
-                }).format(count)}
-              </small>
-            </button>
-          );
-        })}
-      </div>
-      <div className="library-toolbar statistics-toolbar">
-        <label>
-          <Search size={15} />
-          <input
-            aria-label="搜索统计分类或键"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
+      {/* One band of controls, and then the table. It used to be nine stacked bands
+          between the heading and the first row of data: five of them were a single
+          control each, so the reader scrolled a whole screen of chrome to reach the
+          numbers, and the two blocks that are maintenance rather than reading sat
+          above the table as well. The order is now the one the page is read in -
+          what is being counted, then the count, then the tools that keep the count
+          working. */}
+      <div className="statistics-toolband">
+        <div className="statistics-filters">
+          <ActivityFilters
+            report={report}
+            scope={scope}
+            onChange={(s) => {
               setOffset(0);
+              onScope(s);
             }}
-            placeholder="钻石矿石、跳跃或模组 ID"
           />
-        </label>
-        <span className="stat-results-count" aria-live="polite">
-          {loading
-            ? '读取中…'
-            : `${data?.total.toLocaleString('zh-CN') ?? 0} 项`}
-        </span>
+          <div className="library-toolbar statistics-toolbar">
+            <label>
+              <Search size={15} />
+              <input
+                aria-label="搜索统计分类或键"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setOffset(0);
+                }}
+                placeholder="钻石矿石、跳跃或模组 ID"
+              />
+            </label>
+            <span className="stat-results-count" aria-live="polite">
+              {loading
+                ? '读取中…'
+                : data
+                ? `${data.total.toLocaleString('zh-CN')} 项`
+                : UNKNOWN_DURATION}
+            </span>
+          </div>
+        </div>
+        <div className="statistics-context">
+          <div className="health-tabs" role="tablist" aria-label="统计口径">
+            {[
+              ['current', '最近存档读数'],
+              ['initial', '首次导入历史'],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={mode === id}
+                onClick={() => {
+                  setMode(id);
+                  setOffset(0);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {data?.unavailable ? (
+            <span className="stat-unavailable">
+              {data.unavailable} 份来源暂不可读
+            </span>
+          ) : null}
+        </div>
+        <div
+          className="statistics-categories"
+          ref={categoryTabs}
+          role="tablist"
+          aria-label="统计类别"
+        >
+          {statisticsGroups.map(([id, label], index) => {
+            const Icon = groupIcons[id];
+            const count =
+              id === 'all'
+                ? categoryTotal
+                : data?.categories.find((category) => category.id === id)
+                    ?.count ?? 0;
+            return (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={group === id}
+                tabIndex={group === id ? 0 : -1}
+                key={id}
+                onClick={() => {
+                  setGroup(id);
+                  setOffset(0);
+                }}
+                onKeyDown={(event) => {
+                  const direction =
+                    event.key === 'ArrowRight'
+                      ? 1
+                      : event.key === 'ArrowLeft'
+                      ? -1
+                      : 0;
+                  if (!direction && event.key !== 'Home' && event.key !== 'End')
+                    return;
+                  event.preventDefault();
+                  const next =
+                    event.key === 'Home'
+                      ? 0
+                      : event.key === 'End'
+                      ? statisticsGroups.length - 1
+                      : (index + direction + statisticsGroups.length) %
+                        statisticsGroups.length;
+                  setGroup(statisticsGroups[next][0]);
+                  setOffset(0);
+                  const tabs =
+                    categoryTabs.current?.querySelectorAll<HTMLButtonElement>(
+                      'button',
+                    );
+                  tabs?.item(next).focus();
+                }}
+              >
+                <Icon size={15} />
+                <span>{label}</span>
+                <small title={`${count.toLocaleString('zh-CN')} 项`}>
+                  {new Intl.NumberFormat('zh-CN', {
+                    notation: 'compact',
+                    maximumFractionDigits: 1,
+                  }).format(count)}
+                </small>
+              </button>
+            );
+          })}
+        </div>
+        <div className="filter-summary">
+          <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
+          <div className="filter-tools">
+            <div className="health-tabs" role="group" aria-label="表格密度">
+              <button
+                type="button"
+                aria-pressed={density === 'compact'}
+                onClick={() => setDensity('compact')}
+              >
+                紧凑
+              </button>
+              <button
+                type="button"
+                aria-pressed={density === 'comfortable'}
+                onClick={() => setDensity('comfortable')}
+              >
+                舒适
+              </button>
+            </div>
+            <label className="setting-switch">
+              <input
+                type="checkbox"
+                role="switch"
+                checked={showTech}
+                onChange={(e) => setShowTech(e.target.checked)}
+              />
+              显示技术字段
+            </label>
+            <button
+              type="button"
+              className="text-button"
+              onClick={clearFilters}
+            >
+              清除本页筛选
+            </button>
+          </div>
+        </div>
       </div>
-      {data ? (
+      <ReadStatus {...request} />
+      {/* The table, or the one empty state that says why there is none. Every empty
+          branch is `.list-empty` with a `role="status"` heading and a sentence of its
+          own - the page used to answer with three different wordings and a bare
+          "暂无数据", so a reader could not tell a loading page from an empty one. */}
+      {!data ? (
+        <div className="list-empty" role="status">
+          <strong>{error ? '统计读取失败' : '正在读取统计…'}</strong>
+          <p>
+            {error
+              ? `${error} 保留已有读数，稍后会自动重试。`
+              : '正在从档案读取这一页的读数。'}
+          </p>
+        </div>
+      ) : data.rows.length ? (
         <div
           className={`statistics-table${
             loading ? ' is-loading' : ''
@@ -612,7 +500,7 @@ export default function Statistics({
               </tr>
             </thead>
             <tbody>
-              {data?.rows.map((row) => {
+              {data.rows.map((row) => {
                 const resource =
                   row.resources?.find((r) => r.icon) ?? row.resources?.[0];
                 const local = discovered[`${row.category}:${row.key}`];
@@ -796,14 +684,26 @@ export default function Statistics({
               })}
             </tbody>
           </table>
-          {!data?.rows.length ? (
-            <p>
-              没有匹配的统计。可清除本页筛选，或检查所选玩家是否有对应读数。
-            </p>
-          ) : null}
         </div>
-      ) : null}
-      {data && data.total > data.page_size ? (
+      ) : (
+        <div className="list-empty" role="status">
+          <strong>
+            {scope.players_none
+              ? '未选择玩家，无法统计'
+              : !data.sources
+              ? '所选筛选还没有可统计的读数'
+              : '没有匹配的统计'}
+          </strong>
+          <p>
+            {scope.players_none
+              ? '当前玩家筛选会保留到下次启动；选好玩家后这里会列出读数。'
+              : !data.sources
+              ? '换一个实例、世界或统计口径，或到「导入与设置」重新扫描档案。'
+              : '可清除本页筛选，或换一个搜索词；读数本身没有丢失。'}
+          </p>
+        </div>
+      )}
+      {data && data.rows.length && data.total > data.page_size ? (
         <div className="pagination">
           <button
             title="上一页"
@@ -827,6 +727,168 @@ export default function Statistics({
           </button>
         </div>
       ) : null}
+      {/* Everything below the table is read only on request. The overview answers
+          "what do these rows add up to", which is a different question from the list
+          and used to push the list off the first screen; the icon block is
+          maintenance, not reading. Both are disclosures, both start closed. */}
+      <details className="statistics-overview">
+        <summary>
+          <ChevronDown size={16} />
+          <span>统计概览</span>
+          <strong>
+            {data?.sources
+              ? formatTickTotal(data.counters.play_ticks ?? '0')
+              : UNKNOWN_DURATION}
+          </strong>
+          <span className="stat-overview-caption">
+            {metrics.length} 个指标 · {data ? data.sources : UNKNOWN_DURATION}{' '}
+            份统计
+          </span>
+        </summary>
+        <p className="scan-note">
+          {mode === 'current'
+            ? '不含已缺失世界和当前不可读来源。'
+            : '首次有效导入时的累计读数。'}
+          共享根目录只计算一次，复制世界尚未去重。
+        </p>
+        <div className="statistics-metrics">
+          {metrics.map(([key, label]) => (
+            <div key={key}>
+              <span>{label}</span>
+              <strong>
+                {loading || error
+                  ? '…'
+                  : !data?.sources
+                  ? '暂无数据'
+                  : key === 'play_ticks'
+                  ? formatTickTotal(data.counters[key] ?? '0')
+                  : key.endsWith('_cm')
+                  ? formatDistance(data.counters[key] ?? '0')
+                  : formatCount(data.counters[key] ?? '0')}
+                {key.endsWith('_cm') ? (
+                  <small className="stat-unit">m</small>
+                ) : key === 'play_ticks' ? null : (
+                  <small className="stat-unit">次</small>
+                )}
+              </strong>
+            </div>
+          ))}
+        </div>
+      </details>
+      <details className="stat-icon-resources">
+        <summary>
+          <ChevronDown size={16} />
+          <span>图标与资源</span>
+          <span className="stat-overview-caption">
+            <span role="status" className="stat-icon-status">
+              {checkingResources
+                ? '正在检查游戏图标…'
+                : resourceStatus || '打开页面自动用缓存'}
+            </span>
+          </span>
+        </summary>
+        <div className="stat-icon-toolbar">
+          <button
+            type="button"
+            className="text-button"
+            title="从本机已安装实例查找模型并补齐本页图标；不会写入游戏文件。打开页面只自动应用已有缓存。"
+            disabled={loading || !data || checkingResources}
+            onClick={() => void checkResources()}
+          >
+            检查本页游戏图标
+          </button>
+          <button
+            type="button"
+            className="text-button"
+            disabled={resourceDetails.length === 0}
+            aria-expanded={detailsOpen}
+            onClick={() => setDetailsOpen((open) => !open)}
+          >
+            {detailsOpen
+              ? '收起明细'
+              : resourceDetails.length
+              ? `查看明细（${resourceDetails.length}）`
+              : '查看明细'}
+          </button>
+        </div>
+        {detailsOpen && resourceDetails.length > 0 ? (
+          <div
+            className="stat-icon-details"
+            role="region"
+            aria-label="图标补齐明细"
+          >
+            {detailsMode === 'cache' ? (
+              <p className="stat-detail-banner">
+                下列结果来自<strong>缓存查询</strong>
+                （未扫描
+                mods）。若仍缺图，请点击「检查本页游戏图标」做完整检查。
+              </p>
+            ) : null}
+            <div className="stat-detail-chips" aria-label="结果汇总">
+              <span className="stat-detail-badge status-cached">
+                缓存{' '}
+                {resourceDetails.filter((d) => d.status === 'cached').length}
+              </span>
+              <span className="stat-detail-badge status-resolved">
+                材质{' '}
+                {resourceDetails.filter((d) => d.status === 'resolved').length}
+              </span>
+              <span className="stat-detail-badge status-rendered">
+                已渲染{' '}
+                {resourceDetails.filter((d) => d.status === 'rendered').length}
+              </span>
+              <span className="stat-detail-badge status-missing">
+                未找到{' '}
+                {resourceDetails.filter((d) => d.status === 'missing').length}
+              </span>
+              <span className="stat-detail-badge status-error">
+                错误{' '}
+                {resourceDetails.filter((d) => d.status === 'error').length}
+              </span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>统计</th>
+                  <th>结果</th>
+                  <th>来源 / 原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resourceDetails.map((detail) => (
+                  <tr key={detail.id} data-status={detail.status}>
+                    <td>
+                      <strong>{detail.label}</strong>
+                      <code>{detail.id}</code>
+                    </td>
+                    <td>
+                      <span
+                        className={`stat-detail-badge status-${detail.status}`}
+                      >
+                        {detail.status === 'cached'
+                          ? '缓存'
+                          : detail.status === 'resolved'
+                          ? '材质'
+                          : detail.status === 'rendered'
+                          ? '已渲染'
+                          : detail.status === 'error'
+                          ? '错误'
+                          : '未找到'}
+                      </span>
+                    </td>
+                    <td>
+                      <small title={detail.source}>
+                        {detail.source || UNKNOWN_DURATION}
+                      </small>
+                      <div className="stat-detail-reason">{detail.reason}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </details>
       {preview ? (
         <StatIconPreview selection={preview} onClose={() => setPreview(null)} />
       ) : null}

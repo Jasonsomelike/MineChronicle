@@ -1,7 +1,13 @@
 import { useResource } from '../lib/useResource';
 import ReadStatus from './ReadStatus';
-import { useEffect, useState } from 'react';
-import { ArrowUpRight, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowUpRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  History,
+} from 'lucide-react';
 import { loadTimeline, eventNames, emptyScope } from '../lib/activity';
 import type { ActivityScope, TimelinePage } from '../lib/activity';
 import type { ScanSummary } from '../lib/scan';
@@ -32,6 +38,33 @@ export default function Timeline({
   const [data, setData] = useState<TimelinePage | null>(null),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
+  /* The row whose UUID was just copied, name included: the confirmation is shown beside
+     that row and announced by the live region below, so both need to know which one it is. */
+  const [copied, setCopied] = useState<{ uuid: string; name: string } | null>(
+    null,
+  );
+  const copyTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    /* The ref is read through a local so the cleanup does not capture a `.current` that
+       the lint rule cannot prove is still the same timer. */
+    const timer = copyTimer;
+    return () => window.clearTimeout(timer.current);
+  }, []);
+  async function copyUuid(uuid: string, name: string) {
+    const write = navigator.clipboard?.writeText(uuid);
+    /* A confirmation is a claim about the clipboard, so it is only shown for a write that
+       actually resolved. There is no clipboard outside a secure context, and the browser
+       can refuse the permission. */
+    if (!write) return;
+    try {
+      await write;
+    } catch {
+      return;
+    }
+    setCopied({ uuid, name });
+    window.clearTimeout(copyTimer.current);
+    copyTimer.current = window.setTimeout(() => setCopied(null), 1600);
+  }
   useEffect(() => {
     setOffset(0);
   }, [scope.uuids, scope.players_none]);
@@ -165,17 +198,6 @@ export default function Timeline({
                   {label}
                 </button>
               ))}
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => {
-                  setFrom('');
-                  setTo('');
-                  setOffset(0);
-                }}
-              >
-                清除日期
-              </button>
             </div>
             <label>
               事件
@@ -201,6 +223,13 @@ export default function Timeline({
         </>
       ) : null}
       <ReadStatus {...request} />
+      {/* One live region for the list rather than one per row, and it is here from the first
+          render: a live region that arrives together with its text is not reliably
+          announced, whereas a change inside one that already exists is. Absolutely
+          positioned (`.sr-only`) so it cannot add a gap to any row it sits above. */}
+      <p className="sr-only" role="status">
+        {copied ? `已复制 ${copied.name} 的 UUID` : ''}
+      </p>
       <div className="filter-summary">
         <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
         <button type="button" className="text-button" onClick={clearFilters}>
@@ -303,16 +332,31 @@ export default function Timeline({
                     </button>
                   </div>
                   <p className="event-meta">
-                    <span
-                      className="event-player"
+                    {/* A button, because this row's only action has to be reachable
+                        from the keyboard. It was a span with `cursor: copy` and an
+                        onClick, so nobody tabbing through the page could copy anything.
+                        The confirmation is transient and replaces nothing: the name stays
+                        where it was and the fact follows it. */}
+                    <button
+                      type="button"
+                      className="text-button event-player"
                       title={`UUID ${e.uuid} · 点击复制`}
-                      style={{ cursor: 'copy' }}
-                      onClick={() => {
-                        void navigator.clipboard?.writeText(e.uuid);
-                      }}
+                      aria-label={`复制 ${e.player_name ?? e.uuid} 的 UUID`}
+                      onClick={() =>
+                        void copyUuid(e.uuid, e.player_name ?? e.uuid)
+                      }
                     >
                       {e.player_name ?? e.uuid}
-                    </span>
+                      {/* Visual only. A button's children are presentational, so nothing
+                          inside it is read out - which is why the confirmation is also
+                          mirrored into the live region above the list. */}
+                      {copied?.uuid === e.uuid ? (
+                        <span className="uuid-copy">
+                          <Check size={13} />
+                          已复制
+                        </span>
+                      ) : null}
+                    </button>
                     <span className="event-duration">
                       {e.kind === 'increment'
                         ? `+ ${formatTickTotal(e.delta_ticks)}`

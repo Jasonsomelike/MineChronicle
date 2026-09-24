@@ -14,6 +14,9 @@ export default [
       'src-tauri/gen',
       '.dependencies-interrupted',
       '.local',
+      // Machine-owned: ZCode workflow drafts/journals and the review run's scratch evidence.
+      '.zcode',
+      '.research',
     ],
   },
   js.configs.recommended,

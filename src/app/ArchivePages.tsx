@@ -201,7 +201,7 @@ function SettingsBody({ state }: { state: AppState }) {
         </>
       )}
       {report ? (
-        <div hidden={state.view !== 'settings'}>
+        <div className="settings-block" hidden={state.view !== 'settings'}>
           {report.saved ? (
             <div className="import-summary">
               <h3>首次导入历史 · {formatTickTotal(report.historical_ticks)}</h3>
@@ -223,7 +223,7 @@ function SettingsBody({ state }: { state: AppState }) {
         </div>
       ) : null}
       {report ? (
-        <div hidden={state.view !== 'settings'}>
+        <div className="settings-block" hidden={state.view !== 'settings'}>
           {state.issueGroups.length ? (
             <details className="scan-issues" open>
               <summary>需要留意 · {state.issueGroups.length} 类问题</summary>
@@ -309,6 +309,8 @@ export default function ArchivePages({ state }: { state: AppState }) {
     worldCount,
     progress,
     error,
+    clearError,
+    notice,
     pcl,
     pclStatus,
     connectPcl,
@@ -430,8 +432,27 @@ export default function ArchivePages({ state }: { state: AppState }) {
           : '选择目录后开始首次导入。'}
       </p>
       {error ? (
-        <p className="scan-error" role="alert">
-          {error}
+        /* Gated to the page that owns the action, like the status line above it: the
+           message is about a scan the user started in 导入与设置, and it used to follow
+           them to every other page with nothing to dismiss it. */
+        <p className="scan-error" role="alert" hidden={view !== 'settings'}>
+          {error}{' '}
+          <button type="button" className="text-button" onClick={clearError}>
+            知道了
+          </button>
+        </p>
+      ) : null}
+      {notice ? (
+        /* The neutral half of the same message slot. A cancelled scan is an outcome, not a
+           failure, so it is announced rather than alerted - and it carries its own dismiss,
+           because the alternative is a line that stays on the page with no way to clear it
+           until the next scan starts. `clearError` empties both halves, so the two can
+           never be left disagreeing about whether the slot is empty. */
+        <p className="scan-notice" role="status" hidden={view !== 'settings'}>
+          {notice}{' '}
+          <button type="button" className="text-button" onClick={clearError}>
+            知道了
+          </button>
         </p>
       ) : null}
       {report ? (
@@ -452,6 +473,12 @@ export default function ArchivePages({ state }: { state: AppState }) {
               health={health}
               onTimeline={() => openActivity('timeline')}
               onObservation={() => navigate('observation')}
+              onWorlds={() => {
+                // The complete ranking, unfiltered: the dashboard's link is "see all
+                // of them", so it clears whatever world search the page was left on.
+                setWorldQuery('');
+                navigate('worlds');
+              }}
               onSettings={() => {
                 navigate('settings');
                 setTimeout(

@@ -187,6 +187,36 @@
   white-space: nowrap;
 }
 
+/* --- The nav's groups ------------------------------------------------------ */
+
+/* Three groups of destinations. The group is a wrapper so the heading can sit above
+   its own items; the heading is a span, never a button, so the seven destinations
+   stay seven (`qa-error-boundary.mjs` counts `.app-nav button`). */
+.app-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Group against group, and it has to beat the 2px inside a group: two rules that
+   differ by 2px read as no grouping at all. `space-3` between, `2px` within. */
+.app-nav-group + .app-nav-group {
+  margin-top: var(--space-3);
+}
+
+/* The heading is a label for the column, at the caption step and in the muted tone.
+   It is deliberately NOT one step down from `.app-nav button` (which is the body
+   step): hierarchy here is carried by weight, colour and the space above, not by
+   shrinking type below the 12px floor. */
+.app-nav-group-title {
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+
 .app-nav button > svg {
   flex-shrink: 0;
 }
@@ -225,22 +255,28 @@
 /* --- Staged collapse -------------------------------------------------------
    Three tiers, so the layout degrades on its own terms instead of being crushed.
 
-   1400px  the labelled rail is gone; a 72px icon rail keeps every destination one click
-           away. It was 1100px, justified by "the settings page is a two-column layout
-           from 1400px down to 1332px, and below that a labelled rail would start eating
-           the width the two columns need". That justification no longer holds and the
-           two-column layout it was protecting no longer exists: `.settings-layout` is
-           `columns: 2 640px`, and measured (`scripts/qa-settings-columns.mjs`) it has
-           rendered ONE column at every width from 1563px down, because the rail's 192px
-           comes out of the window before the columns are computed. The two-column
-           settings page starts at 1600px, where the rail has room to be labelled.
-           What the old number did do is leave the rail at its widest just above 1100px,
-           which is where it costs the most: measured 192px = 16.3% of a 1175px window,
-           against 9.4% of a 2048px one. The user's window is ~1175px, so this is the
-           band they were looking at.
-    860px  the rail is given up entirely and the same three elements reflow into a top
+   1080px  the labelled rail is gone; a 72px icon rail keeps every destination one click
+           away. It was 1400px, and 1100px before that, both justified by "the settings
+           page is a two-column layout from 1400px down to 1332px, and below that a
+           labelled rail would start eating the width the two columns need". That
+           justification no longer holds and the two-column layout it was protecting no
+           longer exists: `.settings-layout` is `columns: 2 640px`, and measured
+           (`scripts/qa-settings-columns.mjs`) it has rendered ONE column at every width
+           from 1563px down, because the rail's 192px comes out of the window before the
+           columns are computed. The two-column settings page starts at 1600px, where the
+           rail has room to be labelled.
+           What was left was a proportion judgement, and the old number lost the labels
+           in the band that needs them: a 192px rail is 16.3% of a 1175px window against
+           9.4% of a 2048px one, and 1175px is where this app is actually used (see
+           `shell.css`'s own history; the same figure appears in the review that set this
+           number). Forcing the labels back on at 1175px measured zero document overflow,
+           a 911px content column, and buttons 179px wide against labels 39-65px wide, so
+           the 1400px figure was never a capacity limit. 1080px is the point where the
+           192px share is at its worst case (17.8%) while still leaving a 860px-plus
+           content column, and below it the icon rail takes over.
+   860px  the rail is given up entirely and the same three elements reflow into a top
            strip, in DOM order, with no second copy of the markup.
-    620px  the residency labels drop and the brand step comes down, so the strip stays a
+   620px  the residency labels drop and the brand step comes down, so the strip stays a
            strip.
 
    Below 860px the primary nav intentionally stops sticking. Both it and the settings
@@ -250,20 +286,22 @@
    pinned is the one that is useful while scrolling a 2700px page; the primary nav is the
    top of the document and scrolls with it. */
 
-/* The same geometry the 1400px block below applies, for the user who asked for it at a
+/* The same geometry the 1080px block below applies, for the user who asked for it at a
    width where the breakpoint would not have. There is one definition of "collapsed" and
    these are its two entry conditions, not two collapsed layouts: both `.app-shell` rules
    read the same `--sidebar-w-compact` token and both hide the same `.app-nav-label`, so
    the icon rail cannot drift between the responsive case and the explicit one.
 
-   `collapsed` is honoured at every width above the strip tier; `expanded` is not, and the
+   `collapsed` is honoured at every width above the strip tier; `expanded` is too, and the
    asymmetry is the point. The media queries exist so the layout degrades instead of being
    crushed, so they are the floor and the preference is the ceiling: at 2048px there is
-   room for either shape and the user decides, at 1075px a 192px rail would leave 809px of
-   content and the breakpoint wins. Because `[data-rail='collapsed']` carries the root's
-   specificity and the media query does not, an explicit collapse also wins over an
-   automatic expand - and where both ask for the icon rail the two rules set identical
-   values, so double-application is a no-op rather than a fight. */
+   room for either shape and the user decides, and at 1075px the labelled rail is a shape
+   the layout can still afford - measured at 1175px it leaves a 911px content column with
+   zero document overflow - so asking for it there is a choice rather than an override.
+   Because `[data-rail='collapsed']` carries the root's specificity and the media query
+   does not, an explicit collapse also wins over an automatic expand - and where both ask
+   for the icon rail the two rules set identical values, so double-application is a no-op
+   rather than a fight. */
 /* Collapsed and expanded are different answers, so they are different rules. They were
    one group, which made `expanded` set the compact width - the toggle worked and the
    layout did not, at every width. */
@@ -282,8 +320,12 @@
 /* Only the collapsed case. `expanded` was listed here too, so asking to expand gave a
    rail that was wide and label-less rather than the labelled rail it was asking for.
    `.local-label` is included because it was in none of these lists, which left
-   本地档案 / 托盘驻留 rendering inside a 72px rail. */
+   本地档案 / 托盘驻留 rendering inside a 72px rail.
+
+   `.app-nav-group-title` comes and goes with the labels: a heading over a column of
+   bare icons names nothing, and it is wider than the 72px rail can hold. */
 :root[data-rail='collapsed'] .app-nav-label,
+:root[data-rail='collapsed'] .app-nav-group-title,
 :root[data-rail='collapsed'] .wordmark-label,
 :root[data-rail='collapsed'] .local-label {
   display: none;
@@ -298,7 +340,10 @@
   padding: 0;
 }
 
-@media (max-width: 1400px) {
+/* Written as 1079.98 rather than 1080 so that "at 1080px the labels are still there" is
+   literally true. `max-width: 1080px` would drop them at exactly the width the
+   acceptance criterion names, and the same boundary is mirrored in `src/lib/rail.ts`. */
+@media (max-width: 1079.98px) {
   .app-shell {
     grid-template-columns: var(--sidebar-w-compact) minmax(0, 1fr);
     column-gap: var(--space-4);
@@ -310,10 +355,12 @@
      rather than allowed to overflow, which is what it did while the label was a bare
      text node: nothing could select it, so `display: none` had no target and seven
      labels ran out of a 47px rail and over the content beside it. `title` on the button
-     is now the accessible name for these. */
+     is now the accessible name for these. The group headings go with them - they are
+     wider than the labels and name a column that has become a strip of icons. */
   /* Unless the reader has asked for the labelled rail. Without this condition an
      explicit expand at a narrow width gave a 192px rail with no labels in it. */
   :root:not([data-rail='expanded']) .app-nav-label,
+  :root:not([data-rail='expanded']) .app-nav-group-title,
   :root:not([data-rail='expanded']) .wordmark-label,
   :root:not([data-rail='expanded']) .local-label {
     display: none;
@@ -375,6 +422,14 @@
     padding: 0 0 var(--space-2);
     border-bottom: 1px solid var(--border);
     margin-bottom: var(--space-3);
+  }
+  /* The rail is a strip here, so the groups stop being boxes and their destinations
+     reflow into the same wrapped row as the brand. Left as boxes, the strip measured
+     three narrow columns of icons instead of one list. The only thing the element
+     itself contributes at this width is its `role="group"`, because the headings are
+     already hidden here by the condition above - they follow the labels. */
+  .app-nav-group {
+    display: contents;
   }
   .app-nav button {
     justify-content: center;

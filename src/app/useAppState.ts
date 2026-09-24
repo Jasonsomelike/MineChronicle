@@ -232,6 +232,11 @@ export function useAppState() {
   }, [healthRead.data]);
 
   const [error, setError] = useState('');
+  /* The other half of the page-level message slot. "扫描已取消" is a normal outcome, not a
+     failure, and it was being rendered in the danger colour as `role="alert"` - which is
+     how a red banner stops meaning anything. Failures go to `error`, results the user
+     asked for and should still be told about go here. */
+  const [notice, setNotice] = useState('');
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
   const [pcl, setPcl] = useState<PclLink | null>(null);
   const [launcher, setLauncher] = useState('');
@@ -331,6 +336,7 @@ export function useAppState() {
 
   async function scan() {
     setError('');
+    setNotice('');
     let paths: string[];
     try {
       paths = parseRootInput(input);
@@ -353,7 +359,7 @@ export function useAppState() {
           : launcher || undefined,
       );
       if (result.cancelled) {
-        setError('扫描已取消，已保存的世界与实例保持不变。');
+        setNotice('扫描已取消，已保存的世界与实例保持不变。');
       } else {
         applySavedReport(result);
       }
@@ -373,6 +379,14 @@ export function useAppState() {
       setError('无法发送取消请求，请等待当前扫描结束。');
       setCancelling(false);
     }
+  }
+
+  /* One control dismisses the page's message slot, so it dismisses both halves of it: a
+     button that clears the failure but leaves the notice behind looks broken, and the two
+     can only ever be read as one region. */
+  function clearError() {
+    setError('');
+    setNotice('');
   }
 
   const issueGroups = groupIssues(
@@ -425,6 +439,9 @@ export function useAppState() {
     setHealth,
     error,
     setError,
+    clearError,
+    notice,
+    setNotice,
     runtime,
     loading,
     totalsRead,

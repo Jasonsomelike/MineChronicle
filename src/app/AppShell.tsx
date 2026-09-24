@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import {
-  Activity,
-  ChevronLeft,
-  ChevronRight,
-  Layers3,
-  Sprout,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, Layers3, Sprout } from 'lucide-react';
 import { checkRuntime } from '../lib/runtime';
 import { FRONTEND_VERSION } from '../lib/version';
 import { displayPath } from '../lib/path';
@@ -17,7 +11,14 @@ import {
   saveRailPreference,
 } from '../lib/rail';
 import type { RailPreference } from '../lib/rail';
-import { PAGE_ICONS, PAGE_LABELS, PAGE_IDS, SETTINGS_SECTIONS } from './routes';
+import {
+  PAGE_GROUP_OF,
+  PAGE_GROUPS,
+  PAGE_ICONS,
+  PAGE_LABELS,
+  PAGE_IDS,
+  SETTINGS_SECTIONS,
+} from './routes';
 import type { AppState } from './useAppState';
 
 function StatusSummary({ state }: { state: AppState }) {
@@ -26,39 +27,62 @@ function StatusSummary({ state }: { state: AppState }) {
     !!trackingStatus?.error || Object.values(backgroundErrors).some(Boolean);
   const running =
     !!trackingStatus?.running || !!trackingStatus?.active_instances?.length;
+  /* Four states, and the loading one is tested before the two settled ones. The status
+     used to be read off `enabled` alone, so `trackingStatus === null` - the first frames
+     after launch, and every failed poll - fell through to 追踪已暂停: the bar announced a
+     conclusion it had no reading for, at exactly the moment a wrong one is most likely to
+     be believed. `is-ready` is gone with it; it had a tone and no rule. */
   const tone = hasError
     ? 'is-error'
     : running
     ? 'is-running'
-    : trackingStatus?.enabled
-    ? 'is-ready'
-    : 'is-paused';
+    : trackingStatus
+    ? 'is-idle'
+    : 'is-loading';
+  /* The tone is the surface, the dot is the reading, and the two settled quiet states
+     share the surface but not the dot. Sharing it was wrong twice over: the review's
+     acceptance says 追踪已就绪，等待游戏启动 and 追踪已暂停 must not paint the same
+     colour, and they are different facts - one is waiting for a game, the other has
+     recording switched off, so nothing is being written to the archive at all. The dot
+     carries that difference; the surface stays the shared neutral one, because neither
+     state is a failure. */
+  const dot = hasError
+    ? 'error'
+    : running
+    ? 'active'
+    : !trackingStatus
+    ? 'loading'
+    : trackingStatus.enabled
+    ? 'idle'
+    : 'paused';
+  /* The error state gets its own label rather than passing the error off as a ready
+     tracker: a red dot beside 追踪已就绪，等待游戏启动 asks the reader to trust the
+     right-hand hint over the sentence in the middle. 异常 matches the wording the hint
+     already used. */
   const label = trackingStatus?.running
     ? '正在同步存档'
     : trackingStatus?.active_instances?.length
     ? `正在追踪 ${trackingStatus.active_instances.length} 个实例`
     : trackingStatus?.finalizing_instances
     ? '游戏已退出，正在收尾同步'
-    : trackingStatus?.enabled
+    : !trackingStatus
+    ? '正在读取追踪状态…'
+    : hasError
+    ? '追踪服务异常'
+    : trackingStatus.enabled
     ? '追踪已就绪，等待游戏启动'
     : '追踪已暂停';
   return (
     <details className={`status-center ${tone}`}>
       <summary>
-        <span
-          className={
-            hasError
-              ? 'watch-dot error'
-              : running
-              ? 'watch-dot active'
-              : trackingStatus?.enabled
-              ? 'watch-dot ready'
-              : 'watch-dot'
-          }
-        />
+        <span className={`watch-dot ${dot}`} />
         {label}
+        {/* The state is the label now, so this side of the summary only says what the
+            disclosure does. It used to carry the state too - 追踪服务异常 beside
+            有服务异常 · 查看详情 is the same sentence twice - and 「运行状态」 is the
+            label this side already used when there was nothing wrong. */}
         <span className="status-center-hint">
-          {hasError ? '有服务异常 · 查看详情' : '运行状态'}
+          {hasError ? '查看详情' : '运行状态'}
         </span>
       </summary>
       {pclStatus && state.view !== 'settings' ? (
@@ -106,10 +130,17 @@ function StatusSummary({ state }: { state: AppState }) {
             {message}
           </p>
         ))}
+      <ConnectionCheck />
     </details>
   );
 }
 
+/* Was a second status line under the page, with its own `<details>` and its own summary
+   reading 连接状态. Two lines that each said half of one thing are how a status strip
+   stops being read: this one sat below every page, so the sentence a reader needed was a
+   scroll away from the dot they had just looked at. It is a row inside the status bar
+   now - no summary, no second heading, and the manual check still exists because it is
+   the only way to test the desktop bridge from the browser preview. */
 function ConnectionCheck() {
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState('尚未检查桌面连接');
@@ -131,11 +162,7 @@ function ConnectionCheck() {
   }
 
   return (
-    <details className="connection-check">
-      <summary>
-        <Activity size={14} />
-        连接状态
-      </summary>
+    <div className="connection-check">
       <button
         type="button"
         onClick={() => void checkConnection()}
@@ -147,7 +174,7 @@ function ConnectionCheck() {
       <p className="runtime-status" role="status">
         {message}
       </p>
-    </details>
+    </div>
   );
 }
 
@@ -199,26 +226,49 @@ export default function AppShell({
           <span className="wordmark-label">MineChronicle</span>
         </span>
         <nav className="app-nav" id="app-primary-nav" aria-label="档案页面">
-          {PAGE_IDS.map((id) => {
-            const Icon = PAGE_ICONS[id];
-            return (
-              <button
-                key={id}
-                type="button"
-                /* Carries the name for a pointer when the rail collapses to icons at
-                   1400px. The visible label is the same string, so the two cannot drift
-                   apart. */
-                title={PAGE_LABELS[id]}
-                aria-current={view === id ? 'page' : undefined}
-                onClick={() => navigate(id)}
+          {/* Three groups, rendered from the one declaration in routes.ts. The heading
+              is a labelled `group`, never a button: the seven destinations are still
+              exactly seven buttons (qa-error-boundary.mjs counts them), and a heading
+              that could be clicked would be an eighth destination that goes nowhere.
+              `aria-labelledby` points at the visible text rather than repeating it in
+              an `aria-label`, so the two cannot drift apart. */}
+          {PAGE_GROUPS.map(([groupId, groupLabel]) => (
+            <div
+              key={groupId}
+              className="app-nav-group"
+              role="group"
+              aria-labelledby={`app-nav-group-${groupId}`}
+            >
+              <span
+                className="app-nav-group-title"
+                id={`app-nav-group-${groupId}`}
               >
-                <Icon size={15} aria-hidden="true" />
-                {/* An element, not a bare text node, because the icon tier has to hide it
-                    and a text node cannot be selected. */}
-                <span className="app-nav-label">{PAGE_LABELS[id]}</span>
-              </button>
-            );
-          })}
+                {groupLabel}
+              </span>
+              {PAGE_IDS.filter((id) => PAGE_GROUP_OF[id] === groupId).map(
+                (id) => {
+                  const Icon = PAGE_ICONS[id];
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      /* Carries the name for a pointer when the rail collapses to icons at
+                       1080px. The visible label is the same string, so the two cannot drift
+                       apart. */
+                      title={PAGE_LABELS[id]}
+                      aria-current={view === id ? 'page' : undefined}
+                      onClick={() => navigate(id)}
+                    >
+                      <Icon size={18} aria-hidden="true" />
+                      {/* An element, not a bare text node, because the icon tier has to hide it
+                        and a text node cannot be selected. */}
+                      <span className="app-nav-label">{PAGE_LABELS[id]}</span>
+                    </button>
+                  );
+                },
+              )}
+            </div>
+          ))}
         </nav>
         {/* After the navigation in the DOM so it cannot open a gap between the brand and
             the list of destinations: the rail's `gap` sits between flex siblings, and this
@@ -290,7 +340,6 @@ export default function AppShell({
               : ''}
           </p>
         </section>
-        <ConnectionCheck />
       </main>
       <footer>
         <span>MineChronicle {FRONTEND_VERSION}</span>

@@ -81,10 +81,11 @@ describe('rail preference', () => {
 
 describe('rail resolution against the breakpoint', () => {
   it('treats the breakpoint as the default and the preference as the ceiling', () => {
-    // No preference: the breakpoint decides.
+    // No preference: the breakpoint decides. 1080px is the last width that keeps the
+    // labels, so the collapse starts one pixel under it.
     expect(autoCollapsed(2048)).toBe(false);
-    expect(autoCollapsed(1401)).toBe(false);
-    expect(autoCollapsed(1400)).toBe(true);
+    expect(autoCollapsed(1080)).toBe(false);
+    expect(autoCollapsed(1079)).toBe(true);
     expect(autoCollapsed(900)).toBe(true);
   });
 

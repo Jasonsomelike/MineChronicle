@@ -16,13 +16,28 @@
   --space-6: 24px;
   --space-7: 28px;
   --space-8: 32px;
+  /* The layout step, one rung above `--space-8` on purpose. 32 is the distance between two
+     cards inside a group, so a group boundary has to sit beyond it - and with the scale
+     stopping at 32 there was no way to say that, which is why the settings page rendered
+     16 between groups and 32 inside one: the hierarchy upside down. Atlassian puts
+     page-level rhythm at 32-80 and Carbon's section separation at 48. */
+  --space-9: 48px;
 
-  --type-micro: 11px;
+  /* Five steps, from the Windows type ramp: Caption 12/16, Body 14/20,
+     Subtitle 20/28, Title 28/36, which also states its floor - "Minimum values:
+     14px Semibold, 12px Regular", i.e. text below 12px is illegible in some
+     languages and 14px is body, not 13px.
+
+     The seven steps this replaces were 11/12/13/15/18/22/28, and 11 and 12 were
+     the two most-used, so most of the app sat below the platform's own minimum.
+     `--type-micro` (11px) and `--type-title` (18px) are gone rather than kept
+     unused: at five steps, 11 has nowhere to go but 12, and 18 has nowhere to go
+     but 20 - a 16/18 pair is the one adjacency the ramp does not have. Every
+     consumer moved, so nothing points at a step that no longer exists. */
   --type-caption: 12px;
-  --type-body: 13px;
-  --type-lead: 15px;
-  --type-title: 18px;
-  --type-heading: 22px;
+  --type-body: 14px;
+  --type-lead: 16px;
+  --type-heading: 20px;
   --type-display: 28px;
 
   --font-ui: 'Segoe UI', 'Microsoft YaHei', sans-serif;
@@ -65,10 +80,4 @@
      --type-caption, and a 64px rail minus its padding and border left 47px for them -
      measured overflowing by 9px on both. */
   --sidebar-w-compact: 72px;
-
-  /* Retired. A single cap on a form page cannot be right: narrow leaves the right of
-     the window empty, wide stretches the prose. The settings page uses two balanced
-     columns now, so it needs no cap of its own. Kept as a token with no consumer so the
-     next reader can see it was removed on purpose rather than lost. */
-  --content-max: none;
 }

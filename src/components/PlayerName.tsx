@@ -62,7 +62,12 @@ export default function PlayerName({
             type="button"
             className="secondary-button"
             disabled={saving}
-            onClick={() => setEditing(false)}
+            onClick={() => {
+              // Leaving the form is also leaving the failure: the error belongs to the
+              // attempt, so it does not sit here waiting for the next one.
+              setError('');
+              setEditing(false);
+            }}
           >
             取消
           </button>
@@ -80,7 +85,23 @@ export default function PlayerName({
           设置名称
         </button>
       )}
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? (
+        /* The failure used to be the raw backend string on its own, with no way back: the
+           form stayed open but nothing said whether the name had changed or that the save
+           could be tried again. What is true now, then the action - the shape `ReadStatus`
+           already uses. */
+        <p role="alert" className="scan-error">
+          {error} · 原有名称保持不变。{' '}
+          <button
+            type="button"
+            className="text-button"
+            disabled={saving || disabled || !name.trim()}
+            onClick={() => void save()}
+          >
+            立即重试
+          </button>
+        </p>
+      ) : null}
     </div>
   );
 }

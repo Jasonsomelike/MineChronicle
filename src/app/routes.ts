@@ -41,6 +41,37 @@ export const PAGE_ICONS: Record<PageId, LucideIcon> = {
   settings: Settings2,
 };
 
+/**
+ * The three groups the seven destinations collect into.
+ *
+ * Seven destinations at one level read as a draft: the list says nothing about
+ * which of them are where the work happens (档案) and which configure the app
+ * (观测与设置). The grouping is the page's shape, so it is declared next to the
+ * pages rather than assembled in the shell, and the shell renders whatever order
+ * this array is in.
+ *
+ * A group is a heading plus its destinations - not a destination itself, which is
+ * why the labels are here and not in `PAGE_LABELS`.
+ */
+export const PAGE_GROUPS = [
+  ['overview', '概览'],
+  ['archive', '档案'],
+  ['ops', '观测与设置'],
+] as const;
+
+export type PageGroupId = (typeof PAGE_GROUPS)[number][0];
+
+/** Every page belongs to exactly one group; `routes.test.ts` holds that. */
+export const PAGE_GROUP_OF: Record<PageId, PageGroupId> = {
+  dashboard: 'overview',
+  instances: 'archive',
+  worlds: 'archive',
+  timeline: 'archive',
+  statistics: 'archive',
+  observation: 'ops',
+  settings: 'ops',
+};
+
 export const SETTINGS_SECTIONS = [
   ['settings-identity', '身份'],
   ['settings-startup', '启动与显示'],

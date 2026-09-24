@@ -14,6 +14,9 @@ export function folderOf(path: string) {
     .replace(/\/$/, '')
     .toLowerCase();
 }
+
+/** How many of an instance's worlds a row names before it says how many are left. */
+const WORLD_PREVIEW = 5;
 export default function PclInstances({
   report,
   link,
@@ -159,7 +162,10 @@ export default function PclInstances({
             }}
           >
             <summary>
-              {group.name} · {group.instances.length} 个实例
+              {group.name} ·{' '}
+              {searching
+                ? `匹配 ${matches.length} / 共 ${instances.length} 个实例`
+                : `${instances.length} 个实例`}
               {ticks > 0n ? (
                 <span className="folder-ticks">
                   {formatPlayTicks(ticks.toString())}
@@ -184,6 +190,15 @@ export default function PclInstances({
                     return ticks > 0n ? (
                       <span className="instance-ticks">
                         {formatPlayTicks(ticks.toString())}
+                        {/* The label is not optional. The archive has no per-instance
+                            play time - an instance is tied to a world only through its
+                            game root, and the backend's own pseudo-session totals are
+                            keyed on that root too - so an unlabelled number here reads
+                            as "this instance was played this long", which is a
+                            different and wrong statement. It is also the same figure
+                            the group heading above already carries, which is why it
+                            now says what it counts instead of repeating it bare. */}
+                        <small>（游戏目录合计）</small>
                       </span>
                     ) : null;
                   })()}
@@ -230,9 +245,27 @@ export default function PclInstances({
                       </p>
                     );
                   })()}
+                  {/* The action comes before what it acts on. It used to be the last
+                      thing in the row, under an unbounded list of worlds, so at 20
+                      worlds it had been pushed off the first screen by the very list
+                      it opens - the one control in the row that does something was
+                      the hardest one to reach. */}
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => onOpen(instance.game_root)}
+                  >
+                    <ArrowUpRight size={14} />
+                    查看世界 · {root?.worlds.length ?? 0} 个
+                  </button>
                   {root?.worlds.length ? (
                     <ul className="instance-worlds">
-                      {root.worlds.map((w) => (
+                      {/* Capped. An instance and its world list are not the same thing,
+                          and a fixture instance with 20 worlds measured a 308px row:
+                          the world names ran the article past the fold and took the
+                          pseudo-session line with it. The count in the button above is
+                          the total, so nothing is lost by naming the first few. */}
+                      {root.worlds.slice(0, WORLD_PREVIEW).map((w) => (
                         <li key={w.path}>
                           <span className="instance-world-name">{w.name}</span>
                           {w.status === 'Missing' ? (
@@ -246,18 +279,15 @@ export default function PclInstances({
                           )}
                         </li>
                       ))}
+                      {root.worlds.length > WORLD_PREVIEW ? (
+                        <li className="scan-note">
+                          还有 {root.worlds.length - WORLD_PREVIEW} 个世界未列出
+                        </li>
+                      ) : null}
                     </ul>
                   ) : (
                     <p className="scan-note">此根目录下尚未发现世界。</p>
                   )}
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={() => onOpen(instance.game_root)}
-                  >
-                    <ArrowUpRight size={14} />
-                    查看世界 · {root?.worlds.length ?? 0} 个
-                  </button>
                 </article>
               );
             })}

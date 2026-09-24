@@ -21,21 +21,27 @@
  *
  * Why the choice may win over the breakpoint, but not always: the media queries exist to
  * stop the layout being crushed, so they are the floor and the preference is the ceiling.
- * At 1075px a 192px rail would leave 809px of content, so `collapsed` is honoured there
- * and `expanded` is not; at 2048px there is room for either, so the preference decides.
- * The two can therefore never double-apply: where both say "compact", the rules that
- * apply are identical and the last declaration wins with the same values.
+ * Below 1080px the labels are gone by default, so `collapsed` changes nothing there and
+ * `expanded` is what brings them back; at 2048px there is room for either, so the
+ * preference decides on its own. The two can therefore never double-apply: where both say
+ * "compact", the rules that apply are identical and the last declaration wins with the
+ * same values.
  */
 
 export type RailPreference = 'auto' | 'collapsed' | 'expanded';
 
 const STORAGE_KEY = 'minechronicle.rail';
 
-/** The breakpoint at which the labelled rail stops being the default. Mirrors the
- *  `@media` block in `styles/shell.css`; used to describe the default, never to apply it.
- *  CSS is the only thing that lays out; this number exists so the toggle's label matches
- *  what the CSS is about to do. */
-const COMPACT_AT = 1400;
+/** The width below which the labelled rail stops being the default. Mirrors the
+ *  `@media (max-width: 1079.98px)` block in `styles/shell.css`; used to describe the
+ *  default, never to apply it. CSS is the only thing that lays out; this number exists so
+ *  the toggle's label matches what the CSS is about to do.
+ *
+ *  `below`, not `at`: the boundary is the one the review set, "1080px and wider keeps the
+ *  labels". The stylesheet writes its side as 1079.98px for the same reason - a plain
+ *  `max-width: 1080px` would take the labels away at exactly the width the criterion
+ *  names. The two agree at every width, fractional ones included. */
+const COMPACT_BELOW = 1080;
 
 function hasDom() {
   return typeof document !== 'undefined' && typeof window !== 'undefined';
@@ -93,8 +99,8 @@ export function applyRail(preference: RailPreference): void {
 export function autoCollapsed(viewportWidth?: number): boolean {
   const width =
     viewportWidth ??
-    (hasDom() ? document.documentElement.clientWidth : COMPACT_AT + 1);
-  return width <= COMPACT_AT;
+    (hasDom() ? document.documentElement.clientWidth : COMPACT_BELOW);
+  return width < COMPACT_BELOW;
 }
 
 /**

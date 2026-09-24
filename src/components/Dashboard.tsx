@@ -1,4 +1,4 @@
-import { Fragment, useId, useMemo, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import type { ScanSummary } from '../lib/scan';
 import {
   summarize,
@@ -12,6 +12,7 @@ import {
   formatTickTotal,
   formatCompactTicks,
   formatSeconds,
+  UNKNOWN_DURATION,
 } from '../lib/duration';
 import { displayPath } from '../lib/path';
 import { groupIssues } from '../lib/issues';
@@ -19,8 +20,6 @@ import { trackingTotals, pseudoTotals } from '../lib/tracking';
 import type { TrackingSummary } from '../lib/tracking';
 import type { HealthSummary } from '../lib/health';
 import {
-  ArrowUpRight,
-  ChevronDown,
   Clock3,
   Globe2,
   ShieldCheck,
@@ -33,119 +32,21 @@ import PlayerPicker from './PlayerPicker';
 import { selectedPlayer } from '../lib/players';
 import { emptyScope } from '../lib/activity';
 import './Dashboard.css';
-import SessionPage from './SessionPage';
 
-function RankingList({
-  title,
-  rows,
-  onOpen,
-}: {
-  title: string;
-  rows: Ranking[];
-  onOpen: (path: string) => void;
-}) {
-  const [visibleCount, setVisibleCount] = useState(5);
-  const listId = useId();
-  const visible = rows.slice(0, visibleCount);
-  const remaining = rows.length - visible.length;
-  // The same maximum the ruler above divides by, from the same helper. The bar
-  // only exists when there is a scale to draw it against; see `rankingMax`.
-  const max = rankingMax(rows);
-  return (
-    <section className="ranking" aria-label={title}>
-      <h3>{title}</h3>
-      {visible.length ? (
-        <>
-          <ol id={listId}>
-            {visible.map((r, index) => {
-              const share = rowShare(r.ticks, max);
-              return (
-                <li key={r.path}>
-                  <button
-                    type="button"
-                    className="text-button rank-row-main"
-                    title={displayPath(r.path)}
-                    onClick={() => onOpen(r.path)}
-                  >
-                    <span className="rank-number">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>{' '}
-                    {r.name}
-                    {r.shared > 1 ? '（共享）' : ''}
-                    {r.missing ? '（已缺失）' : ''}
-                  </button>
-                  {/* A proportional bar in the gap the row used to leave empty.
-                      It is a measurement, not a rule: the width is the row's play
-                      time against the largest row in this list, so it answers
-                      "how big is this next to the biggest" at a glance and ties
-                      the name to the value on the far side of it. An underline
-                      that encoded nothing was removed here in 8e2ed82; this is
-                      the opposite thing and the width proves it.
-
-                      No bar when the list has no scale (`max` is zero): a track
-                      with nothing measurable in it would be the stray rule
-                      again. A row that really is zero fills 0% - the honest
-                      reading, since the duration beside it already says 0s.
-
-                      Missing worlds keep the rail. They carry no current reading,
-                      so their fill is 0% and the row already says so, both in the
-                      name's 已缺失 suffix and in the value column; suppressing the
-                      bar here would make those rows the only ones whose shape
-                      differs, which reads as a rendering fault rather than a
-                      statement. The rail is the same width on every row, so a row
-                      with nothing in it is still legible as "nothing to measure". */}
-                  {max > 0n ? (
-                    <span className="rank-track" aria-hidden="true">
-                      <span
-                        className="rank-fill"
-                        style={{ width: `${share}%` }}
-                      />
-                    </span>
-                  ) : null}
-                  <span
-                    className="rank-duration"
-                    title={formatTickTotal(r.ticks.toString())}
-                  >
-                    {formatCompactTicks(r.ticks.toString())}
-                    <ArrowUpRight size={14} />
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-          <div className="ranking-footer">
-            <span aria-live="polite">
-              已显示 {visible.length} / {rows.length}
-            </span>
-            {remaining > 0 ? (
-              <button
-                type="button"
-                className="ranking-more secondary-button"
-                aria-controls={listId}
-                title={`继续显示后 ${Math.min(5, remaining)} 项`}
-                onClick={() =>
-                  setVisibleCount((count) => Math.min(count + 5, rows.length))
-                }
-              >
-                <ChevronDown size={15} />
-                显示更多
-              </button>
-            ) : null}
-          </div>
-        </>
-      ) : (
-        <p>还没有可排行的历史读数。</p>
-      )}
-    </section>
-  );
-}
 /**
- * The playtime ruler: every world measured against one shared scale.
+ * The playtime ruler: every world measured against one shared scale, and the page's
+ * only list of play time.
  *
  * This is the page's signature, and it exists to replace the "big number plus
  * illustration" hero, which is the templated answer and said nothing the number
  * itself did not. A ruler says something the number cannot: how the total is
  * distributed, and how far apart the worlds are.
+ *
+ * It is also the ONLY ranking on this page. A second, longer list of the same rows
+ * used to sit below the switch that changed them - same array, two row caps (7 and
+ * 5), two type sizes, and a world whose directory is gone read `0s` there while the
+ * ruler named the same world 已缺失. One screen cannot say one quantity two ways.
+ * The complete ranking is the 世界与玩家 page, which already draws it with bars.
  *
  * Three decisions make it a measuring instrument rather than a bar chart:
  *   - One shared scale across every row, so the bars are comparable to each other
@@ -162,33 +63,31 @@ function PlaytimeRuler({
   rows: Ranking[];
   onOpen: (path: string) => void;
 }) {
-  // Rows arrive sorted by play time, so the first is the maximum. Both this and
-  // the ranking bar read the scale from `rankingMax`/`rowShare`, so the two
-  // surfaces are one calculation rather than two that happen to agree today.
+  // Rows arrive sorted by play time, so the first is the maximum.
   const max = rankingMax(rows);
   if (max <= 0n) return null;
   const marks = [0n, 1n, 2n, 3n, 4n].map((i) => (max * BigInt(i)) / 4n);
   // Dense instrument: more rows share one scale so the hero card fills with
-  // measurements instead of empty panel. Still capped so the ranking below
-  // stays on the first screen.
+  // measurements instead of empty panel.
   const visible = rows.slice(0, 7);
 
   return (
     <div className="playtime-ruler">
       <div className="ruler-grid">
         <span />
-        {/* Purely visual: the rows below carry the same numbers as text. */}
+        {/* Purely visual: the rows below carry the same numbers as text. The first
+            graduation goes through the formatter like the rest - it was a hardcoded
+            `'0'`, which is neither the unit the other four labels are in nor a value a
+            formatter can be asked for. */}
         <div className="ruler-scale" aria-hidden="true">
           {marks.map((mark, index) => (
-            <span key={index}>
-              {index === 0 ? '0' : formatCompactTicks(mark.toString())}
-            </span>
+            <span key={index}>{formatCompactTicks(mark.toString())}</span>
           ))}
         </div>
         <span />
         {visible.map((row) => {
-          // The same helper the ranking bar below uses, so the ruler and the
-          // list cannot disagree about what a full-width bar means.
+          // The same helper the ruler's own bars use, so the name, the track and the
+          // value cannot disagree about what a full-width bar means.
           const share = rowShare(row.ticks, max);
           return (
             <Fragment key={row.path}>
@@ -205,7 +104,9 @@ function PlaytimeRuler({
               </span>
               {/* A world whose directory is gone has no current reading. Showing
                   "0 秒" would claim it was never played, which is a different and
-                  untrue statement, so the value column says what happened. */}
+                  untrue statement, so the value column says what happened. This is the
+                  page's only reading of that world now, so there is nothing left for
+                  it to disagree with. */}
               <span className="ruler-value">
                 {row.missing
                   ? '已缺失'
@@ -223,6 +124,7 @@ export default function Dashboard({
   report,
   onOpen,
   onSettings,
+  onWorlds,
   tracking,
   health,
   onTimeline,
@@ -236,6 +138,7 @@ export default function Dashboard({
   health: HealthSummary | null;
   onOpen: (path: string) => void;
   onSettings: () => void;
+  onWorlds: () => void;
   onTimeline: () => void;
   onObservation: () => void;
   players: string[];
@@ -247,18 +150,41 @@ export default function Dashboard({
     () => summarize(report, playersNone ? null : players),
     [report, players, playersNone],
   );
-  // One mapping drives the tab's pressed state AND the panel under it, so the
-  // selected pill, the panel heading and the rows cannot disagree.
+  // One mapping drives the switch's pressed state AND the ruler above it, so the
+  // selected pill and the rows it plots cannot disagree. The ruler is the whole
+  // ranking now - the second list that this switch also drove is gone (see
+  // `PlaytimeRuler`), and with it the two row caps that used to differ.
   const panels = useMemo(() => rankingPanel(ranking, data), [ranking, data]);
-  const rankingScope = `${playersNone}|${[...players].sort().join('|')}`;
   const timelineScope = useMemo(
     () => ({ ...emptyScope, uuids: players, players_none: playersNone }),
     [players, playersNone],
   );
+  /* The one player control on the page. The empty state below points at THIS picker
+     rather than rendering a second one: two triggers for one dialog is the same
+     control twice, and this page has one thing to say about who is being counted. */
+  const playerPicker = useRef<HTMLDivElement>(null);
+  const openPlayerPicker = () =>
+    playerPicker.current
+      ?.querySelector<HTMLButtonElement>('button.player-trigger')
+      ?.click();
   const issues = groupIssues(
     report.issues.filter((i) => i.kind !== 'EMPTY_STATS'),
   );
   const tracked = trackingTotals(tracking, playersNone ? null : players);
+  /* The three observed-duration figures are filtered by the same player selection as
+     everything else here, so with no player chosen they have no reading at all:
+     `trackingTotals(tracking, null)` sums an empty selection and hands back 0n, and
+     three rows of `0 秒` would say "nothing was ever observed" about an archive that
+     has been observing all along. Same `—` as the hero, and for the same reason the
+     hero uses it. The counts beside them stay 0: the number of worlds and players in
+     the current selection is honestly zero, which is a statement about the selection
+     rather than about the archive. */
+  const observed = (ticks: bigint) =>
+    playersNone
+      ? UNKNOWN_DURATION
+      : tracking?.started_at
+      ? formatTickTotal(ticks.toString())
+      : '等待首次观察';
   // Not filtered by player: observed sessions record which instance ran, not
   // who played, so there is no uuid to filter on. Presenting it as an
   // instance-level figure keeps that honest.
@@ -289,12 +215,14 @@ export default function Dashboard({
             </span>
           </p>
         </div>
-        <PlayerPicker
-          report={report}
-          value={players}
-          none={playersNone}
-          onChange={onPlayers}
-        />
+        <div className="dashboard-picker" ref={playerPicker}>
+          <PlayerPicker
+            report={report}
+            value={players}
+            none={playersNone}
+            onChange={onPlayers}
+          />
+        </div>
       </div>
       <div className="overview-grid">
         <div className="career-total">
@@ -303,7 +231,14 @@ export default function Dashboard({
               <Clock3 size={16} />
               累计游玩时长
             </span>
-            <strong>{formatTickTotal(data.current.toString())}</strong>
+            {/* Not 0 秒 and not `0`: with no player chosen there is no reading to
+                report, and a zero would be read as one. The block below says which
+                state this is and how to leave it. */}
+            <strong>
+              {playersNone
+                ? UNKNOWN_DURATION
+                : formatTickTotal(data.current.toString())}
+            </strong>
             <p>
               最近有效存档读数 ·{' '}
               {playersNone
@@ -314,13 +249,58 @@ export default function Dashboard({
                 ? '所选玩家'
                 : '全部玩家'}
             </p>
-            {/* The ruler replaces an illustration and a caption. The headline figure
-                above stays; what changes is that the card now shows how the total is
-                made up, which is the thing the number alone cannot say. */}
-            <PlaytimeRuler
-              rows={panels.find((panel) => panel.active)?.rows ?? data.worlds}
-              onOpen={onOpen}
-            />
+            {playersNone ? (
+              /* An actionable empty state, in the place the reading would be. The
+                 choice is persisted, so it survives a restart: saying only "no data"
+                 would send a reader to rescan an archive that is intact. */
+              <div className="list-empty" role="status">
+                <strong>未选择玩家，无法统计</strong>
+                <p>
+                  当前筛选是「未选择玩家」，所以没有可汇总的读数。该选择会保留到下次启动；选好玩家后这里会显示累计时长与世界分布。
+                </p>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={openPlayerPicker}
+                >
+                  选择玩家
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* The switch sits in the card it changes, directly above the ruler it
+                    redraws. It used to sit below the card, where it changed a surface
+                    the reader had already passed: the two were 33px apart and it
+                    still read as changing the list under it instead. */}
+                <div
+                  className="ranking-switch"
+                  role="group"
+                  aria-label="排行维度"
+                >
+                  {panels.map((panel) => (
+                    <button
+                      key={panel.dimension}
+                      type="button"
+                      aria-pressed={panel.active}
+                      onClick={() => setRanking(panel.dimension)}
+                    >
+                      {RANKING_TABS[panel.dimension]}
+                    </button>
+                  ))}
+                </div>
+                {/* The ruler replaces an illustration and a caption. The headline
+                    figure above stays; what changes is that the card now shows how the
+                    total is made up, which is the thing the number alone cannot say.
+                    It is also the page's only ranking: the full one lives on
+                    世界与玩家, and the link below says so. */}
+                <PlaytimeRuler
+                  rows={
+                    panels.find((panel) => panel.active)?.rows ?? data.worlds
+                  }
+                  onOpen={onOpen}
+                />
+              </>
+            )}
           </div>
         </div>
         {/* The observation figures sit with the career total rather than in their
@@ -347,68 +327,36 @@ export default function Dashboard({
               <Sunrise size={16} aria-hidden="true" />
               本周观察增量
             </span>
-            <strong>
-              {tracking?.started_at
-                ? formatTickTotal(tracked.week.toString())
-                : '等待首次观察'}
-            </strong>
+            <strong>{observed(tracked.week)}</strong>
           </article>
           <article>
             <span>
               <CalendarDays size={16} aria-hidden="true" />
               本月观察增量
             </span>
-            <strong>
-              {tracking?.started_at
-                ? formatTickTotal(tracked.month.toString())
-                : '等待首次观察'}
-            </strong>
+            <strong>{observed(tracked.month)}</strong>
           </article>
           <article>
             <span>
               <Footprints size={16} aria-hidden="true" />
               累计追踪时长
             </span>
-            <strong>
-              {tracking?.started_at
-                ? formatTickTotal(tracked.ticks.toString())
-                : '等待首次观察'}
-            </strong>
+            <strong>{observed(tracked.ticks)}</strong>
           </article>
           <p className="tracking-note">
             只累计观察到的正向变化，回档不会扣减。周/月按本机日期的观察时间归档，不代表精确游戏会话时间。
           </p>
         </div>
       </div>
-      <div className="ranking-switch" role="group" aria-label="排行维度">
-        {panels.map((panel) => (
-          <button
-            key={panel.dimension}
-            aria-pressed={panel.active}
-            onClick={() => setRanking(panel.dimension)}
-          >
-            {RANKING_TABS[panel.dimension]}
-          </button>
-        ))}
-      </div>
-      {/* Tab, heading and rows all come from `panels`, so the selected pill and
-          the list under it are the same slice by construction. */}
-      <div className="ranking-grid ranking-unified">
-        {panels.map((panel) => (
-          <SessionPage
-            key={panel.dimension}
-            active={panel.active}
-            label={panel.title}
-          >
-            <RankingList
-              key={`${panel.dimension}:${rankingScope}`}
-              title={panel.title}
-              rows={panel.rows}
-              onOpen={onOpen}
-            />
-          </SessionPage>
-        ))}
-      </div>
+      {/* Where the second ranking used to start. The full list of worlds is on the
+          page that owns it, so the only thing this position keeps is the way there -
+          a link rather than a copy of the answer. */}
+      <p className="ranking-link">
+        <button type="button" className="text-button" onClick={onWorlds}>
+          在世界与玩家查看全部
+          <span aria-hidden="true"> →</span>
+        </button>
+      </p>
       <p className="scan-note">
         按最近有效读数排行；不含已缺失世界与不可读统计。共享根目录只计算一次，复制世界尚未去重。
       </p>

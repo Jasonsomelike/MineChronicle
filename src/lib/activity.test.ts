@@ -16,8 +16,10 @@ it('formats counts and centimeters without rounding large integers', () => {
   );
 });
 it('uses game units without losing large integer precision', () => {
-  expect(formatStatistic('1221', 'ticks')).toBe('1m 1s');
-  expect(formatStatistic('19', 'ticks')).toBe('<1s');
+  /* The tick and centimeter readings come back in the interface's own units; see
+     `duration.ts` for the one wording a duration has on any surface. */
+  expect(formatStatistic('1221', 'ticks')).toBe('1 分 1 秒');
+  expect(formatStatistic('19', 'ticks')).toBe('不足 1 秒');
   expect(formatStatistic('12345', 'centimeters')).toBe('123.45');
   expect(formatStatistic('-1', 'centimeters')).toBe('-0.01');
   expect(formatStatistic('9223372036854775807', 'damage_tenths')).toBe(

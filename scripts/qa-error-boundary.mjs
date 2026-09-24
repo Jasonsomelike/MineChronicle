@@ -1,8 +1,16 @@
+/* global window, location */
 /**
  * Focused QA: prove the ErrorBoundary contains a render crash.
  *
- * Run this while a component is temporarily made to throw (see the QA crash
- * injection in Statistics.tsx). It asserts that:
+ * The crash is injected by this script, from the `?qaCrash=1` flag alone: the flag makes
+ * the observer payload carry one record whose first field access throws, so the page's
+ * own render throws the way a malformed archive row would. It used to be a `throw` pasted
+ * by hand into a page component before running this, which is why a plain run reported
+ * `fallback=0` and FAIL every time - the "failure" was the missing injection, not the
+ * boundary. Nothing in `src/` has to change now, and the injection is confined to the run
+ * that carries the flag.
+ *
+ * It asserts that:
  *   1. the app shell is still rendered (its nav landmark and its seven page
  *      buttons), i.e. the crash did not unmount the whole tree, and
  *   2. the boundary fallback is visible for that page.
@@ -45,6 +53,51 @@ const okUrl = `${base}/#/observation`;
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const page = await browser.newPage();
+
+/* Runs before the app boots, and only for a document that carries the flag. The row is a
+   plain object with one throwing accessor, so the failure is raised where the field is
+   read - inside the page's render - rather than at import time, which would take the
+   shell down with it and fail assertion 1 for the wrong reason.
+
+   `observed_sessions_page` is the command the observation page's loader issues
+   (`src/lib/tracking.ts`), and `started_at` is read by the row renderer, so the thrown
+   error lands in the boundary the way a corrupt record's would. */
+await page.addInitScript(() => {
+  if (!new URLSearchParams(location.search).has('qaCrash')) return;
+  const row = {
+    id: 1,
+    game_root: 'D:\\QA\\crash',
+    instance_name: 'QA 崩溃注入',
+    pseudo_seconds: '0',
+    ended_at: null,
+    ended_source: null,
+    missing_baseline: false,
+  };
+  Object.defineProperty(row, 'started_at', {
+    get() {
+      throw new Error('QA 崩溃注入：这条观测记录的开始时间损坏');
+    },
+  });
+  window.isTauri = true;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: (callback) => callback,
+    invoke: async (command) =>
+      command === 'observed_sessions_page'
+        ? {
+            sessions: [row],
+            groups: undefined,
+            total: 1,
+            page: 1,
+            page_size: 20,
+            total_seconds: '0',
+            unknown_sessions: 0,
+            baseline_sessions: 0,
+            running_sessions: 0,
+          }
+        : null,
+  };
+});
+
 await page.goto(crashUrl, { waitUntil: 'domcontentloaded' });
 await delay(2000);
 

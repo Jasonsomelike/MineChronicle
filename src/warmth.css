@@ -35,6 +35,11 @@
   --surface-active: #e2e7e5;
   /* Tinted card used by the observation and health summaries. */
   --surface-tint: #f2f5f4;
+  /* A quiet control's resting surface: the secondary button inside the scan panel, and in
+     dark mode the sort heading and the settings jump as well. It used to be written out in
+     the rules that paint it, which is how the light half of the pair ended up as a literal
+     in a component rule while its dark half lived here. */
+  --surface-control: #edf1e7;
   /* The dark header/CTA green, and the surface it sits on. */
   --surface-strong: #0d6b48;
   --surface-strong-hover: #0a5738;
@@ -135,6 +140,7 @@
   --surface-hover: #2c3633;
   --surface-active: #323d39;
   --surface-tint: #1b2321;
+  --surface-control: #1f2b25;
   --surface-strong: #34d399;
   --surface-strong-hover: #5ce0ae;
 
@@ -301,8 +307,12 @@ body {
   min-height: 24px;
   flex-wrap: wrap;
 }
+/* The glow is the only thing this rule adds that styles.css does not; the background is
+   restated so the two files still agree about what "active" means. Both read
+   `--success` now - the base `.watch-dot` in styles.css used to carry the same
+   `--surface-strong` green, which made "no state" and "syncing" the same dot. */
 .watch-dot.active {
-  background: var(--surface-strong);
+  background: var(--success);
   box-shadow: var(--shadow-focus-glow);
 }
 /* Load-bearing: styles.css sets a different font-size for this element inside
@@ -333,7 +343,9 @@ body {
   font-weight: 400;
 }
 .scan-panel .secondary-button:not(:disabled) {
-  background: #edf1e7;
+  /* `--surface-control`, not a literal: this rule and the dark override near the bottom of
+     the file are the two halves of one surface, and only one of them was a token. */
+  background: var(--surface-control);
   color: var(--text-button);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -509,7 +521,7 @@ body {
 .event-details {
   margin-top: 6px;
   color: var(--text-summary);
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
 }
 .event-details summary {
   width: fit-content;
@@ -557,13 +569,10 @@ body {
 .self-player-settings .scan-note {
   overflow-wrap: anywhere;
 }
-.settings-section {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-  scroll-margin-top: 88px;
-}
+/* A second `.settings-section` lived here, with `gap: 20px`. It was dead: the rule in
+   styles.css is imported after this sheet and both are (0,1,0), so styles.css won every
+   time and the 20px never rendered. Deleted rather than corrected, because two sheets
+   owning one component's spacing is how this duplicate started. */
 .instance-observation {
   margin-top: 24px;
 }
@@ -573,7 +582,7 @@ body {
   gap: 10px;
 }
 .instance-observation .observation-controls {
-  padding: 16px 22px;
+  padding: 16px 24px;
   margin-bottom: 20px;
 }
 .instance-observation .watch-status {
@@ -596,7 +605,12 @@ body {
   color: var(--warm-muted);
 }
 #settings-health {
-  margin-top: 28px;
+  /* The group step, not a value of its own. This section is the settings page's fifth group
+     and a sibling of `.settings-layout` rather than a child, and an id selector outranks
+     every class rule, so the rung has to be written here too or the boundary under it comes
+     out at 28 against the 32 between two cards. The 20px of padding below is the distance
+     from the divider to the first card, which is its own step. */
+  margin-top: var(--space-9);
   scroll-margin-top: 100px;
   padding-top: 20px;
   border-top: 1px solid var(--warm-line);
@@ -639,7 +653,7 @@ body {
   display: block;
   overflow-wrap: anywhere;
   margin-top: 4px;
-  font-size: var(--type-micro);
+  font-size: var(--type-caption);
 }
 /* Stacked sections are always one column. */
 .scan-panel .self-player-shortcut {
@@ -700,6 +714,14 @@ footer {
     :is(.secondary-button, .ranking-switch button):active:not(:disabled) {
     transform: translateY(1px);
   }
+  /* The rail's destinations were the one control with no press confirmation: they mark
+     the current page and nudge their icon on hover, but pressing one did nothing.
+     The same one-pixel budget as the other buttons, and inside `no-preference` so the
+     reduced-motion reset above still removes it. The group headings that sit above
+     them are spans rather than controls, so they have nothing to confirm. */
+  .app-nav button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
 }
 @keyframes warm-reveal {
   from {
@@ -725,22 +747,39 @@ footer {
 }
 
 /*
- * Component surfaces that stay as literals.
+ * The dark tints for three component surfaces.
  *
- * These three tints are specific to one component each, so naming a shared token
- * for them would add vocabulary nobody reuses. They were briefly merged into
- * --surface-sunken during the theme migration, which shifted them by 0.025-0.040
- * luminance - above the just-noticeable threshold - so the light-mode values are
- * restored and the dark equivalents are given here instead.
+ * They were written here as literals, on the argument that naming a shared token for
+ * them would add vocabulary nobody reuses. Two things changed that. The light half of
+ * the first pair was a literal inside a component rule further up this file, so the pair
+ * was split across two idioms and the design check could not see either of them; and the
+ * check now reads this file's component rules, not just its palettes. The values are
+ * unchanged except where a token already held the same colour: `--surface-tint` is
+ * #1b2321 against the #18231e these two rules carried, a shift of 0.0005 relative
+ * luminance - well under the 0.025-0.040 the theme migration was rejecting.
  */
-:root[data-theme='dark'] .import-summary,
-:root[data-theme='dark'] .status-center {
-  background: #18231e;
+:root[data-theme='dark'] .import-summary {
+  background: var(--surface-tint);
+}
+/* Only the two quiet states take this tint, and that is the fix rather than a detail.
+   Written as `:root[data-theme='dark'] .status-center` it was (0,3,0) and outranked every
+   `.status-center.is-*` rule in styles/pages.css, which are (0,2,0) - so in dark mode
+   all four states were painted this one colour and the running and error surfaces the
+   sheet defines never appeared. Scoping it to idle and loading keeps the hand-picked
+   tint where it was meant to be and leaves the two coloured states alone.
+
+   Written with the full `:root[data-theme='dark']` prefix rather than
+   `:where(:root[data-theme='dark'])`: the `:where()` form is (0,1,0), which the plain
+   `.status-center` rule in styles.css then outranks at equal specificity (that file is
+   imported after this one), and the dark tint would stop applying at all. */
+:root[data-theme='dark'] .status-center.is-idle,
+:root[data-theme='dark'] .status-center.is-loading {
+  background: var(--surface-tint);
 }
 :root[data-theme='dark'] .scan-panel .secondary-button,
 :root[data-theme='dark'] .stat-sort-heading,
 :root[data-theme='dark'] .settings-jump {
-  background: #1f2b25;
+  background: var(--surface-control);
 }
 
 /* ---------------------------------------------------------------------------

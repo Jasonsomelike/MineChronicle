@@ -1,28 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatCompactTicks,
   formatPlayTicks,
   formatSeconds,
   formatTickTotal,
   localInputToUtc,
+  UNKNOWN_DURATION,
   utcToLocalInput,
 } from './duration';
 
 describe('integer tick display', () => {
   it('formats aggregate ticks beyond i64 without rounding', () => {
     expect(formatTickTotal('18446744073709551614')).toBe(
-      '256204778801521h 33m 0s',
+      '10675199116730 天 1 小时',
     );
     expect(() => formatTickTotal('-1')).toThrow();
   });
   it.each([
-    ['0', '0s'],
-    ['1', '<1s'],
-    ['364', '18s'],
-    ['1199', '59s'],
-    ['1200', '1m 0s'],
-    ['72000', '1h 0m 0s'],
-    ['73200', '1h 1m 0s'],
-    ['9223372036854775807', '128102389400760h 46m 30s'],
+    ['0', '0 秒'],
+    ['1', '不足 1 秒'],
+    ['20', '1 秒'],
+    ['364', '18 秒'],
+    ['1199', '59 秒'],
+    ['1200', '1 分'],
+    ['72000', '1 小时'],
+    ['73200', '1 小时 1 分'],
+    ['9223372036854775807', '5337599558365 天'],
   ])('formats %s without float rounding', (input, output) => {
     expect(formatPlayTicks(input)).toBe(output);
   });
@@ -36,18 +39,64 @@ describe('integer tick display', () => {
 
 describe('second display', () => {
   it.each([
-    ['0', '0s'],
-    ['59', '59s'],
-    ['60', '1m 0s'],
-    ['3600', '1h 0m 0s'],
-    ['3660', '1h 1m 0s'],
-    ['37737', '10h 28m 57s'],
-    ['9007199254740993', '2501999792983h 36m 33s'],
+    ['0', '0 秒'],
+    ['59', '59 秒'],
+    ['60', '1 分'],
+    ['3600', '1 小时'],
+    ['3660', '1 小时 1 分'],
+    ['37737', '10 小时 28 分'],
+    ['9007199254740993', '104249991374 天 7 小时'],
   ])('formats %s seconds', (input, output) => {
     expect(formatSeconds(input)).toBe(output);
   });
   it.each(['-1', '1.5', '', 'abc'])('rejects invalid seconds %s', (input) => {
     expect(() => formatSeconds(input)).toThrow();
+  });
+});
+
+/// The point of this block is the equality, not the wording: a duration read off the
+/// hero, off a ruler row and off a table cell has to be one string, or a reader sees
+/// the same quantity written twice and concludes the data disagrees with itself.
+describe('one wording for one duration', () => {
+  /* Within i64, which is where `formatPlayTicks` draws its line: it is the exit the
+     IPC boundary reads, and a sum past the counter's range is a bug rather than a
+     reading. `formatTickTotal` is the one that must survive an oversized sum. */
+  it.each([
+    '0',
+    '1',
+    '1199',
+    '1200',
+    '73200',
+    '20736000',
+    '9223372036854775807',
+  ])('prints %s identically through every exit', (ticks) => {
+    const readings = [
+      formatTickTotal(ticks),
+      formatCompactTicks(ticks),
+      formatPlayTicks(ticks),
+    ];
+    expect(new Set(readings).size).toBe(1);
+    expect(readings[0].length).toBeGreaterThan(0);
+  });
+
+  it('reads a tick count and the same duration in seconds the same way', () => {
+    // 73200 ticks = 3660 seconds = 1 hour 1 minute.
+    expect(formatSeconds('3660')).toBe(formatTickTotal('73200'));
+  });
+
+  it('uses the interface language for units, not the h/m/s shorthand', () => {
+    // Three exits, three sizes, one unit language: no `h`, `m` or `s` survives.
+    for (const reading of [
+      formatTickTotal('73200'),
+      formatCompactTicks('20736000'),
+      formatSeconds('37737'),
+    ]) {
+      expect(reading).not.toMatch(/[hms]/);
+    }
+  });
+
+  it('reserves one marker for a reading that does not exist', () => {
+    expect(UNKNOWN_DURATION).toBe('—');
   });
 });
 
