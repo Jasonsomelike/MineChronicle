@@ -352,10 +352,16 @@ body {
   /* Was `border: 0`. The overview is one panel now, so it keeps the border it is given
      in styles.css; cancelling it here is what left the merged panel edgeless. */
   gap: 0;
-  /* Cards hug their content. Stretching the hero to match the sidebar left
-     unfilled space inside the card whenever the ruler had fewer rows than the
-     observation stack — which read as unfinished rather than as breathing room. */
-  align-items: start;
+  /* The two regions are stretched to one height, for the divider's sake rather than
+     the cards'. `.dashboard .tracking-state` draws the only thing between them
+     (`border-left`), and with `align-items: start` that line stopped wherever the
+     shorter region's content did: measured at 1175 the career region was 377.4px and
+     the observation region 221.3px, so the rule that divides the panel ran 156.1px
+     short of the panel it divides. `.tracking-state` is `align-content: center`, so
+     the extra height becomes symmetric padding around the four figures and the note
+     stays where it is - this adds no filler content, it finishes a line that was
+     already being drawn. */
+  align-items: stretch;
 }
 .dashboard .metric-grid {
   padding: 0;
