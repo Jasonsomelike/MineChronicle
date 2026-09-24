@@ -274,6 +274,25 @@ body {
   background: var(--surface-active);
   color: var(--text-accent);
 }
+/* The collapse control. A quiet bordered square on the divider: --surface-raised is the
+   resting-panel step, so it reads as a control sitting on the chrome rather than as a
+   region of the page. `--text-muted` at rest was measured against this fill in both
+   themes and clears AA for the glyph; the glyph is decorative anyway, since `title` and
+   `aria-label` carry the name. On hover it takes the same `--surface-hover` /
+   `--text-strong` pair the secondary buttons use, so it does not invent a sixth
+   interaction colour. */
+.rail-toggle {
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+}
+.rail-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+.rail-toggle:active {
+  background: var(--surface-active);
+}
 .status-center {
   background: var(--surface-sunken);
   border-color: var(--border);
@@ -774,6 +793,7 @@ body,
 .wordmark,
 .app-nav,
 .app-nav button,
+.rail-toggle,
 .header-tools,
 .settings-card,
 .ranking-switch,

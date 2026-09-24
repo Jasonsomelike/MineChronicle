@@ -1,9 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Activity, Layers3, Sprout } from 'lucide-react';
+import {
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  Layers3,
+  Sprout,
+} from 'lucide-react';
 import { checkRuntime } from '../lib/runtime';
 import { FRONTEND_VERSION } from '../lib/version';
 import { displayPath } from '../lib/path';
+import {
+  applyRail,
+  loadRailPreference,
+  railIsCollapsed,
+  saveRailPreference,
+} from '../lib/rail';
+import type { RailPreference } from '../lib/rail';
 import { PAGE_ICONS, PAGE_LABELS, PAGE_IDS, SETTINGS_SECTIONS } from './routes';
 import type { AppState } from './useAppState';
 
@@ -146,6 +159,23 @@ export default function AppShell({
   children: ReactNode;
 }) {
   const { view, navigate, activeSection, setActiveSection, runtime } = state;
+  /* The preference is read once, from the same place the theme and the zoom level are
+     read, and written straight to <html data-rail> so the CSS - not a second copy of the
+     breakpoints - decides the width. See src/lib/rail.ts for why the attribute is only
+     written for an explicit choice. */
+  const [railPreference, setRailPreference] =
+    useState<RailPreference>(loadRailPreference);
+  useEffect(() => {
+    applyRail(railPreference);
+  }, [railPreference]);
+
+  const railCollapsed = railIsCollapsed(railPreference);
+  const toggleRail = () => {
+    const next: RailPreference = railCollapsed ? 'expanded' : 'collapsed';
+    saveRailPreference(next);
+    setRailPreference(next);
+  };
+
   return (
     <div className="app-shell">
       {/* The brand, the primary navigation and the two residency labels used to be two
@@ -168,7 +198,7 @@ export default function AppShell({
           </span>
           <span className="wordmark-label">MineChronicle</span>
         </span>
-        <nav className="app-nav" aria-label="档案页面">
+        <nav className="app-nav" id="app-primary-nav" aria-label="档案页面">
           {PAGE_IDS.map((id) => {
             const Icon = PAGE_ICONS[id];
             return (
@@ -176,7 +206,7 @@ export default function AppShell({
                 key={id}
                 type="button"
                 /* Carries the name for a pointer when the rail collapses to icons at
-                   1100px. The visible label is the same string, so the two cannot drift
+                   1400px. The visible label is the same string, so the two cannot drift
                    apart. */
                 title={PAGE_LABELS[id]}
                 aria-current={view === id ? 'page' : undefined}
@@ -190,6 +220,31 @@ export default function AppShell({
             );
           })}
         </nav>
+        {/* After the navigation in the DOM so it cannot open a gap between the brand and
+            the list of destinations: the rail's `gap` sits between flex siblings, and this
+            one is pulled out of the flow entirely. It is `title`d and `aria-label`led with
+            the action rather than the state, so the same string works as the button's
+            accessible name and as the pointer's tooltip.
+
+            Deliberately a sibling of the nav, not a member of it:
+            `qa-error-boundary.mjs` counts `.app-shell .app-nav button` and expects the
+            seven destinations. Inside `nav.app-nav` this would have made that eight, and
+            the assertion would have had to be loosened rather than kept. */}
+        <button
+          type="button"
+          className="rail-toggle"
+          title={railCollapsed ? '展开侧边栏' : '收起侧边栏'}
+          aria-label={railCollapsed ? '展开侧边栏' : '收起侧边栏'}
+          aria-controls="app-primary-nav"
+          aria-expanded={!railCollapsed}
+          onClick={toggleRail}
+        >
+          {railCollapsed ? (
+            <ChevronRight size={16} aria-hidden="true" />
+          ) : (
+            <ChevronLeft size={16} aria-hidden="true" />
+          )}
+        </button>
         <div className="header-tools">
           <span className="local-label" title="数据仅存本机，无账号无遥测">
             本地档案

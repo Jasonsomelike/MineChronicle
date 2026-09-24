@@ -43,9 +43,15 @@
   top: 0;
   height: 100vh;
   align-self: start;
-  /* The three groups spread down the rail. They used to sit at the top of a 1608px
-     column, leaving 812px empty below them, which is the imbalance that was reported. */
-  justify-content: space-between;
+  /* The brand and the navigation are one block at the top; the residency labels are
+     pinned to the foot by `margin-top: auto` on `.header-tools` below. One gap.
+
+     It was `space-between` over three children, which put a 404px void above the nav and
+     a second 404px void below it - measured at 2048x1204, nav at y 462, labels at
+     y 1132. That is the same 812px of emptiness the single-bottom-block layout had; the
+     change had moved it rather than removed it, which is what was reported. Two voids
+     read as a broken layout, one reads as a choice. */
+  justify-content: flex-start;
   gap: var(--space-4);
   min-width: 0;
   /* The one edge that says "this is chrome". Every other panel in the app is a card with
@@ -94,19 +100,61 @@
   height: 20px;
 }
 
-/* The two residency labels sit at the foot of the rail's navigation, so they stack
-   rather than reading as a row of tags. */
+/* The two residency labels sit at the foot of the rail. `margin-top: auto` is what pins
+   them there, and it is also what leaves exactly ONE gap in the column: the rail's own
+   `gap` separates the brand from the nav, and every remaining pixel falls here, between
+   the navigation and the two facts about where the data lives. On the rail's
+   `justify-content` instead it would be one gap of two. */
 .header-tools {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  /* Twice the gap below the navigation, so the two facts are legibly separate from the
-     list of destinations without being pushed to the bottom of the document. */
-  padding-top: var(--space-8);
+  margin-top: auto;
 }
 
 .local-label {
   white-space: nowrap;
+}
+
+/* --- The collapse control -------------------------------------------------- */
+
+/* The collapse control. Sits ON the rail's right edge, in the gutter, above the two
+   residency labels. Three reasons for the divider rather than a row inside the rail:
+
+   1. It survives the collapse. At 72px the rail's content box is 59px wide, so a row
+      holding an icon and a label could not exist; a 28px square half in the gutter is
+      the one position that does not have to change when the rail does.
+   2. It cannot push the footer gap around. In the flow it would consume the space
+      `margin-top: auto` is holding open for the residency labels, and as a sibling
+      between the brand and the nav it would widen the rail's own `gap` from 16px to
+      72px - measured, because a gap is charged on each side of a flex item.
+   3. It cannot collide with anything. The two positions that read as "obvious" both
+      failed: level with the brand puts it on top of the brand mark at 72px (the wordmark
+      is a flex child, so it painted over the button - measured toggle x 43-71 against
+      brand mark x 40-76), and in the gap between the brand and the nav does not fit (the
+      gap is 16px and the control is 28px, so it overlapped both). Here it is above the
+      labels, which is the other end of the same chrome block, and the brand-navigation
+      pair above is left as one uninterrupted unit. */
+.rail-toggle {
+  position: absolute;
+  /* `right: -14px` against the rail's PADDING box - not the border box - so the control's
+     centre lands on the divider for free, and keeps landing there when the compact tiers
+     change the rail's `padding-right` from 16px to 12px. The half-width offset is
+     `--control-sm / 2`; the 1px is half the divider. */
+  right: calc(-1 * (var(--control-sm) / 2 + 1px));
+  /* Mirrored off the bottom rather than pinned under the brand, so the rail's `gap` keeps
+     its handover from the brand-navigation block to the footer block. The offset is the
+     brand mark's height plus one gap step, which is what clears the first residency label
+     (28px control + 24px = 52px up from a 64px-tall label block). */
+  bottom: calc(var(--control-sm) + var(--space-6));
+  display: grid;
+  place-items: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  min-height: 0;
+  /* The base ladder, not the nav chip's radius: a filled chip here would read as an
+     eighth destination in a seven-item list. */
+  border-radius: var(--radius-sm);
 }
 
 /* --- The rail's navigation ------------------------------------------------ */
@@ -177,10 +225,19 @@
 /* --- Staged collapse -------------------------------------------------------
    Three tiers, so the layout degrades on its own terms instead of being crushed.
 
-   1100px  the labelled rail is gone; a 64px icon rail keeps every destination one click
-           away. Placed here rather than lower because the settings page is a two-column
-           layout from 1400px down to 1332px, and below that a labelled rail would start
-           eating the width the two columns need.
+   1400px  the labelled rail is gone; a 72px icon rail keeps every destination one click
+           away. It was 1100px, justified by "the settings page is a two-column layout
+           from 1400px down to 1332px, and below that a labelled rail would start eating
+           the width the two columns need". That justification no longer holds and the
+           two-column layout it was protecting no longer exists: `.settings-layout` is
+           `columns: 2 640px`, and measured (`scripts/qa-settings-columns.mjs`) it has
+           rendered ONE column at every width from 1563px down, because the rail's 192px
+           comes out of the window before the columns are computed. The two-column
+           settings page starts at 1600px, where the rail has room to be labelled.
+           What the old number did do is leave the rail at its widest just above 1100px,
+           which is where it costs the most: measured 192px = 16.3% of a 1175px window,
+           against 9.4% of a 2048px one. The user's window is ~1175px, so this is the
+           band they were looking at.
     860px  the rail is given up entirely and the same three elements reflow into a top
            strip, in DOM order, with no second copy of the markup.
     620px  the residency labels drop and the brand step comes down, so the strip stays a
@@ -193,7 +250,46 @@
    pinned is the one that is useful while scrolling a 2700px page; the primary nav is the
    top of the document and scrolls with it. */
 
-@media (max-width: 1100px) {
+/* The same geometry the 1400px block below applies, for the user who asked for it at a
+   width where the breakpoint would not have. There is one definition of "collapsed" and
+   these are its two entry conditions, not two collapsed layouts: both `.app-shell` rules
+   read the same `--sidebar-w-compact` token and both hide the same `.app-nav-label`, so
+   the icon rail cannot drift between the responsive case and the explicit one.
+
+   `collapsed` is honoured at every width above the strip tier; `expanded` is not, and the
+   asymmetry is the point. The media queries exist so the layout degrades instead of being
+   crushed, so they are the floor and the preference is the ceiling: at 2048px there is
+   room for either shape and the user decides, at 1075px a 192px rail would leave 809px of
+   content and the breakpoint wins. Because `[data-rail='collapsed']` carries the root's
+   specificity and the media query does not, an explicit collapse also wins over an
+   automatic expand - and where both ask for the icon rail the two rules set identical
+   values, so double-application is a no-op rather than a fight. */
+:root[data-rail='collapsed'] .app-shell,
+:root[data-rail='expanded'] .app-shell {
+  grid-template-columns: var(--sidebar-w-compact) minmax(0, 1fr);
+  column-gap: var(--space-4);
+}
+:root[data-rail='collapsed'] .app-rail,
+:root[data-rail='expanded'] .app-rail {
+  padding-right: var(--space-3);
+}
+:root[data-rail='collapsed'] .app-nav-label,
+:root[data-rail='collapsed'] .wordmark-label,
+:root[data-rail='expanded'] .app-nav-label,
+:root[data-rail='expanded'] .wordmark-label {
+  display: none;
+}
+:root[data-rail='collapsed'] .wordmark,
+:root[data-rail='expanded'] .wordmark {
+  justify-content: center;
+}
+:root[data-rail='collapsed'] .app-nav button,
+:root[data-rail='expanded'] .app-nav button {
+  justify-content: center;
+  padding: 0;
+}
+
+@media (max-width: 1400px) {
   .app-shell {
     grid-template-columns: var(--sidebar-w-compact) minmax(0, 1fr);
     column-gap: var(--space-4);
@@ -238,6 +334,12 @@
     justify-content: flex-start;
     font-size: var(--type-lead);
     padding-bottom: 0;
+  }
+  /* There is no rail to collapse below this tier, so the control is gone rather than
+     present-and-inert. The preference it wrote stays in storage, so widening the window
+     again brings the rail back the way it was left. */
+  .rail-toggle {
+    display: none;
   }
   /* Both labels come back with the rail's width. */
   .app-nav-label,
@@ -292,4 +394,20 @@
     width: 30px;
     height: 30px;
   }
+}
+
+/* Last in the file, and not by accident.
+
+   `.app-nav button` sets `padding: 0 var(--space-3)`, and `.rail-toggle` matches that
+   selector too - it is a button inside the rail. Both rules are a single class, so they
+   have equal specificity and the `padding` that won was whichever came later in the sheet.
+   The toggle lost: measured a 34x38 box whose height came from a 19.5px `line-height`
+   rather than the 28px `--control-sm` square, `padding: 0px 12px` on the computed style.
+
+   Raising specificity here instead - `:root .rail-toggle`, or `:is(...)` - would fix the
+   symptom and leave the next reader to work out which of two equal rules is winning. The
+   reset and the rule that made it necessary now sit in a stated order: every `.app-nav
+   button` padding declaration in this file is above this one. */
+.rail-toggle {
+  padding: 0;
 }
