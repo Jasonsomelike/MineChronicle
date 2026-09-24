@@ -75,6 +75,30 @@
   font-size: var(--type-caption);
 }
 
+/* The trailing label of a world row is a flex item, not a block note.
+ *
+ * `.scan-note` (styles.css) carries `margin: 8px 0 18px` for a paragraph standing in
+ * flow. As a flex item in this row those margins joined the flex line's cross size:
+ * measured on the fixture, the row whose world is missing came out 64.4px against
+ * 38.4px for the two rows above it, with its text 27px above the row's own rule - a
+ * quarter of the row, and the widest gap on the page between two rules, holding
+ * nothing. The label now takes the same treatment as `.instance-world-players` beside
+ * it: same line, same caption size, no block margins. */
+.instance-worlds li .scan-note {
+  margin: 0;
+}
+
+/* A divider between folder groups, not a frame around the last one.
+ *
+ * The rule closes a group so the next one starts cleanly. After the last group it had
+ * nothing to close - and the count bar opens with its own rule 12px below, so the two
+ * drew a 13px band of empty space under a 38px band that is itself one row tall, which
+ * is how the foot of the page came to read as a row that never rendered. The list ends
+ * with the rows' own rule now, and the bar keeps the one that frames the count. */
+.pcl-instances .folder-group:last-of-type {
+  border-bottom: 0;
+}
+
 .instance-world-name {
   color: var(--text-strong);
   font-weight: 600;

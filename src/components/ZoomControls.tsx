@@ -20,30 +20,41 @@ export default function ZoomControls() {
   const sequence = useRef(0);
   const alive = useRef(true);
 
-  const changeZoom = useCallback(async (next: number) => {
-    const target = normalizeZoom(next);
-    const current = ++sequence.current;
-    requested.current = target;
-    setValue(target);
-    setBusy(true);
-    setError('');
-    try {
-      await applyZoom(target);
-      applied.current = target;
-      saveZoom(target);
-      if (!alive.current || current !== sequence.current) return;
-    } catch {
-      if (!alive.current || current !== sequence.current) return;
-      requested.current = applied.current;
-      setValue(applied.current);
-      setError('未能调整界面缩放，请重试。');
-    }
-    if (alive.current && current === sequence.current) setBusy(false);
-  }, []);
+  /* `restore` marks the call the effect makes on arrival. Re-applying a saved
+     preference is a background sync, not a request: when that one fails there is
+     nothing the reader did and no retry that would help them make it - and in a build
+     that reports itself as Tauri without the webview internals behind it (the browser
+     预览 with the QA fixture), the settings page opened with 未能调整界面缩放，请重试
+     in red beside a control nobody had touched, which reads as a broken page. A
+     failure the reader did ask for - the buttons, the select, Ctrl + 滚轮 - still says
+     so, which is the moment the message can be acted on. */
+  const changeZoom = useCallback(
+    async (next: number, { restore = false } = {}) => {
+      const target = normalizeZoom(next);
+      const current = ++sequence.current;
+      requested.current = target;
+      setValue(target);
+      setBusy(true);
+      setError('');
+      try {
+        await applyZoom(target);
+        applied.current = target;
+        saveZoom(target);
+        if (!alive.current || current !== sequence.current) return;
+      } catch {
+        if (!alive.current || current !== sequence.current) return;
+        requested.current = applied.current;
+        setValue(applied.current);
+        if (!restore) setError('未能调整界面缩放，请重试。');
+      }
+      if (alive.current && current === sequence.current) setBusy(false);
+    },
+    [],
+  );
 
   useEffect(() => {
     alive.current = true;
-    void changeZoom(requested.current);
+    void changeZoom(requested.current, { restore: true });
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
       const next =

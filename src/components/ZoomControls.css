@@ -22,7 +22,16 @@
   padding: 0;
   display: grid;
   place-items: center;
-  border: 0;
+  /* Reserved and transparent rather than absent.
+   *
+   * A disabled control takes a 1px `--border` ring (styles.css, `button:disabled`);
+   * with `border: 0` here, the disabled member of this group was the only one whose
+   * box changed with its state, and it read as a second component dropped inside the
+   * group. The width is now the same in both states - the ring is what changes - and
+   * `scripts/qa-review-fixes.mjs` compares exactly that against an enabled sibling.
+   * border-box, and backgrounds clip to the border box, so the 28x28 hit area, the
+   * hover fill and the centred glyph are unchanged. */
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-muted);
@@ -52,7 +61,16 @@
 }
 .zoom-controls .zoom-reset {
   border-left: 1px solid var(--border-soft);
-  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  /* The same four corners as the buttons beside it, divider and all.
+   *
+   * This was `0 var(--radius-xs) var(--radius-xs) 0`, square on the side that faces the
+   * 放大 button. The border below already marks the boundary, and a disabled control
+   * takes a full 1px `--border` ring (styles.css, `button:disabled`) - so the one state
+   * that draws an outline around all four sides was also the one that showed two square
+   * corners and two round ones, a different shape from every other disabled control in
+   * the app. `scripts/qa-review-fixes.mjs` exists to catch exactly that: disabled is a
+   * state of the control, not a second control. */
+  border-radius: var(--radius-xs);
   margin-left: 2px;
 }
 .zoom-controls :focus-visible {

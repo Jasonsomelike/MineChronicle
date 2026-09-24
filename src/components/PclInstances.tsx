@@ -313,11 +313,12 @@ export default function PclInstances({
             共 {searching ? matchedCount : total} 个实例
             {searching ? ` · 档案共 ${total} 个` : ''}
           </span>
-          {report.saved && report.database_path ? (
-            <p className="world-path">
-              档案：{displayPath(report.database_path)}
-            </p>
-          ) : null}
+          {/* The archive path used to be repeated in this bar. On this page the bar sits
+              at the foot of the list, directly above the panel's own `档案：…` line
+              (AppShell.tsx `.runtime-path`), which prints the same string 10px lower -
+              two identical paths stacked, so the page read as having rendered the one
+              fact twice. The count is what this bar adds; the path is stated once, by
+              the panel. */}
         </div>
       )}
     </section>
