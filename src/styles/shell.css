@@ -36,6 +36,17 @@
   grid-row: 1;
   display: flex;
   flex-direction: column;
+  /* Pinned. It was a plain grid item, so it scrolled away with the page - measured at
+     top -467 after a 900px scroll. A viewport height plus sticky keeps it in place and
+     gives the divider a constant edge rather than one as tall as the document. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  align-self: start;
+  /* The three groups spread down the rail. They used to sit at the top of a 1608px
+     column, leaving 812px empty below them, which is the imbalance that was reported. */
+  justify-content: space-between;
+  gap: var(--space-4);
   min-width: 0;
   /* The one edge that says "this is chrome". Every other panel in the app is a card with
      a border on all four sides; a rail that drew four would read as a third card

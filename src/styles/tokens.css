@@ -59,7 +59,7 @@
 
      What replaces them is one width, and the two derived values the settings section nav
      still needs while it is sticky. */
-  --sidebar-w: 220px;
+  --sidebar-w: 192px;
   /* The rail's width when it drops the labels and keeps only the icons. 72 and not 64:
      the two residency labels are four CJK characters each, which is 48px at
      --type-caption, and a 64px rail minus its padding and border left 47px for them -
