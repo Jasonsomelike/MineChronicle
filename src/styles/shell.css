@@ -264,19 +264,28 @@
    specificity and the media query does not, an explicit collapse also wins over an
    automatic expand - and where both ask for the icon rail the two rules set identical
    values, so double-application is a no-op rather than a fight. */
-:root[data-rail='collapsed'] .app-shell,
-:root[data-rail='expanded'] .app-shell {
+/* Collapsed and expanded are different answers, so they are different rules. They were
+   one group, which made `expanded` set the compact width - the toggle worked and the
+   layout did not, at every width. */
+:root[data-rail='collapsed'] .app-shell {
   grid-template-columns: var(--sidebar-w-compact) minmax(0, 1fr);
   column-gap: var(--space-4);
+}
+:root[data-rail='expanded'] .app-shell {
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  column-gap: var(--space-6);
 }
 :root[data-rail='collapsed'] .app-rail,
 :root[data-rail='expanded'] .app-rail {
   padding-right: var(--space-3);
 }
+/* Only the collapsed case. `expanded` was listed here too, so asking to expand gave a
+   rail that was wide and label-less rather than the labelled rail it was asking for.
+   `.local-label` is included because it was in none of these lists, which left
+   本地档案 / 托盘驻留 rendering inside a 72px rail. */
 :root[data-rail='collapsed'] .app-nav-label,
 :root[data-rail='collapsed'] .wordmark-label,
-:root[data-rail='expanded'] .app-nav-label,
-:root[data-rail='expanded'] .wordmark-label {
+:root[data-rail='collapsed'] .local-label {
   display: none;
 }
 :root[data-rail='collapsed'] .wordmark,
@@ -302,8 +311,11 @@
      text node: nothing could select it, so `display: none` had no target and seven
      labels ran out of a 47px rail and over the content beside it. `title` on the button
      is now the accessible name for these. */
-  .app-nav-label,
-  .wordmark-label {
+  /* Unless the reader has asked for the labelled rail. Without this condition an
+     explicit expand at a narrow width gave a 192px rail with no labels in it. */
+  :root:not([data-rail='expanded']) .app-nav-label,
+  :root:not([data-rail='expanded']) .wordmark-label,
+  :root:not([data-rail='expanded']) .local-label {
     display: none;
   }
   .wordmark {
