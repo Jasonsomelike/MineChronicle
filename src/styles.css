@@ -862,11 +862,40 @@ button:disabled {
 }
 /* The world's total, so a collapsed row still ranks the worlds by play time. */
 .world-total {
+  /* A row, so the bar inside it can size itself. It was `display: block`, and the
+     bar's `flex: 1 1 160px` did nothing in a block box: the element that carries the
+     measurement reported `width: 0px` while still painting a 5px-tall square, which
+     reads as a shrink rather than as a broken flex context.
+   *
+     The column takes the rest of the row rather than hugging its content. Sized to its
+     content it is as wide as that row's duration happens to be, so a bar would start
+     and end at a different x on every row - and a bar whose two ends both move cannot
+     be read against its neighbour. Growing instead lets the band reach back across the
+     586.6px of empty middle the row used to leave, while the duration column beside it
+     stays fixed, so the two ends of every bar still line up down the column.
+   *
+     `min-width: 352px` is the floor: the 132px duration column below plus the bar's
+     160px basis plus the 12px gap and the row's padding, measured. The bar's own
+     `max-width` is what stops a 2048 window turning the band into a full-bleed rule. */
+  display: flex;
+  align-items: center;
+  flex: 1 1 352px;
+  min-width: 352px;
   margin-left: auto !important;
   color: var(--text-strong) !important;
   font-variant-numeric: tabular-nums;
   /* Figures get the monospace family; see --font-mono. */
   font-family: var(--font-mono);
+}
+/* The duration column, given a fixed width so the bar beside it is the same length on
+   every row. Left to its content it measured 108px on a row reading `1373h 30m 9s` and
+   117px on one reading `1444h 26m 40s`, which walked every bar's start 9px left or
+   right down the column. 132px is the widest reading the app produces plus a margin;
+   `text-align: right` keeps the figures on the baseline they already shared. */
+.world-duration {
+  flex: 0 0 132px;
+  min-width: 0;
+  text-align: right;
 }
 .world-status {
   flex-basis: 100%;

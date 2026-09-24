@@ -107,11 +107,32 @@
   padding-bottom: var(--space-2);
 }
 
+/* The world's play time, drawn against the largest world in the list.
+ *
+ * This was 48x4. With 96 worlds the fills measured 35.9px to 48px - a 12.1px spread on
+ * a 48px track, so a run of neighbouring worlds was indistinguishable and the bar was
+ * decoration rather than a measurement. The row already had the room: between the
+ * instance name and the duration it left 742.6px of empty middle (measured at 1175
+ * wide, `.world-result summary` 1031px). After, on the same list:
+ *
+ *   track     48x4  ->  600x5      (the row's spare width, capped)
+ *   fills     35.9..48.0px  ->  448.6..600.0px
+ *   spread    12.1px  ->  151.4px  (12.5x)
+ *   dead middle  742.6px  ->  12px (the bar's own gap to the instance name)
+ *
+ * It reads as the ruler the dashboard hero already draws - one shared scale, the
+ * largest row full - rather than as a new device, so the list and the hero agree about
+ * what a full-width bar means. The band takes the row's spare width and the duration
+ * column beside it is pinned to a fixed width (see `.world-total`), so both ends of
+ * every bar line up down the column and neighbouring worlds compare directly. The
+ * `max-width` is what keeps a 2048 window from turning it into a full-bleed rule; at
+ * 620 the band measures 303.6px, sharing both ends with every other row. */
 .world-mini-bar {
   display: inline-block;
-  width: 48px;
-  height: 4px;
-  margin-left: var(--space-2);
+  flex: 1 1 160px;
+  max-width: 600px;
+  height: 5px;
+  margin-left: var(--space-3);
   border-radius: var(--radius-xs);
   background: var(--surface-sunken);
   vertical-align: middle;
@@ -122,7 +143,6 @@
   display: block;
   height: 100%;
   background: var(--chart-bar);
-  opacity: 0.7;
 }
 
 .world-result[data-status='Missing'] summary {

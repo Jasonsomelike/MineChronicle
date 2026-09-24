@@ -21,7 +21,13 @@ function WorldTotal({
   const share = maxTicks > 0n ? Number((total * 10000n) / maxTicks) / 100 : 0;
   return (
     <span className="world-total">
-      {readable.length ? formatPlayTicks(total.toString()) : '—'}
+      {/* The figure is a span of its own so the bar beside it is the same length on
+          every row. Sized to the text, a row reading "0秒" left its bar 303px wide
+          and a row reading "1小时26分" left it 240px: two ends moving, which is a
+          bar that cannot be read against its neighbour. */}
+      <span className="world-duration">
+        {readable.length ? formatPlayTicks(total.toString()) : '—'}
+      </span>
       {readable.length ? (
         <span className="world-mini-bar" aria-hidden="true">
           <i style={{ width: `${share}%` }} />
