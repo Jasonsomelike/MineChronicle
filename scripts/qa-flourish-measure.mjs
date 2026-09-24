@@ -207,14 +207,28 @@ for (const theme of THEMES) {
           return { w: r2(r.width), h: r2(r.height), top: r2(r.top) };
         })(),
       }));
-      const ruler = document.querySelector('.ruler');
+      const career = document.querySelector('.career-total');
+      const tracking = document.querySelector('.tracking-state');
+      const content = [
+        ...tracking.querySelectorAll('article'),
+        document.querySelector('.tracking-note'),
+      ];
+      const contentBottom = Math.max(
+        ...content.map((el) => el.getBoundingClientRect().bottom),
+      );
       return {
         gridH: r2(grid.getBoundingClientRect().height),
         cards,
-        rulerRows: document.querySelectorAll(
-          '.ruler li, .ruler-row, .ruler button',
-        ).length,
-        rulerH: ruler ? r2(ruler.getBoundingClientRect().height) : null,
+        // `.ruler-name` is the ruler's row element; the rows are buttons.
+        rulerRows: document.querySelectorAll('.ruler-name').length,
+        // How far the divider between the two regions stops short of the panel.
+        dividerShortBy: r2(
+          career.getBoundingClientRect().bottom -
+            tracking.getBoundingClientRect().bottom,
+        ),
+        gapBelowContent: r2(
+          career.getBoundingClientRect().bottom - contentBottom,
+        ),
         pageH: r2(document.documentElement.scrollHeight),
       };
     });
@@ -224,44 +238,7 @@ for (const theme of THEMES) {
       fullPage: true,
     });
 
-    // ---- whole-app disabled audit -----------------------------------------
-    await page.evaluate(() => {
-      window.location.hash = '#/settings';
-    });
-    await page.waitForTimeout(1200);
-    const disabledAudit = await page.evaluate(() => {
-      const out = [];
-      for (const el of document.querySelectorAll('button:disabled')) {
-        const s = getComputedStyle(el);
-        const on = el.cloneNode(true);
-        on.removeAttribute('disabled');
-        el.parentElement.appendChild(on);
-        const ss = getComputedStyle(on);
-        const same = {
-          bg: ss.backgroundColor === s.backgroundColor,
-          color: ss.color === s.color,
-          border: ss.borderTopWidth === s.borderTopWidth,
-          size:
-            Math.abs(
-              on.getBoundingClientRect().width -
-                el.getBoundingClientRect().width,
-            ) < 0.5,
-        };
-        on.remove();
-        out.push({
-          text: el.innerText.replace(/\s+/g, ' ').trim().slice(0, 16),
-          cls: el.className,
-          disabledOpacity: s.opacity,
-          cursor: s.cursor,
-          bgDisabled: s.backgroundColor,
-          bgEnabledClone: ss.backgroundColor,
-          stateDiffersBy: same,
-        });
-      }
-      return out;
-    });
-
-    report[key] = { worlds, dash, disabledAudit };
+    report[key] = { worlds, dash };
     await context.close();
   }
 }
@@ -272,6 +249,4 @@ await writeFile(
   JSON.stringify(report, null, 1),
 );
 console.log(JSON.stringify(report['1175-light'], null, 1));
-console.log('\n--- disabled audit (1175-light) ---');
-console.log(JSON.stringify(report['1175-light'].disabledAudit, null, 1));
 await browser.close();
