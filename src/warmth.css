@@ -313,7 +313,7 @@ body {
   color: var(--text-muted);
   font-weight: 400;
 }
-.scan-panel .secondary-button {
+.scan-panel .secondary-button:not(:disabled) {
   background: #edf1e7;
   color: var(--text-button);
   border: 1px solid var(--border);
@@ -323,9 +323,12 @@ body {
   background: var(--surface-hover);
   border-color: var(--border);
 }
-.scan-panel button:disabled {
-  opacity: 0.5;
-}
+/* `.scan-panel button:disabled { opacity: 0.5 }` used to sit here, and the same
+   declaration was repeated at 0.35 in ZoomControls.css. The app therefore had
+   three different disabled opacities plus a `cursor: wait` in styles.css, which
+   is how the pagination arrows ended up reading as two different components.
+   There is now one disabled rule, on the bare `button` element in styles.css, so
+   that every control in the app fades the same way when it is unavailable. */
 .dashboard .overview-grid {
   /* Was `border: 0`. The overview is one panel now, so it keeps the border it is given
      in styles.css; cancelling it here is what left the merged panel edgeless. */

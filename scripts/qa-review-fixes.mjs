@@ -1,6 +1,6 @@
 /* global window, document, getComputedStyle */
 import { chromium } from 'playwright-core';
-import { backend, APP_VERSION } from './qa-fixtures.mjs';
+import { backend, pagedBackend, APP_VERSION } from './qa-fixtures.mjs';
 import { installObservationFixture } from './qa-observation-fixture.mjs';
 import assert from 'node:assert/strict';
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -248,6 +248,243 @@ try {
       1,
     )}px`,
   );
+
+  /**
+   * One control, two states.
+   *
+   * The pagination arrows are the clearest case: `‹` is disabled on page 1 and `›`
+   * is not, and the disabled one kept `button`'s primary fill, so the row rendered
+   * as a washed-out pale square beside a saturated dark-green square and read as
+   * two different components. Both halves of that are pinned here: the two arrows
+   * must be the same box, the same radius, the same font and the same border
+   * width, and neither of them may wear `--surface-strong`.
+   *
+   * The reader is on `#/worlds`, where the shared `<Pagination>` renders fixed
+   * 34x38 arrows, so "same box" is a meaningful assertion rather than a
+   * coincidence of two labels happening to measure alike. That route needs the
+   * paged fixture: the shared one has three worlds and no pager, and the other
+   * routes' pages are fixtures-only too, so the assertion would have had nothing
+   * to measure anywhere else.
+   *
+   * Every other disabled control in the app is checked against the same rule, so a
+   * future `.something button:disabled { ... }` cannot reintroduce a second look.
+   * These are geometry and state assertions: none of this is visible by reading
+   * the CSS, which is how it shipped in the first place.
+   */
+  // A separate tab, and the init script goes on *it* rather than on the context:
+  // a script added to a context after that context already has a live page does
+  // not reach a new page's document, which is why this override never ran when it
+  // was registered on `context` or on the already-navigated `page`.
+  const pager = await context.newPage();
+  await pager.addInitScript((table) => {
+    window.__qaPaged = table;
+    const original = window.__TAURI_INTERNALS__.invoke;
+    window.__TAURI_INTERNALS__.invoke = async (command, args) =>
+      command === 'load_library' && window.__qaPaged
+        ? structuredClone(window.__qaPaged.load_library)
+        : original(command, args);
+  }, pagedBackend);
+  await pager.goto('http://127.0.0.1:1420/#/worlds');
+  await pager.waitForSelector('.pagination button', { timeout: 15000 });
+
+  const arrows = await pager.evaluate(() => {
+    const read = (b) => {
+      const s = getComputedStyle(b);
+      const r = b.getBoundingClientRect();
+      return {
+        label: b.getAttribute('aria-label'),
+        disabled: b.disabled,
+        w: +r.width.toFixed(1),
+        h: +r.height.toFixed(1),
+        radius: s.borderTopLeftRadius,
+        font: s.fontSize,
+        weight: s.fontWeight,
+        display: s.display,
+        border: s.borderTopWidth + ' ' + s.borderTopStyle,
+        bg: s.backgroundColor.replace(/\s+/g, '').toLowerCase(),
+        color: s.color.replace(/\s+/g, '').toLowerCase(),
+        cursor: s.cursor,
+        opacity: s.opacity,
+        shadow: s.boxShadow,
+      };
+    };
+    return [...document.querySelectorAll('.pagination button')].map(read);
+  });
+  assert.equal(arrows.length, 2, 'the pagination row has both arrows');
+  const [prev, next] = arrows;
+  assert.equal(prev.label, '上一页', 'the first arrow is 上一页');
+  assert.equal(next.label, '下一页', 'the second arrow is 下一页');
+  assert.equal(prev.disabled, true, '上一页 is disabled on page 1');
+  assert.equal(
+    next.disabled,
+    false,
+    '下一页 is enabled while the fixture has more than one page',
+  );
+  for (const field of ['w', 'h', 'radius', 'font', 'weight', 'display']) {
+    assert.equal(
+      prev[field],
+      next[field],
+      `the two arrows must be one control in two states, but ${field} differs: ` +
+        `${prev[field]} (disabled) vs ${next[field]} (enabled)`,
+    );
+  }
+  assert.notEqual(
+    prev.bg,
+    next.bg,
+    'a disabled arrow must not share the enabled arrow’s fill',
+  );
+  assert.notEqual(
+    prev.color,
+    next.color,
+    'a disabled arrow must not share the enabled arrow’s text colour',
+  );
+  assert.equal(
+    prev.cursor,
+    'not-allowed',
+    `a disabled control must not claim the app is busy (cursor: ${prev.cursor})`,
+  );
+  assert.equal(
+    next.opacity,
+    '1',
+    'the enabled arrow must not be faded: a faded control reads as disabled',
+  );
+  assert.notEqual(
+    next.shadow,
+    prev.shadow,
+    'the usable arrow must be distinguishable from the spent one; both measured ' +
+      `${next.shadow}`,
+  );
+
+  // Resolve the tokens rather than hardcoding hex, so a palette change does not
+  // fail an assertion that is really about "not the primary fill".
+  const strong = await pager.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue('--surface-strong')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ''),
+  );
+  assert.notEqual(
+    next.bg,
+    strong,
+    'the enabled page-step arrow is tertiary navigation and must not wear the ' +
+      'page’s primary-action fill (--surface-strong)',
+  );
+  assert.notEqual(
+    prev.bg,
+    strong,
+    'the disabled page-step arrow must not wear the primary-action fill either',
+  );
+
+  /** The disabled label has to stay readable: >= 4.5:1 against its own fill. */
+  const contrast = await pager.evaluate(() => {
+    const parse = (value) => {
+      const m = String(value).match(
+        /(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)/,
+      );
+      return m ? [+m[1], +m[2], +m[3]] : null;
+    };
+    const lum = ([r, g, b]) => {
+      const c = (x) => {
+        x /= 255;
+        return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b);
+    };
+    const bg = (el) => {
+      let node = el;
+      while (node) {
+        const colour = getComputedStyle(node).backgroundColor;
+        if (colour && !colour.includes('rgba(0, 0, 0, 0)')) return colour;
+        node = node.parentElement;
+      }
+      return 'rgb(255, 255, 255)';
+    };
+    const out = {};
+    for (const b of document.querySelectorAll('.pagination button')) {
+      const s = getComputedStyle(b);
+      const [hi, lo] = [lum(parse(s.color)), lum(parse(bg(b)))].sort(
+        (x, y) => y - x,
+      );
+      out[b.getAttribute('aria-label')] = +((hi + 0.05) / (lo + 0.05)).toFixed(
+        2,
+      );
+    }
+    return out;
+  });
+  assert.ok(
+    contrast['上一页'] >= 4.5,
+    `a disabled label must still be readable, measured ${contrast['上一页']}:1`,
+  );
+  assert.ok(
+    contrast['下一页'] >= 4.5,
+    `the enabled label must be readable, measured ${contrast['下一页']}:1`,
+  );
+
+  /** The same rule, applied to every disabled control in the app. */
+  await page.evaluate(() => {
+    window.location.hash = '#/settings';
+  });
+  await page.waitForSelector('.settings-card', { timeout: 15000 });
+  const pairs = await page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll('button:disabled')) {
+      // Compare against a sibling control, not against a clone: appending a
+      // clone after the original shifts `:first-of-type` on later matches.
+      const sibling = [
+        ...(el.parentElement?.querySelectorAll('button') ?? []),
+      ].find((b) => !b.disabled);
+      if (!sibling) continue;
+      const a = getComputedStyle(el);
+      const c = getComputedStyle(sibling);
+      const ra = el.getBoundingClientRect();
+      const rc = sibling.getBoundingClientRect();
+      // Width is deliberately not compared: two controls with different labels
+      // are legitimately different widths. Shape and height are not.
+      out.push({
+        text: el.innerText.replace(/\s+/g, ' ').trim().slice(0, 20) || '(icon)',
+        statesMatch: [
+          a.borderTopLeftRadius === c.borderTopLeftRadius,
+          a.fontSize === c.fontSize,
+          a.fontWeight === c.fontWeight,
+          a.display === c.display,
+          a.borderTopWidth === c.borderTopWidth,
+          Math.abs(ra.height - rc.height) <= 0.5,
+        ].every(Boolean),
+        radius: a.borderTopLeftRadius,
+        radiusPeer: c.borderTopLeftRadius,
+        fontSize: a.fontSize,
+        fontSizePeer: c.fontSize,
+        bg: a.backgroundColor.replace(/\s+/g, '').toLowerCase(),
+        bgPeer: c.backgroundColor.replace(/\s+/g, '').toLowerCase(),
+        cursor: a.cursor,
+      });
+    }
+    return out;
+  });
+  assert.ok(
+    pairs.length >= 1,
+    `expected at least one disabled control on the settings page, saw ${pairs.length}`,
+  );
+  for (const pair of pairs) {
+    assert.equal(
+      pair.statesMatch,
+      true,
+      `"${pair.text}" is styled as a second component rather than the same one ` +
+        `disabled: radius ${pair.radius} vs ${pair.radiusPeer}, ` +
+        `font ${pair.fontSize} vs ${pair.fontSizePeer}`,
+    );
+    assert.notEqual(
+      pair.bg,
+      pair.bgPeer,
+      `"${pair.text}" is disabled but keeps an enabled sibling's fill ${pair.bg}`,
+    );
+    assert.equal(
+      pair.cursor,
+      'not-allowed',
+      `"${pair.text}" is disabled but its cursor reads "${pair.cursor}"`,
+    );
+  }
 
   /** Imports and increments must be the same colour family. */
   await page.evaluate(() => {

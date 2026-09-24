@@ -485,7 +485,7 @@ main {
   min-height: 0;
   border-radius: var(--radius-sm);
 }
-.text-button:hover {
+.text-button:hover:not(:disabled) {
   background: none;
   color: var(--text);
   text-decoration: underline;
@@ -653,7 +653,10 @@ button {
   transition: background-color var(--motion-base) ease,
     color var(--motion-base) ease, box-shadow var(--motion-base) ease;
 }
-button:hover {
+/* Guarded, because a bare `button:hover` has the same specificity as
+   `button:disabled` and comes first in the file: it won both, so the `‹` arrow on
+   page 1 kept a hover fill. */
+button:hover:not(:disabled) {
   background: var(--surface-strong-hover);
 }
 /* Any button that draws a glyph beside its label lays them out on one row.
@@ -698,9 +701,36 @@ button:hover {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
+/* Disabled is one state of the control, not a second control.
+ *
+ * This rule was `opacity: 0.65; cursor: wait;`. Two things were wrong with it.
+ *
+ * The fill stayed. A disabled button therefore still wore `--surface-strong`, the
+ * app's primary-action fill, and only looked paler than the enabled one - which
+ * is why the pagination row read as two different components: a washed-out square
+ * beside a saturated dark-green square. `‹` on page 1 and `›` on page 1 of 8 were
+ * the same button, 34x38, `rgb(13, 107, 72)` under `rgb(255, 255, 255)`, and one
+ * of them read as the page's main call to action.
+ *
+ * `cursor: wait` claimed the app was working. It is now `not-allowed`, which is
+ * what a disabled control means. `!important` is deliberate: the same declaration
+ * was repeated at opacity 0.5 and 0.35 in two other stylesheets (`.scan-panel
+ * button:disabled`, `.zoom-controls button:disabled`) and `cursor: not-allowed`
+ * in a third, so the app had four answers to one question. This is the one.
+ *
+ * The background is `--surface`: the control stays where it is and simply stops
+ * being filled. Text is `--text-faint`, measured at 6.12:1 on that fill in light
+ * and 7.64:1 in dark, so a disabled *label* is still readable - disabling
+ * something is a reason to stop calling it primary, not a reason to make its text
+ * unreadable. The 1px `--border` ring is the same hairline every resting card
+ * uses: it defines the button's edge without asserting emphasis. */
 button:disabled {
-  opacity: 0.65;
-  cursor: wait;
+  background: var(--surface) !important;
+  color: var(--text-faint) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  opacity: 1;
+  cursor: not-allowed !important;
 }
 .runtime-status {
   margin: 12px 0 0;
@@ -763,8 +793,8 @@ button:disabled {
   background: var(--surface-hover);
   color: var(--text-strong);
 }
-.secondary-button:hover,
-.connection-check button:hover {
+.secondary-button:hover:not(:disabled),
+.connection-check button:hover:not(:disabled) {
   background: var(--surface-active);
 }
 .connection-check {
@@ -2561,6 +2591,28 @@ button.stat-icon:hover {
   width: 34px;
   height: 34px;
   padding: 9px;
+  /* Tertiary navigation, not the page's primary action. These arrows inherited
+     `button`'s `--surface-strong` fill, so the enabled one was a saturated
+     dark-green square sitting three characters away from a washed-out one: the
+     row read as two different components rather than one control in two states.
+     `--surface-strong` is what the app reserves for the single real primary
+     action on a page (导入胶囊, 当前分区, the pressed ranking tab); a page-step
+     arrow is not that. This is the same quiet treatment `.secondary-button`
+     wears, so the app has one vocabulary for "a control that is not the
+     primary one". */
+  background: var(--surface-hover);
+  color: var(--text-strong);
+  border: 1px solid var(--border);
+  /* The pair differs by three things and nothing else: the fill above, the text
+     tone, and this affordance edge. `--shadow-hairline` is the token the pressed
+     ranking tab and the sticky settings jump already use on the same page, so a
+     control that can be used gets the same 1px lift a selected one does and
+     nothing new is invented. `button:disabled` clears it below. It resolves to
+     `none` in dark, where depth comes from the surface ladder. */
+  box-shadow: var(--shadow-hairline);
+}
+.pagination button:hover:not(:disabled) {
+  background: var(--surface-active);
 }
 .health-tabs {
   display: flex;

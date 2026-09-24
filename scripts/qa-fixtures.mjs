@@ -463,3 +463,38 @@ export const backend = {
   acknowledge_view: null,
   phase_status: { phase: 10, offline: true, scanning_available: true },
 };
+
+/**
+ * The same backend with enough worlds to paginate the world library.
+ *
+ * `WorldLibrary` shows 12 rows a page, and the shared fixture holds three worlds,
+ * so `<Pagination>` never renders there and the pager's two states cannot be
+ * measured on the route the user actually reported. This is the shared fixture
+ * plus 21 synthetic worlds, and nothing else: `backend` itself is left alone, so
+ * a suite that does not ask for pages keeps seeing three worlds.
+ */
+export const pagedBackend = (() => {
+  const rows = backend.load_library.report.roots[0];
+  const template = rows.worlds[0];
+  const worlds = Array.from({ length: 21 }, (_, i) => ({
+    ...template,
+    path: `D:\\QA\\root\\saves\\Page World ${i + 1}`,
+    name: `Page World ${i + 1}`,
+    status: 'Present',
+    players: template.players.map((p, index) => ({
+      ...p,
+      play_ticks: String(40_000_000 - i * 1_500_000 - index * 1000),
+      initial_play_ticks: String(40_000_000 - i * 1_500_000 - index * 1000),
+    })),
+  }));
+  return {
+    ...backend,
+    load_library: {
+      ...backend.load_library,
+      report: {
+        ...backend.load_library.report,
+        roots: [{ ...rows, worlds: [...rows.worlds, ...worlds] }],
+      },
+    },
+  };
+})();
