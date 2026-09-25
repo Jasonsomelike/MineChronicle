@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatCompactTicks,
+  formatGroupSeconds,
   formatPlayTicks,
   formatSeconds,
   formatTickTotal,
@@ -51,6 +52,16 @@ describe('second display', () => {
   });
   it.each(['-1', '1.5', '', 'abc'])('rejects invalid seconds %s', (input) => {
     expect(() => formatSeconds(input)).toThrow();
+  });
+  it('prints the unknown marker for a group that measured nothing', () => {
+    // `ObservationGroup.seconds` is empty when every session in the group ended
+    // unobserved or lacks a baseline. That reading must not reach the strict
+    // formatter (it took the whole observation page down with
+    // `Seconds must be non-negative`), and must not print `0 秒` either, which
+    // would claim a measurement the archive does not have.
+    expect(formatGroupSeconds('')).toBe(UNKNOWN_DURATION);
+    expect(formatGroupSeconds('0')).toBe('0 秒');
+    expect(formatGroupSeconds('1500')).toBe(formatSeconds('1500'));
   });
 });
 

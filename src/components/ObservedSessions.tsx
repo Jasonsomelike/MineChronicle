@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ObservedSessionsPage } from '../lib/tracking';
 import { displayPath } from '../lib/path';
-import { formatSeconds } from '../lib/duration';
+import { formatGroupSeconds, formatSeconds } from '../lib/duration';
 import SessionEndDialog from './SessionEndDialog';
 
 const date = (value: string) =>
@@ -311,7 +311,7 @@ export default function ObservedSessions({
                     {group.name}
                   </strong>
                   <span className="observed-group-total">
-                    {formatSeconds(group.seconds)}
+                    {formatGroupSeconds(group.seconds)}
                   </span>
                   <span className="observed-group-count">
                     {group.session_count} 次观测

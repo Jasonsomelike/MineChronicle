@@ -93,6 +93,20 @@ export function formatSeconds(seconds: string): string {
   return humanDuration(BigInt(seconds));
 }
 
+/**
+ * The group-total exit, for a value the archive may leave empty.
+ *
+ * `ObservationGroup.seconds` is empty - not `0` - when no session in the group
+ * had a measurable duration: every run ended unobserved or lacks a baseline.
+ * That is an unknown reading, and `formatSeconds` rightly refuses to guess at
+ * it, so the empty reading prints the same `—` as every other unknown. Before
+ * this exit existed the empty string reached the strict formatter and took the
+ * whole observation page down with `Seconds must be non-negative`.
+ */
+export function formatGroupSeconds(seconds: string): string {
+  return seconds ? formatSeconds(seconds) : UNKNOWN_DURATION;
+}
+
 const pad = (value: number) => String(value).padStart(2, '0');
 
 /**

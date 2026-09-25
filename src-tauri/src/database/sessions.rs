@@ -69,7 +69,10 @@ pub struct ObservationGroup {
     /// Total sessions for this instance across all history, not just this page.
     pub session_count: i64,
     /// Summed `pseudo_seconds` across every session in the group, so a collapsed
-    /// row still shows the instance's real total.
+    /// row still shows the instance's real total. Empty, not `0`, when no session
+    /// in the group had a measurable duration (every run ended unobserved or lacks
+    /// a baseline): `0 秒` would claim a measurement the archive does not have, so
+    /// an empty reading means unknown and the UI prints its unknown marker.
     pub seconds: String,
     /// Sessions excluded from `seconds` because their end was never observed.
     pub unknown_sessions: i64,
