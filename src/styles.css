@@ -3463,6 +3463,15 @@ button.stat-icon:hover {
 .statistics-toolband .filter-tools .health-tabs {
   padding-bottom: 0;
 }
+/* The density pills are a segmented control, not underlined tabs (see above), so the
+   pressed one takes the filled treatment the rest of the app gives a chosen option.
+   The rule the handoff described for them never landed: a probe measured both pills
+   identical - same ink, same transparent background, no border - so the control said
+   nothing about which density was on. */
+.statistics .filter-tools .health-tabs button[aria-pressed='true'] {
+  background: var(--surface-strong);
+  color: var(--text-on-strong);
+}
 /* The maintenance disclosure, shaped like the overview above it so the two read as the
    same kind of thing: a summary line, closed until asked for. */
 .stat-icon-resources {
@@ -3619,7 +3628,7 @@ button.stat-icon:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 10px;
+  gap: 4px 12px;
   padding: 12px 16px;
   cursor: pointer;
   border-radius: var(--radius-md);
@@ -3634,13 +3643,24 @@ button.stat-icon:hover {
 .observed-group > summary:hover {
   background: var(--surface-hover);
 }
+/* The name takes the slack so the figures line up down the list.
+   Each row used to place its total wherever its own name ended - "33 分" under a
+   short name, "15 分" under a long one - so two rows of the same shape read as
+   ragged columns. The total and the count now hold a column each: the 8ch floor
+   fits the widest practical total (two units) and lets a longer one push instead
+   of clipping. */
 .observed-group > summary strong {
+  flex: 1 1 auto;
+  min-width: 0;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 .observed-group-total {
   /* The headline figure: this is the instance's whole-history time, not the
      page's share, so it reads first. */
+  flex: 0 0 auto;
+  min-width: 8ch;
+  text-align: right;
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
   /* Figures get the monospace family; see --font-mono. */
@@ -3650,6 +3670,11 @@ button.stat-icon:hover {
 .observed-group-note {
   color: var(--text-muted);
   font-size: var(--type-caption);
+}
+.observed-group-count {
+  /* Wide enough for "36 次观测 · 共 2 页" so the badges beside it start at one x. */
+  flex: 0 0 auto;
+  min-width: 14ch;
 }
 .observed-group-note {
   padding: 1px 7px;
