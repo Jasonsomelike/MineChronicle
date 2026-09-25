@@ -328,7 +328,7 @@ export default function ArchivePages({ state }: { state: AppState }) {
       {(view === 'dashboard' || view === 'settings') && report ? (
         <>
           {(view === 'dashboard' || state.totalsRead.error) && (
-            <ReadStatus {...state.totalsRead} />
+            <ReadStatus {...state.totalsRead} label="存档读数" />
           )}
           {state.healthRead.error && <ReadStatus {...state.healthRead} />}
         </>

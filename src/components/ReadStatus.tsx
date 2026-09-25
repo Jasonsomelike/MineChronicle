@@ -3,17 +3,21 @@ export default function ReadStatus({
   loading,
   updatedAt,
   refresh,
+  label,
 }: {
   error: string;
   loading: boolean;
   updatedAt: number;
   refresh: () => void;
+  /** Which read this freshness belongs to, for pages that show two of these. */
+  label?: string;
 }) {
   return (
     <div className="read-status">
       {updatedAt > 0 && (
         <small title={`最近更新 ${new Date(updatedAt).toLocaleString()}`}>
-          最近更新 {new Date(updatedAt).toLocaleTimeString()}
+          {label ? `${label} · ` : ''}最近更新{' '}
+          {new Date(updatedAt).toLocaleTimeString()}
         </small>
       )}
       {loading && <span role="status">正在更新…</span>}

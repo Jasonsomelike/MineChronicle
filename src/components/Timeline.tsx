@@ -222,7 +222,7 @@ export default function Timeline({
           </p>
         </>
       ) : null}
-      <ReadStatus {...request} />
+      <ReadStatus {...request} label="时间线" />
       {/* One live region for the list rather than one per row, and it is here from the first
           render: a live region that arrives together with its text is not reliably
           announced, whereas a change inside one that already exists is. Absolutely

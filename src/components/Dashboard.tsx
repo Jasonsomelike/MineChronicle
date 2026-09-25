@@ -209,6 +209,8 @@ export default function Dashboard({
             {report.instances.length} 个 PCL 实例
             <span
               className="count-hint"
+              tabIndex={0}
+              aria-label="统计口径：世界数按当前玩家筛选；实例数为档案内全部 PCL 实例"
               title="按当前玩家筛选后的世界数；实例数为档案内全部 PCL 实例"
             >
               口径

@@ -88,6 +88,16 @@
   margin: 0;
 }
 
+/* The last row's rule closes nothing either.
+ *
+ * The count bar below opens with its own rule, so the last world row's rule left two
+ * rules drawing a 50px band of empty space at the foot of the group - the same
+ * "row that never rendered" reading the group's own bottom rule had. A list that ends
+ * a group is framed by what follows it, not by its own underline. */
+.instance-worlds li:last-child {
+  border-bottom: 0;
+}
+
 /* A divider between folder groups, not a frame around the last one.
  *
  * The rule closes a group so the next one starts cleanly. After the last group it had
@@ -322,12 +332,20 @@
   font-family: var(--font-mono);
 }
 
+/* Read as a chip, not as a word glued to the sentence before it.
+ *
+ * On the hero line, "1 个 PCL 实例" followed by a bare 口径 read as one compound noun
+ * ("实例口径"). A hairline and the muted rather than faint ink make it a control the
+ * eye can skip instead of a word the sentence swallowed. It takes focus now too: a
+ * title alone reached mouse users only, and the help text is the only place the mixed
+ * scopes are explained. */
 .count-hint {
   margin-left: var(--space-2);
   padding: 0 var(--space-1);
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius-xs);
   background: var(--surface-sunken);
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--type-caption);
   cursor: help;
 }
