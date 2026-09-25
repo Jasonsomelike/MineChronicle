@@ -100,7 +100,15 @@ function PlaytimeRuler({
                 {row.name}
               </button>
               <span className="ruler-track" aria-hidden="true">
-                <span className="ruler-fill" style={{ width: `${share}%` }} />
+                {/* A one-minute world against a sixty-day scale is 0.001% of the
+                    track: a sub-pixel fill that reads as no time at all, beside a
+                    number that says otherwise. Every non-zero share keeps a 3px
+                    floor, and a zero reading stays invisible rather than claiming
+                    a sliver it did not measure. */}
+                <span
+                  className="ruler-fill"
+                  style={{ width: share > 0 ? `max(${share}%, 3px)` : '0%' }}
+                />
               </span>
               {/* A world whose directory is gone has no current reading. Showing
                   "0 秒" would claim it was never played, which is a different and
@@ -374,23 +382,30 @@ export default function Dashboard({
             条当前读数不可用
           </p>
           {pseudo.seconds > 0n || pseudo.unknown || pseudo.baseline ? (
-            <p>
-              未归因运行时长 {formatSeconds(pseudo.seconds.toString())}
-              {pseudo.instances ? ` · ${pseudo.instances} 个实例` : ''}
-              {pseudo.unknown ? ` · ${pseudo.unknown} 次会话未观测到结束` : ''}
-              {pseudo.baseline
-                ? ` · ${pseudo.baseline} 次会话缺少本地基线，未计入`
-                : ''}
-              <br />
-              全部实例历史累计，不随玩家筛选。可能包含服务器游玩、加载和菜单停留，不等同于玩家游戏时长。
-              <button
-                type="button"
-                className="text-button"
-                onClick={onObservation}
-              >
-                查看实例观测
-              </button>
-            </p>
+            <>
+              <p>
+                未归因运行时长 {formatSeconds(pseudo.seconds.toString())}
+                {pseudo.instances ? ` · ${pseudo.instances} 个实例` : ''}
+                {pseudo.unknown
+                  ? ` · ${pseudo.unknown} 次会话未观测到结束`
+                  : ''}
+                {pseudo.baseline
+                  ? ` · ${pseudo.baseline} 次会话缺少本地基线，未计入`
+                  : ''}{' '}
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={onObservation}
+                >
+                  查看实例观测
+                </button>
+              </p>
+              {/* Fine print under the counts, not a third fact beside them: same
+                  caption size, so it separates by ink and measure instead. */}
+              <p className="health-caveat">
+                全部实例历史累计，不随玩家筛选；可能包含服务器游玩、加载和菜单停留，不等同于玩家游戏时长。
+              </p>
+            </>
           ) : null}
           {health?.confirmed_lineages ? (
             <p>

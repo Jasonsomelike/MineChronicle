@@ -30,7 +30,10 @@ function WorldTotal({
       </span>
       {readable.length ? (
         <span className="world-mini-bar" aria-hidden="true">
-          <i style={{ width: `${share}%` }} />
+          {/* Same floor as the hero's ruler: a minute against a sixty-day scale is
+              a sub-pixel fill, which reads as no time beside a number that says
+              otherwise. A zero reading keeps its empty track. */}
+          <i style={{ width: share > 0 ? `max(${share}%, 3px)` : '0%' }} />
         </span>
       ) : null}
     </span>
@@ -298,11 +301,10 @@ export default function WorldLibrary({
           <span className="list-result-count">
             共 {listCount} {mode === 'flat' ? '个世界' : '个目录'}
           </span>
-          {report.saved && report.database_path ? (
-            <p className="world-path">
-              档案：{displayPath(report.database_path)}
-            </p>
-          ) : null}
+          {/* The archive path used to be printed here too. The panel's own footer
+              states it once (`.runtime-path`), and two identical paths on one page
+              read as the same fact rendered twice - the same reasoning that took it
+              out of the instances list's bar. */}
         </div>
       )}
       {mode === 'flat'

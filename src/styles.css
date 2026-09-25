@@ -602,6 +602,16 @@ main {
   font-size: var(--type-caption);
   margin: 0;
 }
+/* Fine print under the counts, not a third fact beside them.
+   Every paragraph in this panel renders at the one caption size the block sets,
+   so hierarchy has to come from ink and measure instead: the caveat drops to the
+   muted colour and stops at a reading width, while the counts above it keep full
+   strength. `p.health-caveat` outranks `.health-summary p` for the margin. */
+.health-summary p.health-caveat {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  max-width: 72ch;
+}
 .folder-group {
   border-bottom: 1px solid var(--border);
   padding: 18px 0;

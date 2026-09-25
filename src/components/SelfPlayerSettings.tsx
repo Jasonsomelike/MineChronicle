@@ -25,10 +25,6 @@ export default function SelfPlayerSettings({
       <h2>
         <UserRound size={18} aria-hidden="true" /> 自己
       </h2>
-      <p>
-        设置自己的玩家身份，在玩家列表顶部一键选择。输入名称或
-        UUID，任选一种即可。
-      </p>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -49,25 +45,38 @@ export default function SelfPlayerSettings({
           }
         }}
       >
-        <label htmlFor="self-player-identity">玩家名称 / UUID</label>
-        <div className="self-player-input">
-          <input
-            id="self-player-identity"
-            disabled={!loaded || saving}
-            maxLength={256}
-            value={value}
-            placeholder="例如 Steve 或玩家 UUID"
-            spellCheck={false}
-            autoComplete="off"
-            aria-describedby="self-player-match"
-            onChange={(e) => {
-              setDraft(e.target.value);
-              setMessage('');
-            }}
-          />
-          <button type="submit" disabled={!loaded || saving}>
-            {saving ? '保存中…' : '保存'}
-          </button>
+        {/* The row pattern the rest of the settings page uses - what the field is
+            for on the left, the field itself on the right. Stacked, this card put a
+            360px field in the corner of a 1168px card and left the rest of the row
+            empty. The label moved into the row's heading. */}
+        <div className="setting-row">
+          <div>
+            <strong>玩家名称 / UUID</strong>
+            <p>
+              设置自己的玩家身份，在玩家列表顶部一键选择。输入名称或
+              UUID，任选一种即可。
+            </p>
+          </div>
+          <div className="self-player-input">
+            <input
+              id="self-player-identity"
+              aria-label="玩家名称 / UUID"
+              disabled={!loaded || saving}
+              maxLength={256}
+              value={value}
+              placeholder="例如 Steve 或玩家 UUID"
+              spellCheck={false}
+              autoComplete="off"
+              aria-describedby="self-player-match"
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setMessage('');
+              }}
+            />
+            <button type="submit" disabled={!loaded || saving}>
+              {saving ? '保存中…' : '保存'}
+            </button>
+          </div>
         </div>
         {error ? (
           <p role="alert">
