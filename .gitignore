@@ -20,6 +20,7 @@ output/
 # `.claude/skills` is the CLI's symlink to the same files, so both are ignored.
 .agents/
 .claude/
+.zcode/skills/
 skills-lock.json
 
 # Vendored agent skills installed by the npx skills CLI from the project root.
