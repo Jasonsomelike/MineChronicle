@@ -323,13 +323,20 @@ export default function Dashboard({
               <Globe2 size={16} aria-hidden="true" />
               统计范围
             </span>
+            {/* Two readings, not a fraction. "3 / 2" over "世界 / 玩家" read like a
+                ratio and left the reader to work out that it was two independent
+                counts; each count now carries its own noun. The separator is bound
+                to the first count with a no-break space so the narrow column wraps
+                after "·" instead of starting a line with it. */}
             <strong>
-              {data.worlds.length} /{' '}
-              {playersNone ? 0 : players.length || data.players.length}
+              {`${data.worlds.length} 个世界\u00A0· ${
+                playersNone
+                  ? '未选择玩家'
+                  : `${players.length || data.players.length} 个玩家`
+              }`}
             </strong>
             <small>
-              世界 / 玩家 · {report.instances.length} 个实例 · {data.missing}{' '}
-              个缺失
+              {report.instances.length} 个实例 · {data.missing} 个缺失
             </small>
           </article>
           <article>

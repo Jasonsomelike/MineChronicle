@@ -700,8 +700,14 @@ p {
 .foundation:has(.settings-layout:not([hidden])) {
   min-width: 0;
 }
+/* One heading weight for the app.
+   Page and card titles were regular (400) while the row labels under them are
+   `<strong>` (700), so a heading was lighter than its own content - every page read
+   as a list of labels with a timid name on top. 600 puts the heading above its rows
+   without shouting, and it is the one weight the whole app's headings share. */
 h2 {
   font-size: var(--type-heading);
+  font-weight: 600;
   margin: 0;
 }
 .foundation > div > p {
@@ -1339,6 +1345,10 @@ footer {
   font-family: var(--font-mono);
   margin-top: var(--space-1);
   overflow-wrap: anywhere;
+  /* 统计范围 holds two counts rather than one figure, so it can wrap in the
+     narrow column; balance keeps the break between the two readings instead of
+     leaving a single character ("家") alone on the second line. */
+  text-wrap: balance;
 }
 .tracking-note {
   grid-column: 1 / -1;
@@ -2196,10 +2206,9 @@ button.stat-icon:hover {
 .statistics .library-heading {
   margin-bottom: 12px;
 }
-.statistics .library-heading h2 {
-  font-size: var(--type-heading);
-  font-weight: 650;
-}
+/* The statistics title used to carry a weight of its own (650), the only heading in
+   the app that did. The global h2 rule now sets size and weight for every heading,
+   so the override is deleted rather than restated. */
 .statistics .activity-filters {
   margin: 14px 0;
   gap: 12px;

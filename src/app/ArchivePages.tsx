@@ -158,13 +158,28 @@ function SettingsBody({ state }: { state: AppState }) {
           <StartupSettings />
           <section className="settings-card">
             <h2>窗口与显示</h2>
-            <p>
-              关闭窗口后继续在后台追踪游戏。点击系统托盘图标可重新打开，右键选择“彻底退出”停止软件。缩放控件在本卡片下方。
-            </p>
-            <ZoomControls />
-            <p className="scan-note">
-              也可使用 Ctrl + 滚轮或 Ctrl + 加减号调整缩放，Ctrl + 0 恢复默认。
-            </p>
+            {/* Two rows, the pattern the cards above use: what the setting is on the
+                left, the control on the right. Stacked, the whole card hugged the
+                left edge of a 1168px card. */}
+            <div className="setting-row">
+              <div>
+                <strong>后台追踪</strong>
+                <p>
+                  关闭窗口后继续在后台追踪游戏。点击系统托盘图标可重新打开，右键选择“彻底退出”停止软件。
+                </p>
+              </div>
+              <span className="setting-badge">托盘驻留</span>
+            </div>
+            <div className="setting-row">
+              <div>
+                <strong>界面缩放</strong>
+                <p>
+                  也可使用 Ctrl + 滚轮或 Ctrl + 加减号调整缩放，Ctrl + 0
+                  恢复默认。
+                </p>
+              </div>
+              <ZoomControls />
+            </div>
           </section>
         </div>
         <div
