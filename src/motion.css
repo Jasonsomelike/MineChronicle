@@ -79,6 +79,32 @@ button:not(:disabled),
   animation-delay: calc(var(--stagger-step) * 5);
 }
 
+/* The timeline rows settle in the same rhythm as the ranking; the observation
+   groups settle as whole cards. Both are optional decoration, and both sit in the
+   reduced-motion reset below. */
+.timeline-events li,
+.observed-group {
+  animation: card-settle var(--motion-base) var(--ease-standard) backwards;
+}
+.timeline-events li:nth-child(1) {
+  animation-delay: calc(var(--stagger-step) * 1);
+}
+.timeline-events li:nth-child(2) {
+  animation-delay: calc(var(--stagger-step) * 2);
+}
+.timeline-events li:nth-child(3) {
+  animation-delay: calc(var(--stagger-step) * 3);
+}
+.timeline-events li:nth-child(4) {
+  animation-delay: calc(var(--stagger-step) * 4);
+}
+.timeline-events li:nth-child(5) {
+  animation-delay: calc(var(--stagger-step) * 5);
+}
+.timeline-events li:nth-child(n + 6) {
+  animation-delay: calc(var(--stagger-step) * 5);
+}
+
 /* A row under the pointer lifts very slightly. Kept to 0.5px so it hints at
    interactivity without the list appearing to wobble as the mouse crosses it. */
 .ranking li {
@@ -156,6 +182,8 @@ details > summary::-webkit-details-marker {
   .settings-card,
   .metric-grid article,
   .ranking li,
+  .timeline-events li,
+  .observed-group,
   /* The ruler's fills grow from zero on load. Under reduced motion they simply
      appear at their measured width, which is the whole information. The ranking
      bar draws the same measurement against the same scale, so it is named here

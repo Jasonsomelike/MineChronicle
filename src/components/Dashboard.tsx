@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
-import { Collapse, Segmented } from 'antd';
+import { Collapse, Segmented, Tag } from 'antd';
 import type { ScanSummary } from '../lib/scan';
 import {
   summarize,
@@ -385,10 +385,14 @@ export default function Dashboard({
             <ShieldCheck size={16} />
             数据状态
           </h3>
-          <p>
-            {health?.pending_count ?? issues.length} 项待处理 ·{' '}
-            {tracking?.rollback_count ?? 0} 次回档记录 · {data.unreadable}{' '}
-            条当前读数不可用
+          {/* The counts are the scan line: three same-ink figures in a sentence
+              read as prose; three tags read as a checklist. Neutral tags rather
+              than antd's warning/error presets: those blend with the warm page
+              tint and measured 4.46:1 here, under the gate's 4.5 floor. */}
+          <p className="health-counts">
+            <Tag>{health?.pending_count ?? issues.length} 项待处理</Tag>
+            <Tag>{tracking?.rollback_count ?? 0} 次回档记录</Tag>
+            <Tag>{data.unreadable} 条当前读数不可用</Tag>
           </p>
           {pseudo.seconds > 0n || pseudo.unknown || pseudo.baseline ? (
             <>
