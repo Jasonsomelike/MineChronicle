@@ -12,15 +12,18 @@
  *   A1  no collapse button exists in the DOM, and 'rail-toggle' appears nowhere in src
  *   A2  the resting rail is 72px with zero visible labels and a 72px first grid column
  *   A3  records the content column's x (expected ~88 = 72 + 16 gap)
- *   A4  hovering opens the 192px fixed overlay with all 7 labels and 2 group titles
- *   A5  the content column does not move when the overlay opens (<= 2px)
+ *   A4  hovering expands the rail to 192px in flow (sticky, push model) with all 7
+ *       labels and 2 group titles
+ *   A5  the content column is pushed right by the width delta (120px) - expansion
+ *       shifts the page, it never covers it
  *   A6  moving into the content column closes it again (grace + shrink)
  *   A7  Tab into the nav opens the rail immediately (no 100ms intent delay)
- *   A8  Escape closes the overlay and hands focus outside the rail
+ *   A8  Escape closes the rail and hands focus outside it
  *   A9  clicking a destination switches the view and the rail STAYS open
- *       (a click never collapses the overlay; only leaving closes it afterwards)
+ *       (a click never collapses it; only leaving closes it afterwards)
  *   A10 a pointerdown outside the rail light-dismisses it
- *   A11 the behaviour is identical at 900px and 1440px; the 620px strip has no overlay
+ *   A11 the behaviour is identical at 900px and 1440px; the 620px strip has no
+ *       expanded rail
  *   A12 reduced motion: no transition/animation on the rail, and hover lands open fast
  *   A13 a legacy minechronicle.rail key is removed before first paint
  *   A14 a full hover -> navigate -> close cycle writes no preference
@@ -211,27 +214,29 @@ async function hoverRail(page) {
   await context.close();
 }
 
-/* --- A4 + A5: hover opens the overlay without displacing content ---------- */
+/* --- A4 + A5: hover expands the rail, pushing the content column right ----- */
 {
   const { context, page } = await open(1440);
   const before = await measure(page);
   await hoverRail(page);
   const s = await measure(page);
-  check('A4: overlay is position fixed', s.position, 'fixed');
-  check('A4: overlay z-index', s.zIndex, '25');
-  checkRange('A4: overlay width', s.railW, [190, 194]);
+  check(
+    'A4: rail stays position sticky (push, never overlay)',
+    s.position,
+    'sticky',
+  );
+  check('A4: expanded rail z-index', s.zIndex, '25');
+  checkRange('A4: rail width', s.railW, [190, 194]);
   check('A4: all seven labels visible', s.visibleLabels, 7);
   check(
     'A4: both group titles visible (档案 / 观测与设置)',
     s.visibleGroupTitles,
     2,
   );
-  check(
-    'A5: content column zero displacement',
-    Math.abs(s.mainX - before.mainX) <= 2
-      ? 0
-      : Math.abs(s.mainX - before.mainX),
-    0,
+  checkRange(
+    'A5: content column pushed right by the width delta (120px)',
+    Math.abs(s.mainX - before.mainX),
+    [118, 122],
   );
   await context.close();
 }
@@ -322,27 +327,25 @@ async function hoverRail(page) {
     check(`A11@${width}: no labels at rest`, before.visibleLabels, 0);
     await hoverRail(page);
     const openState = await measure(page);
-    check('A11: overlay fixed', openState.position, 'fixed');
-    checkRange(`A11@${width}: overlay width`, openState.railW, [190, 194]);
+    check('A11: rail stays sticky (push model)', openState.position, 'sticky');
+    checkRange(`A11@${width}: rail width`, openState.railW, [190, 194]);
     check(`A11@${width}: seven labels`, openState.visibleLabels, 7);
-    check(
-      `A11@${width}: content column zero displacement`,
-      Math.abs(openState.mainX - before.mainX) <= 2
-        ? 0
-        : Math.abs(openState.mainX - before.mainX),
-      0,
+    checkRange(
+      `A11@${width}: content column pushed right 120px`,
+      Math.abs(openState.mainX - before.mainX),
+      [118, 122],
     );
     await context.close();
   }
 
   // 620px: the strip tier. The rail is display:contents (no box), so there is nothing
   // for hover() to target - move the mouse across the strip instead and prove no
-  // overlay appears.
+  // expansion appears.
   const { context, page } = await open(620);
   await page.mouse.move(400, 24);
   await page.waitForTimeout(OPEN_WAIT_MS);
   const strip = await measure(page);
-  check('A11@620: no fixed overlay', strip.position === 'fixed', false);
+  check('A11@620: no expanded rail', strip.position === 'fixed', false);
   check('A11@620: all seven labels visible', strip.visibleLabels, 7);
   check('A11@620: seven nav buttons', strip.navButtons, 7);
   await context.close();

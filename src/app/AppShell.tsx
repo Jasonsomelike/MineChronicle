@@ -226,12 +226,14 @@ export default function AppShell({
      closes on leave (after a 150ms grace), a press outside, Escape, window blur, or
      focus leaving beyond the rail while the pointer is NOT resting on it. Clicks
      never close it - navigating included: the click lands under a pointer that is
-     still on the rail, and collapsing the overlay there yanked it out from under the
-     cursor on every destination click (the click-collapse regression). There is no
-     stored preference behind any of it: `railOpen` is this component's session state
-     alone, the DOM carries it as one `.is-open` class, and the same window width
-     always draws the same resting rail. The timers live in src/lib/rail.ts; this
-     component only wires DOM events to the controller. */
+     still on the rail, and collapsing there yanked the expanded rail out from under
+     the cursor on every destination click (the click-collapse regression). Expansion
+     itself pushes the content column right (shell.css grows the grid's first track
+     with the rail's width), so nothing the reader is looking at is ever underneath
+     it. There is no stored preference behind any of it: `railOpen` is this
+     component's session state alone, the DOM carries it as one `.is-open` class, and
+     the same window width always draws the same resting rail. The timers live in
+     src/lib/rail.ts; this component only wires DOM events to the controller. */
   const [railOpen, setRailOpen] = useState(false);
   const railRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -247,14 +249,15 @@ export default function AppShell({
 
   useEffect(() => () => controller.destroy(), [controller]);
 
-  /* Mounted only while the overlay is open - the three listeners are all close events,
+  /* Mounted only while the rail is open - the three listeners are all close events,
      so before it opens there is nothing for them to hear. */
   useEffect(() => {
     if (!railOpen) return;
     const rail = railRef.current;
     const main = mainRef.current;
-    /* Popover light dismiss: a press anywhere outside the rail closes it, so the
-       overlay cannot sit over the content it no longer belongs to. */
+    /* Light dismiss: a press anywhere outside the rail closes it - the expansion is
+       meant to follow the pointer's attention, and a press into the content is the
+       reader moving on. */
     const onPointerDown = (event: PointerEvent) => {
       if (rail && event.target instanceof Node && rail.contains(event.target))
         return;
@@ -273,11 +276,11 @@ export default function AppShell({
         main.focus({ preventScroll: true });
       }
     };
-    /* Tauri can switch windows or minimize; on return the overlay must not still be
-       covering content the user never asked it to cover. */
+    /* Tauri can switch windows or minimize; on return the rail must not still be
+       expanded over a layout the user never asked it to occupy. */
     const onWindowBlur = () => controller.windowBlur();
-    /* Dragging the window below 860px while open: the strip tier has no overlay to
-       show, so the open state must not survive the resize. The controller only gates
+    /* Dragging the window below 860px while open: the strip tier has no expanded rail
+       to show, so the open state must not survive the resize. The controller only gates
        OPENING on canOpen(), and no pointer/blur event fires for a resize - this is
        the one close source that has to listen to the media query itself. */
     const railMedia = window.matchMedia(RAIL_OPEN_MEDIA);

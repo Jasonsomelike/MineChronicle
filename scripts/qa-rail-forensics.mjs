@@ -393,17 +393,17 @@ await step('A2/A3 默认收敛态', async () => {
   await context.close();
 });
 
-/* --- A4 + A5 + A17(open) + screenshots: hover opens the overlay ------------- */
+/* --- A4 + A5 + A17(open) + screenshots: hover expands the rail -------------- */
 await step('A4/A5 悬停展开', async () => {
   const { context, page, errors } = await openPage({ width: 1440 });
   const before = await page.evaluate(probe);
   await hoverRail(page);
   const s = await page.evaluate(probe);
   criterion(
-    'A4 悬停后展开层 position === fixed',
-    'computed position === "fixed"',
+    'A4 悬停后展开栏 position === sticky（原位推挤，不悬浮）',
+    'computed position === "sticky"',
     `position=${s.position}`,
-    s.position === 'fixed',
+    s.position === 'sticky',
   );
   criterion(
     'A4 展开层 z-index === 25',
@@ -431,10 +431,10 @@ await step('A4/A5 悬停展开', async () => {
   );
   const displacement = Math.abs(s.mainX - before.mainX);
   criterion(
-    'A5 悬停展开内容列零位移（≤2px，覆盖不推挤）',
-    '|mainX_after - mainX_before| ≤ 2px',
+    'A5 悬停展开内容列推挤位移 === +120±2px（推挤，不覆盖）',
+    '|mainX_after - mainX_before| ∈ [118,122]px（= 展开宽 192 - 收纳宽 72）',
     `位移=${displacement}px（before=${before.mainX} after=${s.mainX}）`,
-    displacement <= 2,
+    displacement >= 118 && displacement <= 122,
   );
   criterion(
     'A15 展开态导航按钮数仍 = 7',
@@ -649,20 +649,20 @@ await step('A11 宽度一致性', async () => {
       before.railW >= 70 && before.railW <= 74 && before.visibleLabels === 0,
     );
     criterion(
-      `A11@${width} 悬停态 fixed、192px、7 标签`,
-      'position=fixed；railW ∈ [190,194]；visibleLabels = 7',
+      `A11@${width} 悬停态 sticky、192px、7 标签`,
+      'position=sticky；railW ∈ [190,194]；visibleLabels = 7',
       `position=${openState.position} railW=${openState.railW} visibleLabels=${openState.visibleLabels}`,
-      openState.position === 'fixed' &&
+      openState.position === 'sticky' &&
         openState.railW >= 190 &&
         openState.railW <= 194 &&
         openState.visibleLabels === 7,
     );
     const displacement = Math.abs(openState.mainX - before.mainX);
     criterion(
-      `A11@${width} 内容列位移 ≤ 2px`,
-      '|ΔmainX| ≤ 2px',
+      `A11@${width} 内容列推挤位移 === +120±2px`,
+      '|ΔmainX| ∈ [118,122]px（内容列被推向右，不被覆盖）',
       `位移=${displacement}px（before=${before.mainX} after=${openState.mainX}）`,
-      displacement <= 2,
+      displacement >= 118 && displacement <= 122,
     );
     evidence.consoleErrors.push(...errors);
     await context.close();
@@ -812,18 +812,20 @@ await step('深色主题 rail 两态', async () => {
   });
   await hoverRail(page);
   const openState = await page.evaluate(probe);
-  criterion(
-    '深色主题悬停态：fixed、192px、7 标签、零位移',
-    'position=fixed；railW ∈ [190,194]；visibleLabels = 7；|ΔmainX| ≤ 2',
-    `position=${openState.position} railW=${openState.railW} visibleLabels=${
-      openState.visibleLabels
-    } 位移=${Math.abs(openState.mainX - compact.mainX)}px`,
-    openState.position === 'fixed' &&
-      openState.railW >= 190 &&
-      openState.railW <= 194 &&
-      openState.visibleLabels === 7 &&
-      Math.abs(openState.mainX - compact.mainX) <= 2,
-  );
+  {
+    const darkShift = Math.abs(openState.mainX - compact.mainX);
+    criterion(
+      '深色主题悬停态：sticky、192px、7 标签、推挤 +120±2px',
+      'position=sticky；railW ∈ [190,194]；visibleLabels = 7；|ΔmainX| ∈ [118,122]',
+      `position=${openState.position} railW=${openState.railW} visibleLabels=${openState.visibleLabels} 位移=${darkShift}px`,
+      openState.position === 'sticky' &&
+        openState.railW >= 190 &&
+        openState.railW <= 194 &&
+        openState.visibleLabels === 7 &&
+        darkShift >= 118 &&
+        darkShift <= 122,
+    );
+  }
   await shot('rail-hover-dark', page, {
     selector: '.app-rail',
     fullPage: false,

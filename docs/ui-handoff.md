@@ -33,8 +33,11 @@
 **≤860px 起主导航不再吸顶**，只有设置页的分区导航吸顶。原因：横条在 620 下会折成两行
 （高 85px），分区导航的 `top` 没法用一个常数同时避开一行和两行——实测两者重叠 38px。
 
-版本必须五处一致，否则设置页启动即抛错（`runtime_info` 会交叉校验）：
-`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src/lib/version.ts`、`src-tauri/Cargo.lock`。
+版本必须四处一致，否则设置页启动即抛错（`runtime_info` 会交叉校验）：
+`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`。
+前端的时间戳不再是第五处：`src/lib/version.ts` 由构建器从 `package.json` 注入
+（vite / vitest 的 `define`），发版改四处，界面版本自动跟随（0.10.40→0.10.41
+曾因漏改 version.ts 而全线报"界面版本与程序版本不一致"）。
 
 ## 本轮已完成（7 项，全部验证通过）
 

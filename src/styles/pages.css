@@ -156,11 +156,12 @@
  *
  * It reads as the ruler the dashboard hero already draws - one shared scale, the
  * largest row full - rather than as a new device, so the list and the hero agree about
- * what a full-width bar means. The band takes the row's spare width and the duration
- * column beside it is pinned to a fixed width (see `.world-total`), so both ends of
- * every bar line up down the column and neighbouring worlds compare directly. The
- * `max-width` is what keeps a 2048 window from turning it into a full-bleed rule; at
- * 620 the band measures 303.6px, sharing both ends with every other row. */
+ * what a full-width bar means. The band takes the measurement line's spare width (the
+ * duration and the band have a full-width line of their own under the name - see
+ * `.world-total` in styles.css - and the duration column beside the band is pinned to
+ * a fixed width), so every bar starts on the same left edge down the column and
+ * neighbouring worlds compare directly. The `max-width` is what keeps a 2048 window
+ * from turning it into a full-bleed rule. */
 .world-mini-bar {
   display: inline-block;
   flex: 1 1 160px;

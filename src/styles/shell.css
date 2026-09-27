@@ -20,7 +20,13 @@
    content, and 24px of gap on top of it read as a second, smaller rail of nothing. */
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-w-compact) minmax(0, 1fr);
+  /* `auto`, not a fixed compact width: the first track sizes to the rail's own
+     animated width, so hover expansion (72 -> 192) SHIFTS the content column
+     instead of floating the rail over it. The reader asked for exactly that -
+     expansion must never cover the content's left edge - and an auto track is
+     what makes the push follow the width transition frame by frame with no
+     second animation to keep in sync. */
+  grid-template-columns: auto minmax(0, 1fr);
   column-gap: var(--space-4);
   /* Default `stretch`, deliberately: the rail's right edge is a full-height divider, so
      a short rail next to tall content still reads as the page's spine. The rail's own
@@ -38,10 +44,9 @@
    labels at y=1212, i.e. off the window entirely. `max-content` rows do not fix it -
    the distribution happens precisely because the item's size exceeds their sum.
 
-   It is also the ONLY copy of itself. Expansion (`.is-open` below) takes this same node
-   out of the grid and floats it over the content; there is no second, portal-rendered
-   rail to keep in sync, which is why the nav stays exactly seven buttons in every
-   state. */
+   It is also the ONLY copy of itself. Expansion (`.is-open` below) is this same node
+   growing inside the grid's first track - never a second, portal-rendered overlay -
+   which is why the nav stays exactly seven buttons in every state. */
 .app-rail {
   grid-column: 1;
   grid-row: 1;
@@ -70,41 +75,40 @@
   width: var(--sidebar-w-compact);
   /* The one edge that says "this is chrome". Every other panel in the app is a card with
      a border on all four sides; a rail that drew four would read as a third card
-     column. The 12px rest serves BOTH shapes - 72px and the 192px overlay - so the
-     width transition never drags a padding jump with it. */
+     column. The 12px rest serves BOTH shapes - 72px at rest and the 192px expansion -
+     so the width transition never drags a padding jump with it. */
   padding-right: var(--space-3);
   border-right: 1px solid var(--border);
   /* The ONE transition the hover model adds, and the exception to motion.css's
      page-level rule, argued here so it does not have to be re-argued: animating width
-     reflows only the rail's own subtree (seven buttons and a few labels). The content
-     column's grid track is constant by construction - the first column is
-     `--sidebar-w-compact` whether the rail is open or not - so the page-level layout
-     never reflows during the animation. `--motion-base` (180ms) on
-     `--ease-standard` reuses the existing tokens; box-shadow rides along so the
-     overlay's lift arrives with its width rather than after it. Position is not
-     transitioned (sticky -> fixed is an instantaneous coordinate change that reads as
-     nothing, since the two coincide exactly), and neither are the labels: `display`
-     cannot transition, and the width animation itself is the reveal. */
+     grows the rail's own subtree AND the grid's first track with it (the track is
+     `auto`), so the content column glides right and back in the same 180ms - the
+     expansion pushes the page instead of covering it, which is the model the reader
+     picked. It reflows the page per frame; at this app's scale that is well under a
+     budget, and it buys the one thing an overlay cannot: nothing the reader is
+     reading is ever underneath the rail. `--motion-base` (180ms) on `--ease-standard`
+     reuses the existing tokens; box-shadow rides along so the expanded panel's lift
+     arrives with its width rather than after it. Position is not transitioned (it
+     stays sticky throughout), and neither are the labels: `display` cannot
+     transition, and the width animation itself is the reveal. */
   transition: width var(--motion-base) var(--ease-standard),
     box-shadow var(--motion-base) var(--ease-standard);
 }
 
-/* The expanded rail: the SAME node, lifted off the grid. z-index ladder, so the next
+/* The expanded rail: the SAME node, wider, still in flow. z-index ladder, so the next
    reader does not have to re-derive it:
      20  .settings-jump      (styles.css, sticky, content column)
-     25  .app-rail.is-open   (this file, fixed overlay)
+     25  .app-rail.is-open   (this file; in flow, above only while a frame overlaps)
      30  player popover      (styles.css, fixed)
-   The overlay covers the content column's left edge (~104px of it: 192 - 72 - 16 gap);
-   the settings section nav sitting underneath while the rail is open is expected, and
-   nothing needs a higher z-index to escape it - the rail closes first. */
+   Expansion pushes the content right (the shell's first track is `auto`), so nothing
+   of the content column sits under the rail in the settled state - the ladder only
+   matters for the duration of the width transition itself. */
 .app-rail.is-open {
-  position: fixed;
-  inset-block: 0;
-  left: 0;
   width: var(--sidebar-w);
   z-index: 25;
   /* `--surface`, not a new token: the same panel colour the cards use, in both themes.
-     A transparent overlay would show the content through its own labels. */
+     A transparent rail would show the content's edge through its own labels during
+     the transition frames. */
   background: var(--surface);
   box-shadow: var(--shadow-pop);
 }
@@ -373,7 +377,7 @@
    860px  the rail is given up entirely and its three children reflow into a top strip,
           in DOM order, with no second copy of the markup. This is a layout-level flip,
           not a collapse: `display: contents` leaves the rail without a box, so the
-          pointer cannot enter it and the hover overlay cannot exist here - and the
+          pointer cannot enter it and the hover expansion cannot exist here - and the
           controller refuses anyway (RAIL_OPEN_MEDIA). Every destination is permanently
           visible with its label.
    620px  the second residency label drops and the brand step comes down, so the strip
@@ -392,7 +396,8 @@
 
 /* Written as 859.98 rather than 860 so the strip and RAIL_OPEN_MEDIA
    (`(min-width: 860px)`, src/lib/rail.ts) agree at every width, fractional ones
-   included - there is no width where both the strip and the overlay claim the rail. */
+   included - there is no width where both the strip and the hover expansion claim the
+   rail. */
 @media (max-width: 859.98px) {
   .app-shell {
     grid-template-columns: minmax(0, 1fr) auto;
