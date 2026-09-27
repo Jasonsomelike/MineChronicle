@@ -77,19 +77,23 @@
 
   --motion-reveal: 650ms;
 
-  /* Sidebar rail. The primary navigation became a left column, so the three chrome
-     heights this file used to carry (--chrome-header, --chrome-nav, and the
-     `--chrome-header + --chrome-nav` sum the section nav stacked on) are gone with the
-     elements that needed them. They are deleted rather than zeroed on purpose: a stale
-     offset is exactly the bug they were introduced to fix, and one left behind would be
-     invisible until the next person stacked something under the nav again.
+  /* Sidebar rail, two widths and one column. The rail's resting shape is the compact
+     width: `--sidebar-w-compact` is the shell grid's first column and the rail's own
+     width at every viewport that has a rail at all. `--sidebar-w` is the hover-expanded
+     overlay's width - the labelled rail that floats over the content while the pointer
+     rests on it (or focus sits in it), never a grid column. The overlay takes no part
+     in the layout, so the content column cannot shift when it opens.
 
-     What replaces them is one width, and the two derived values the settings section nav
-     still needs while it is sticky. */
+     The primary navigation became a left column, so the three chrome heights this file
+     used to carry (--chrome-header, --chrome-nav, and the `--chrome-header +
+     --chrome-nav` sum the section nav stacked on) are gone with the elements that
+     needed them. They are deleted rather than zeroed on purpose: a stale offset is
+     exactly the bug they were introduced to fix, and one left behind would be invisible
+     until the next person stacked something under the nav again. */
   --sidebar-w: 192px;
-  /* The rail's width when it drops the labels and keeps only the icons. 72 and not 64:
-     the two residency labels are four CJK characters each, which is 48px at
-     --type-caption, and a 64px rail minus its padding and border left 47px for them -
-     measured overflowing by 9px on both. */
+  /* The rail's resting width: icons only, no labels. 72 and not 64: the two residency
+     labels are four CJK characters each, which is 48px at --type-caption, and a 64px
+     rail minus its padding and border left 47px for them - measured overflowing by 9px
+     on both. */
   --sidebar-w-compact: 72px;
 }

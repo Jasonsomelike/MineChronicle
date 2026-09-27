@@ -1,124 +1,216 @@
 /**
- * Sidebar rail collapse preference.
+ * The hover-expansion state machine for the navigation rail.
  *
- * The rail already had two shapes: a 192px labelled column, and a 72px icon rail that
- * used to arrive only below 1100px. This module turns the second shape into something the
- * user can also ask for, without declaring a second collapsed layout — the only thing
- * stored is a preference, and `styles/shell.css` applies the same geometry either way.
+ * The rail has one resting shape: a 72px icon column (`--sidebar-w-compact`) that is
+ * always the shell's first grid column. There is no second shape stored anywhere - not
+ * in localStorage, not on `<html>` - and the same window width always draws the same
+ * rail. Expansion is an interaction state, not a preference: pointing at the rail (or
+ * focusing into it) opens a 192px overlay (`--sidebar-w`) on top of the content column,
+ * and leaving, focusing away, navigating, pressing Escape, pressing anywhere else, or
+ * blurring the window closes it again. `styles/shell.css` owns the geometry; this module
+ * owns only the timing.
  *
- * Three states, one of them the default:
- *   'auto'      - nothing is written to the document, so the media queries decide. This is
- *                 what an untouched install has, which is why the toggle cannot change the
- *                 appearance of a window that never asked for it.
- *   'collapsed' - the icon rail at every width above the 860px strip tier.
- *   'expanded'  - the labelled rail, requested deliberately rather than by default.
+ * Four states, one of them the resting one:
+ *   closed         - nothing pending, rail at 72px.
+ *   intent-pending - the pointer arrived and the 100ms intent window is running, so a
+ *                    sweep across the rail does not open it.
+ *   open           - the overlay is up; `onChange(true)` has been delivered.
+ *   grace-pending  - the pointer left and the 200ms leave-grace is running, so a tremble
+ *                    across the boundary does not close it; re-entering cancels it.
  *
- * Written to `<html data-rail>` rather than kept in React state alone, for the same reason
- * the theme is written to `<html data-theme>`: the resolution happens in one place (CSS +
- * one attribute), not in two that can disagree. It is also applied before React renders
- * (see `main.tsx`), so a collapsed rail does not paint expanded for one frame and then
- * jump.
- *
- * Why the choice may win over the breakpoint, but not always: the media queries exist to
- * stop the layout being crushed, so they are the floor and the preference is the ceiling.
- * Below 1080px the labels are gone by default, so `collapsed` changes nothing there and
- * `expanded` is what brings them back; at 2048px there is room for either, so the
- * preference decides on its own. The two can therefore never double-apply: where both say
- * "compact", the rules that apply are identical and the last declaration wins with the
- * same values.
+ * Every close event (navigate, light dismiss, Escape, window blur, focus out) cancels
+ * both timers on its way out, so no stale timer can fire into a state that has already
+ * moved on. `canOpen()` gates the two open events only: below 860px the rail reflows
+ * into the top strip (`display: contents`, no box, so pointer events cannot even land on
+ * it) and every destination is permanently visible, so an "open" there is meaningless.
  */
 
-export type RailPreference = 'auto' | 'collapsed' | 'expanded';
+/** How long the pointer must rest on the rail before it opens: short enough to feel
+ *  instant, long enough that a diagonal sweep across the corner does not open it. */
+export const INTENT_DELAY_MS = 100;
 
-const STORAGE_KEY = 'minechronicle.rail';
+/** How long the rail stays open after the pointer leaves: long enough to survive a
+ *  tremble across the rail/content boundary, short enough to feel deliberate. */
+export const LEAVE_GRACE_MS = 200;
 
-/** The width below which the labelled rail stops being the default. Mirrors the
- *  `@media (max-width: 1079.98px)` block in `styles/shell.css`; used to describe the
- *  default, never to apply it. CSS is the only thing that lays out; this number exists so
- *  the toggle's label matches what the CSS is about to do.
+/** The one media query that decides whether a hover overlay can exist at all. Mirrors
+ *  the `@media (max-width: 859.98px)` strip block in `styles/shell.css`: written from
+ *  opposite sides so the two agree at every width, fractional ones included. */
+export const RAIL_OPEN_MEDIA = '(min-width: 860px)';
+
+/** The storage key the retired three-state preference was written under. Kept here so
+ *  the cleanup and the history it cleans up sit next to each other. */
+const LEGACY_STORAGE_KEY = 'minechronicle.rail';
+
+/**
+ * One-time removal of the retired `minechronicle.rail` preference.
  *
- *  `below`, not `at`: the boundary is the one the review set, "1080px and wider keeps the
- *  labels". The stylesheet writes its side as 1079.98px for the same reason - a plain
- *  `max-width: 1080px` would take the labels away at exactly the width the criterion
- *  names. The two agree at every width, fractional ones included. */
-const COMPACT_BELOW = 1080;
-
-function hasDom() {
-  return typeof document !== 'undefined' && typeof window !== 'undefined';
-}
-
-export function isRailPreference(value: unknown): value is RailPreference {
-  return value === 'auto' || value === 'collapsed' || value === 'expanded';
-}
-
-export function loadRailPreference(): RailPreference {
-  if (!hasDom()) return 'auto';
+ * The old model stored a three-state choice and read it before the first paint. The
+ * hover model reads nothing and writes nothing, so a key left behind by an older build
+ * would sit in storage forever - read by nobody, misunderstood by the next reader. It is
+ * removed once at startup (`main.tsx`, before the first render), idempotently, and the
+ * removal is best-effort: a blocked store has nothing to clean and must not break boot.
+ */
+export function clearLegacyRailPreference(): void {
+  if (typeof localStorage === 'undefined') return;
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === null) return 'auto';
-    // Accepts both the raw JSON string `"collapsed"` and a bare `collapsed`, so a value
-    // written by hand or by an older build is still understood rather than silently
-    // resetting the user's choice.
-    const parsed: unknown = stored.startsWith('"')
-      ? JSON.parse(stored)
-      : stored;
-    return isRailPreference(parsed) ? parsed : 'auto';
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    // Blocked storage, or a value that is not JSON at all: following the breakpoint is
-    // the safe default, and the preference stays usable for this session.
-    return 'auto';
+    // Blocked or unavailable storage: the key, if any, is unreachable, and boot
+    // must not care.
   }
 }
 
-export function saveRailPreference(preference: RailPreference): void {
-  if (!hasDom()) return;
-  try {
-    localStorage.setItem(STORAGE_KEY, preference);
-  } catch {
-    // A failed write only means the choice does not survive a restart. The current
-    // session still applies it through `applyRail`, so this is not worth an error.
+type RailState = 'closed' | 'intent-pending' | 'open' | 'grace-pending';
+
+export type RailController = {
+  /** Pointer arrived on the rail: start the intent window (or cancel a leave-grace). */
+  pointerEnter: () => void;
+  /** Pointer left the rail: cancel an intent window, or start the leave-grace. */
+  pointerLeave: () => void;
+  /** Focus moved into the rail: open immediately, with no intent delay. */
+  focusIn: () => void;
+  /** Focus left the rail for a target outside it: close immediately. */
+  focusOut: () => void;
+  /** A destination was chosen: close immediately, without waiting for the pointer. */
+  navigate: () => void;
+  /** A press landed outside the rail while open (popover light dismiss): close now. */
+  lightDismiss: () => void;
+  /** Escape was pressed while open: close now. */
+  escape: () => void;
+  /** The window lost focus: close now, so the overlay cannot outlive its window. */
+  windowBlur: () => void;
+  /** Whether the overlay is up - the open state and the leave-grace both count, since
+   *  the rail is visually open in both. */
+  isOpen: () => boolean;
+  /** Cancel everything; called when the shell unmounts. */
+  destroy: () => void;
+};
+
+export type RailControllerOptions = {
+  /** Whether an overlay may open at all: `matchMedia(RAIL_OPEN_MEDIA).matches`. */
+  canOpen: () => boolean;
+  /** Called exactly when the visual state crosses open/closed. */
+  onChange: (open: boolean) => void;
+  /** Injectable so tests can advance time by hand. */
+  setTimeout?: (handler: () => void, timeout: number) => unknown;
+  clearTimeout?: (handle: unknown) => void;
+};
+
+export function createRailController({
+  canOpen,
+  onChange,
+  setTimeout: schedule = (handler, timeout) =>
+    globalThis.setTimeout(handler, timeout),
+  clearTimeout: cancel = (handle) => globalThis.clearTimeout(handle as number),
+}: RailControllerOptions): RailController {
+  let state: RailState = 'closed';
+  let intentHandle: unknown = null;
+  let graceHandle: unknown = null;
+
+  function cancelIntent() {
+    if (intentHandle !== null) {
+      cancel(intentHandle);
+      intentHandle = null;
+    }
   }
-}
 
-/**
- * Write the preference to the document. Safe to call before render.
- *
- * 'auto' removes the attribute outright rather than writing `data-rail="auto"`: the CSS
- * is written against "the attribute is one of the two explicit values", and a third value
- * that happens to mean "neither" is how a selector like `[data-rail]` quietly starts
- * matching the default case.
- */
-export function applyRail(preference: RailPreference): void {
-  if (!hasDom()) return;
-  const root = document.documentElement;
-  if (preference === 'auto') delete root.dataset.rail;
-  else root.dataset.rail = preference;
-}
+  function cancelGrace() {
+    if (graceHandle !== null) {
+      cancel(graceHandle);
+      graceHandle = null;
+    }
+  }
 
-/** Whether the rail is collapsed when the user has expressed no preference at all. */
-export function autoCollapsed(viewportWidth?: number): boolean {
-  const width =
-    viewportWidth ??
-    (hasDom() ? document.documentElement.clientWidth : COMPACT_BELOW);
-  return width < COMPACT_BELOW;
-}
+  function open() {
+    cancelIntent();
+    cancelGrace();
+    state = 'open';
+    onChange(true);
+  }
 
-/**
- * What the toggle should offer a pointer, and therefore which shape the CSS is about to
- * give the rail. Below the breakpoint the media query has already collapsed it, so
- * answering from the preference alone would offer "收起" on a rail that is already at
- * 72px - a no-op button.
- *
- * `expanded` is what the user asked for; the breakpoint is what they get. This function
- * reports what they get. The browser check agrees (`scripts/qa-rail-toggle.mjs`: clicked
- * at 900px, the rail stays 72px and the control relabels itself 收起侧边栏).
- *
- * There is no `viewportWidth` argument: the only branch that depends on the width is
- * `auto`, and `autoCollapsed()` reads it from the document itself. A parameter here would
- * be a second, unused way to say the same thing.
- */
-export function railIsCollapsed(preference: RailPreference): boolean {
-  if (preference === 'collapsed') return true;
-  if (preference === 'expanded') return false;
-  return autoCollapsed();
+  /** Every close event runs through here: both timers die first, so no stray intent or
+   *  grace can fire after the rail has already closed. */
+  function close() {
+    cancelIntent();
+    cancelGrace();
+    const wasOpen = state === 'open' || state === 'grace-pending';
+    state = 'closed';
+    if (wasOpen) onChange(false);
+  }
+
+  return {
+    pointerEnter() {
+      if (!canOpen()) {
+        // Below the overlay's media query there is no rail to hover; make sure no
+        // timer from a resize race survives either.
+        cancelIntent();
+        return;
+      }
+      if (state === 'grace-pending') {
+        // Back within the grace window: the leave was a tremble, not a departure.
+        cancelGrace();
+        state = 'open';
+        return;
+      }
+      if (state === 'open' || state === 'intent-pending') return;
+      state = 'intent-pending';
+      intentHandle = schedule(() => {
+        intentHandle = null;
+        if (state === 'intent-pending') open();
+      }, INTENT_DELAY_MS);
+    },
+
+    pointerLeave() {
+      if (state === 'intent-pending') {
+        // Left before the intent matured: a sweep, not a request.
+        cancelIntent();
+        state = 'closed';
+        return;
+      }
+      if (state !== 'open') return;
+      state = 'grace-pending';
+      graceHandle = schedule(() => {
+        graceHandle = null;
+        if (state === 'grace-pending') close();
+      }, LEAVE_GRACE_MS);
+    },
+
+    focusIn() {
+      if (!canOpen()) return;
+      // Keyboard intent is unambiguous - no sweep to guard against - so the rail opens
+      // on the spot and the intent window, if any, is dropped.
+      open();
+    },
+
+    focusOut() {
+      close();
+    },
+
+    navigate() {
+      close();
+    },
+
+    lightDismiss() {
+      close();
+    },
+
+    escape() {
+      close();
+    },
+
+    windowBlur() {
+      close();
+    },
+
+    isOpen() {
+      return state === 'open' || state === 'grace-pending';
+    },
+
+    destroy() {
+      cancelIntent();
+      cancelGrace();
+      state = 'closed';
+    },
+  };
 }

@@ -55,6 +55,21 @@ describe('app routes', () => {
     );
   });
 
+  /// Anti-fake-hierarchy gate: a group's only job is to say "these several go
+  /// together", so a heading over a single item is hierarchy for nothing - that is
+  /// how the old 概览 group (生涯概览 alone) read, and it cost the rail a heading
+  /// that grouped nothing. Two is the smallest honest group.
+  it('gives every declared group at least two entries', () => {
+    const counts = new Map<string, number>();
+    for (const id of PAGE_IDS) {
+      const group = PAGE_GROUP_OF[id];
+      counts.set(group, (counts.get(group) ?? 0) + 1);
+    }
+    for (const [group] of PAGE_GROUPS) {
+      expect(counts.get(group) ?? 0).toBeGreaterThanOrEqual(2);
+    }
+  });
+
   it('uses declared settings-* ids that stay unique', () => {
     const ids = SETTINGS_SECTIONS.map(([id]) => id);
     expect(new Set(ids).size).toBe(ids.length);

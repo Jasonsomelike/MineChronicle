@@ -178,14 +178,34 @@ export function useAppState() {
     return () => window.removeEventListener('hashchange', changed);
   }, []);
 
+  /* The view this effect last saw, recorded on CLEANUP rather than on setup: React
+     StrictMode (dev and the QA preview both run it) mounts every effect twice -
+     setup, cleanup, setup - and a flag set during setup would survive that cycle and
+     trick the second setup into reading the launch as a navigation. With the marker
+     written on cleanup, the double mount sees "same view as the pass before" and
+     skips; only a genuinely different view focuses. */
+  const lastSeenView = useRef<PageId | null>(null);
   useLayoutEffect(() => {
     const positions = scrollPositions.current;
     window.scrollTo({
       top: positions[view] ?? 0,
       behavior: 'instant',
     });
+    /* Focus follows the navigation onto the new page (C1): the container of every
+       rendered page is a `.session-page`, so the first visible one is where the page
+       begins. The first mount is skipped - on launch the reader asked for a document,
+       not for a focus move, and stealing focus then would silence the URL bar's
+       announcement. `preventScroll` keeps the focus from fighting the `scrollTo`
+       above; the settings page is assembled from several `.session-page` blocks, and
+       the first hit is its top, which is the right landing spot. */
+    if (lastSeenView.current !== null && lastSeenView.current !== view) {
+      document
+        .querySelector<HTMLElement>('.main-column .session-page:not([hidden])')
+        ?.focus({ preventScroll: true });
+    }
     return () => {
       positions[view] = window.scrollY;
+      lastSeenView.current = view;
     };
   }, [view]);
 

@@ -1,16 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Layers3, Sprout } from 'lucide-react';
+import { HardDrive, Layers3, MonitorDown, Sprout } from 'lucide-react';
 import { checkRuntime } from '../lib/runtime';
 import { FRONTEND_VERSION } from '../lib/version';
 import { displayPath } from '../lib/path';
-import {
-  applyRail,
-  loadRailPreference,
-  railIsCollapsed,
-  saveRailPreference,
-} from '../lib/rail';
-import type { RailPreference } from '../lib/rail';
+import { RAIL_OPEN_MEDIA, createRailController } from '../lib/rail';
 import {
   PAGE_GROUP_OF,
   PAGE_GROUPS,
@@ -21,17 +15,37 @@ import {
 } from './routes';
 import type { AppState } from './useAppState';
 
-function StatusSummary({ state }: { state: AppState }) {
-  const { trackingStatus, backgroundErrors, pclStatus, navigate } = state;
+/**
+ * The runtime status reading, derived once and shared by the two surfaces that show it.
+ *
+ * Four states, and the loading one is tested before the two settled ones. The status
+ * used to be read off `enabled` alone, so `trackingStatus === null` - the first frames
+ * after launch, and every failed poll - fell through to 追踪已暂停: the bar announced a
+ * conclusion it had no reading for, at exactly the moment a wrong one is most likely to
+ * be believed. `is-ready` is gone with it; it had a tone and no rule.
+ *
+ * The tone is the surface, the dot is the reading, and the two settled quiet states
+ * share the surface but not the dot. Sharing it was wrong twice over: the review's
+ * acceptance says 追踪已就绪，等待游戏启动 and 追踪已暂停 must not paint the same
+ * colour, and they are different facts - one is waiting for a game, the other has
+ * recording switched off, so nothing is being written to the archive at all. The dot
+ * carries that difference; the surface stays the shared neutral one, because neither
+ * state is a failure.
+ *
+ * The error state gets its own label rather than passing the error off as a ready
+ * tracker: a red dot beside 追踪已就绪，等待游戏启动 asks the reader to trust the
+ * right-hand hint over the sentence in the middle. 异常 matches the wording the hint
+ * already used.
+ *
+ * `short` is the ≤3-character form the rail foot shows beside the dot; the full
+ * sentence stays with the status bar, which is the only surface that announces.
+ */
+function statusReading(state: AppState) {
+  const { trackingStatus, backgroundErrors } = state;
   const hasError =
     !!trackingStatus?.error || Object.values(backgroundErrors).some(Boolean);
   const running =
     !!trackingStatus?.running || !!trackingStatus?.active_instances?.length;
-  /* Four states, and the loading one is tested before the two settled ones. The status
-     used to be read off `enabled` alone, so `trackingStatus === null` - the first frames
-     after launch, and every failed poll - fell through to 追踪已暂停: the bar announced a
-     conclusion it had no reading for, at exactly the moment a wrong one is most likely to
-     be believed. `is-ready` is gone with it; it had a tone and no rule. */
   const tone = hasError
     ? 'is-error'
     : running
@@ -39,13 +53,6 @@ function StatusSummary({ state }: { state: AppState }) {
     : trackingStatus
     ? 'is-idle'
     : 'is-loading';
-  /* The tone is the surface, the dot is the reading, and the two settled quiet states
-     share the surface but not the dot. Sharing it was wrong twice over: the review's
-     acceptance says 追踪已就绪，等待游戏启动 and 追踪已暂停 must not paint the same
-     colour, and they are different facts - one is waiting for a game, the other has
-     recording switched off, so nothing is being written to the archive at all. The dot
-     carries that difference; the surface stays the shared neutral one, because neither
-     state is a failure. */
   const dot = hasError
     ? 'error'
     : running
@@ -55,10 +62,6 @@ function StatusSummary({ state }: { state: AppState }) {
     : trackingStatus.enabled
     ? 'idle'
     : 'paused';
-  /* The error state gets its own label rather than passing the error off as a ready
-     tracker: a red dot beside 追踪已就绪，等待游戏启动 asks the reader to trust the
-     right-hand hint over the sentence in the middle. 异常 matches the wording the hint
-     already used. */
   const label = trackingStatus?.running
     ? '正在同步存档'
     : trackingStatus?.active_instances?.length
@@ -72,6 +75,21 @@ function StatusSummary({ state }: { state: AppState }) {
     : trackingStatus.enabled
     ? '追踪已就绪，等待游戏启动'
     : '追踪已暂停';
+  const short = hasError
+    ? '异常'
+    : running
+    ? '追踪中'
+    : !trackingStatus
+    ? '读取中'
+    : trackingStatus.enabled
+    ? '已就绪'
+    : '已暂停';
+  return { hasError, running, tone, dot, label, short };
+}
+
+function StatusSummary({ state }: { state: AppState }) {
+  const { trackingStatus, backgroundErrors, pclStatus, navigate } = state;
+  const { hasError, tone, dot, label } = statusReading(state);
   return (
     <details className={`status-center ${tone}`}>
       <summary>
@@ -178,6 +196,24 @@ function ConnectionCheck() {
   );
 }
 
+/* The rail foot's summary of the same reading the status bar carries in full. Division
+   of labour: the rail foot is the glance (dot + ≤3-character word, title on hover for
+   the whole sentence), the status bar at the top of the content is the announcement.
+
+   The whole fragment is aria-hidden on purpose - the status bar is the single surface
+   that speaks this state, and a second live region in the rail would read it out twice.
+   Reusing the `.watch-dot` classes means the rail's dot and the status bar's dot can
+   never disagree about what state they are showing: they are the same rule. */
+function RailStatus({ state }: { state: AppState }) {
+  const { dot, label, short } = statusReading(state);
+  return (
+    <span className="rail-status" title={label} aria-hidden="true">
+      <span className={`watch-dot ${dot}`} />
+      <span className="rail-status-label">{short}</span>
+    </span>
+  );
+}
+
 export default function AppShell({
   state,
   children,
@@ -186,39 +222,120 @@ export default function AppShell({
   children: ReactNode;
 }) {
   const { view, navigate, activeSection, setActiveSection, runtime } = state;
-  /* The preference is read once, from the same place the theme and the zoom level are
-     read, and written straight to <html data-rail> so the CSS - not a second copy of the
-     breakpoints - decides the width. See src/lib/rail.ts for why the attribute is only
-     written for an explicit choice. */
-  const [railPreference, setRailPreference] =
-    useState<RailPreference>(loadRailPreference);
-  useEffect(() => {
-    applyRail(railPreference);
-  }, [railPreference]);
+  /* The rail opens on intent (pointer resting 100ms) or on focus (immediately), and
+     closes on five events - leave after a 200ms grace, navigation, a press outside,
+     Escape, window blur. There is no stored preference behind any of it: `railOpen` is
+     this component's session state alone, the DOM carries it as one `.is-open` class,
+     and the same window width always draws the same resting rail. The timers live in
+     src/lib/rail.ts; this component only wires DOM events to the controller. */
+  const [railOpen, setRailOpen] = useState(false);
+  const railRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
 
-  const railCollapsed = railIsCollapsed(railPreference);
-  const toggleRail = () => {
-    const next: RailPreference = railCollapsed ? 'expanded' : 'collapsed';
-    saveRailPreference(next);
-    setRailPreference(next);
-  };
+  const controller = useMemo(
+    () =>
+      createRailController({
+        canOpen: () => window.matchMedia(RAIL_OPEN_MEDIA).matches,
+        onChange: setRailOpen,
+      }),
+    [],
+  );
+
+  useEffect(() => () => controller.destroy(), [controller]);
+
+  /* Mounted only while the overlay is open - the three listeners are all close events,
+     so before it opens there is nothing for them to hear. */
+  useEffect(() => {
+    if (!railOpen) return;
+    const rail = railRef.current;
+    const main = mainRef.current;
+    /* Popover light dismiss: a press anywhere outside the rail closes it, so the
+       overlay cannot sit over the content it no longer belongs to. */
+    const onPointerDown = (event: PointerEvent) => {
+      if (rail && event.target instanceof Node && rail.contains(event.target))
+        return;
+      controller.lightDismiss();
+    };
+    /* Escape closes, and - because the focus is inside the rail that is about to
+       shrink to 72px - hands focus to the content column, so it cannot land back in
+       the collapsed rail and become invisible. `tabIndex={-1}` on `.main-column`
+       makes that landing spot legal; the container is not a control, so it draws no
+       focus ring (see `.main-column:focus` in shell.css). */
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      controller.escape();
+      const active = document.activeElement;
+      if (main && rail && active instanceof Node && rail.contains(active)) {
+        main.focus({ preventScroll: true });
+      }
+    };
+    /* Tauri can switch windows or minimize; on return the overlay must not still be
+       covering content the user never asked it to cover. */
+    const onWindowBlur = () => controller.windowBlur();
+    /* Dragging the window below 860px while open: the strip tier has no overlay to
+       show, so the open state must not survive the resize. The controller only gates
+       OPENING on canOpen(), and no pointer/blur event fires for a resize - this is
+       the one close source that has to listen to the media query itself. */
+    const railMedia = window.matchMedia(RAIL_OPEN_MEDIA);
+    const onRailMediaChange = () => {
+      if (!railMedia.matches) controller.lightDismiss();
+    };
+    railMedia.addEventListener('change', onRailMediaChange);
+    document.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('blur', onWindowBlur);
+    return () => {
+      railMedia.removeEventListener('change', onRailMediaChange);
+      document.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('blur', onWindowBlur);
+    };
+  }, [railOpen, controller]);
 
   return (
     <div className="app-shell">
-      {/* The brand, the primary navigation and the two residency labels used to be two
-          stacked horizontal bars pinned to the top of the window: 149px of chrome before
-          a single number was on screen. They are one left-hand rail now, so content
-          starts at the top of the window and the cost is width rather than height.
+      {/* The brand, the primary navigation and the residency block are one left-hand
+          rail, and - deliberately - ONE copy of the DOM. Expansion is that same node
+          changing geometry, never a second overlay rendered elsewhere, so the nav is
+          exactly seven buttons for readers and for scripts that count them.
 
-          The rail has to be a single grid item. Declared as three separate grid rows, the
-          content column spans them and the grid spreads its surplus height across all
-          three - measured 501px/710px/518px rows, which left the nav half way down the
-          window and the labels 1212px below the fold.
+          The rail has to be a single grid item. Declared as three separate grid rows,
+          the content column spans them and the grid spreads its surplus height across
+          all three - measured 501px/710px/518px rows, which left the nav half way down
+          the window and the labels 1212px below the fold.
+
+          The first grid column is the 72px compact width at every viewport that has a
+          rail at all. When the rail expands it leaves the grid (`position: fixed`) and
+          floats over the content: the column never changes, so the content never
+          shifts by a pixel in either direction.
 
           Below 860px the rail stops being a box (`display: contents`) and its three
           children reflow into a top strip in this same DOM order, so there is no second
-          copy of the navigation to keep in sync. */}
-      <div className="app-rail">
+          copy of the navigation to keep in sync - and no box for the pointer to enter,
+          so the hover model switches itself off. */}
+      <div
+        ref={railRef}
+        className={railOpen ? 'app-rail is-open' : 'app-rail'}
+        onPointerEnter={() => controller.pointerEnter()}
+        onPointerLeave={() => controller.pointerLeave()}
+        /* React's onFocus/onBlur are focusin/focusout - they bubble, so a Tab from the
+           brand into any nav button opens the rail on the spot, with no intent delay:
+           keyboard intent has no sweep to guard against. */
+        onFocus={() => controller.focusIn()}
+        onBlur={(event) => {
+          /* focusout with a relatedTarget still inside the rail (Tab moving between
+             buttons) is not a departure. A null relatedTarget is: the focus went
+             somewhere this node cannot name. */
+          const rail = railRef.current;
+          if (
+            rail &&
+            event.relatedTarget instanceof Node &&
+            rail.contains(event.relatedTarget)
+          )
+            return;
+          controller.focusOut();
+        }}
+      >
         <span className="wordmark">
           <span className="brand-mark">
             <Sprout size={23} aria-hidden="true" />
@@ -226,7 +343,7 @@ export default function AppShell({
           <span className="wordmark-label">MineChronicle</span>
         </span>
         <nav className="app-nav" id="app-primary-nav" aria-label="档案页面">
-          {/* Three groups, rendered from the one declaration in routes.ts. The heading
+          {/* Two groups, rendered from the one declaration in routes.ts. The heading
               is a labelled `group`, never a button: the seven destinations are still
               exactly seven buttons (qa-error-boundary.mjs counts them), and a heading
               that could be clicked would be an eighth destination that goes nowhere.
@@ -252,16 +369,22 @@ export default function AppShell({
                     <button
                       key={id}
                       type="button"
-                      /* Carries the name for a pointer when the rail collapses to icons at
-                       1080px. The visible label is the same string, so the two cannot drift
-                       apart. */
-                      title={PAGE_LABELS[id]}
+                      /* Names the destination while the rail is collapsed to icons.
+                         Suppressed while it is expanded - the visible label says the
+                         same string, and a tooltip over a visible label is the same
+                         sentence twice. */
+                      title={railOpen ? undefined : PAGE_LABELS[id]}
                       aria-current={view === id ? 'page' : undefined}
-                      onClick={() => navigate(id)}
+                      onClick={() => {
+                        navigate(id);
+                        /* Close on the choice, not on the pointer eventually
+                           leaving: the click IS the departure. */
+                        controller.navigate();
+                      }}
                     >
                       <Icon size={18} aria-hidden="true" />
-                      {/* An element, not a bare text node, because the icon tier has to hide it
-                        and a text node cannot be selected. */}
+                      {/* An element, not a bare text node, because the compact tier has
+                        to hide it and a text node cannot be selected. */}
                       <span className="app-nav-label">{PAGE_LABELS[id]}</span>
                     </button>
                   );
@@ -270,44 +393,37 @@ export default function AppShell({
             </div>
           ))}
         </nav>
-        {/* After the navigation in the DOM so it cannot open a gap between the brand and
-            the list of destinations: the rail's `gap` sits between flex siblings, and this
-            one is pulled out of the flow entirely. It is `title`d and `aria-label`led with
-            the action rather than the state, so the same string works as the button's
-            accessible name and as the pointer's tooltip.
-
-            Deliberately a sibling of the nav, not a member of it:
+        {/* After the navigation, pinned to the foot by `.header-tools`' own
+            `margin-top: auto`. Deliberately a sibling of the nav, not a member of it:
             `qa-error-boundary.mjs` counts `.app-shell .app-nav button` and expects the
-            seven destinations. Inside `nav.app-nav` this would have made that eight, and
-            the assertion would have had to be loosened rather than kept. */}
-        <button
-          type="button"
-          className="rail-toggle"
-          title={railCollapsed ? '展开侧边栏' : '收起侧边栏'}
-          aria-label={railCollapsed ? '展开侧边栏' : '收起侧边栏'}
-          aria-controls="app-primary-nav"
-          aria-expanded={!railCollapsed}
-          onClick={toggleRail}
-        >
-          {railCollapsed ? (
-            <ChevronRight size={16} aria-hidden="true" />
-          ) : (
-            <ChevronLeft size={16} aria-hidden="true" />
-          )}
-        </button>
+            seven destinations. */}
         <div className="header-tools">
+          <RailStatus state={state} />
+          {/* The residency facts as icon + text. The collapsed rail shows the icon and
+              keeps the full sentence in `title`; the expanded rail and the top strip
+              show the text beside it (the strip swaps them - text, no icon). */}
           <span className="local-label" title="数据仅存本机，无账号无遥测">
-            本地档案
+            <HardDrive
+              className="local-label-icon"
+              size={14}
+              aria-hidden="true"
+            />
+            <span className="local-label-text">本地档案</span>
           </span>
           <span
             className="local-label"
             title="关闭窗口后继续追踪，从系统托盘可彻底退出"
           >
-            托盘驻留
+            <MonitorDown
+              className="local-label-icon"
+              size={14}
+              aria-hidden="true"
+            />
+            <span className="local-label-text">托盘驻留</span>
           </span>
         </div>
       </div>
-      <main className="main-column">
+      <main className="main-column" ref={mainRef} tabIndex={-1}>
         <section
           className="foundation scan-panel"
           aria-label="MineChronicle 档案"

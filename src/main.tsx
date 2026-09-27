@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { applyTheme, loadThemePreference } from './lib/theme';
-import { applyRail, loadRailPreference } from './lib/rail';
+import { clearLegacyRailPreference } from './lib/rail';
 // Bundled, not linked: the app is offline, so a font CDN would fail. The
 // package splits subsets by unicode-range, so only latin is ever fetched.
 import '@fontsource-variable/jetbrains-mono/wght.css';
@@ -17,10 +17,12 @@ import './motion.css';
 // paint the light palette for one frame first, which reads as a flash every
 // launch for anyone whose system is dark.
 applyTheme(loadThemePreference());
-// Same reason, same place. A collapsed rail resolved in an effect would paint
-// the 192px labelled column first and then snap to 72px on every launch, which
-// moves the whole page's width for one frame.
-applyRail(loadRailPreference());
+// The rail reads no preference any more - the resting shape is 72px at every width, so
+// there is no first-frame width jump to prevent. What must happen before the first
+// render is the one-time removal of the key the old three-state preference wrote
+// (minechronicle.rail): best-effort and idempotent, so a blocked store cannot break
+// boot, and gone rather than left as a key that nothing will ever read again.
+clearLegacyRailPreference();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing application root');

@@ -21,7 +21,11 @@ export default function SessionPage({
   const visited = useRef(false);
   if (active) visited.current = true;
   return (
-    <div hidden={!active} className="session-page">
+    /* tabIndex={-1}: the page container is a programmatically focusable landing spot.
+       Navigating moves focus here (see useAppState's view effect), so a screen reader
+       announces the new page; being -1 keeps it out of the Tab order, and
+       `.session-page:focus` in shell.css keeps the mouse path ring-free. */
+    <div hidden={!active} className="session-page" tabIndex={-1}>
       {visited.current ? (
         <PageActive.Provider value={active}>
           {/* Per-page isolation: a crash here must not blank the whole shell,

@@ -107,7 +107,8 @@ function stripComments(text) {
  * Blank out a sheet's palette blocks. Colours are defined in `:root` and
  * `:root[data-theme=…]`; a rule anywhere else in the sheet is a component rule and has to
  * reference a token. Selectors that merely start with `:root[` (shell.css's
- * `:root[data-rail='collapsed'] .app-shell`) are component rules and are left in place.
+ * `.app-rail.is-open` overlay, a component-scoped interaction state) are component rules
+ * and are left in place.
  */
 function blankPaletteBlocks(text) {
   const chars = [...text];
