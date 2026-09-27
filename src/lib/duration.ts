@@ -19,30 +19,29 @@ const HOUR = 3600n;
 const MINUTE = 60n;
 
 /**
- * The one duration readout: the two largest units that carry a value.
+ * The one duration readout: the largest non-zero unit starts, and every reading
+ * runs down to the second.
  *
  * The app used to print the same quantity three ways - `1449h 39m 43s` in the hero,
  * `1449h 5m` and `34m 10s` in the ruler and ranking, a bare `0` on the ruler's first
  * graduation - and a reader who sees one number written three ways reads it as three
- * numbers. There is one wording now and every surface uses it: hours and minutes
- * above an hour, minutes and seconds below one, seconds alone below a minute, days
- * once the total passes a day (the career figure is hundreds of hours, and `60 天 9
- * 小时` is the form that can be read without arithmetic).
+ * numbers. There is one wording now and every surface uses it.
  *
- * Seconds are dropped once hours are on screen. That is a deliberate ceiling on
- * precision rather than rounding: every caller that needs the exact reading has the
- * raw ticks, and the graduation labels have to fit five across the ruler's track.
- * Units are the interface's own language (中文), not `h/m/s`, so the numbers read as
- * part of the sentence they sit in.
+ * Seconds are always printed (user requirement: 精确到秒 - a reading of `60 天 9
+ * 小时` could hide up to 59 minutes of play inside it, and two worlds one minute
+ * apart were indistinguishable). Zero units between the start and the seconds are
+ * printed rather than skipped, so `2 小时 0 分 3 秒` says exactly where the time
+ * sits instead of implying continuity. Units are the interface's own language
+ * (中文), not `h/m/s`.
  */
 function humanDuration(seconds: bigint): string {
   const days = seconds / DAY;
   const hours = (seconds % DAY) / HOUR;
   const minutes = (seconds % HOUR) / MINUTE;
   const rest = seconds % MINUTE;
-  if (days) return hours ? `${days} 天 ${hours} 小时` : `${days} 天`;
-  if (hours) return minutes ? `${hours} 小时 ${minutes} 分` : `${hours} 小时`;
-  if (minutes) return rest ? `${minutes} 分 ${rest} 秒` : `${minutes} 分`;
+  if (days) return `${days} 天 ${hours} 小时 ${minutes} 分 ${rest} 秒`;
+  if (hours) return `${hours} 小时 ${minutes} 分 ${rest} 秒`;
+  if (minutes) return `${minutes} 分 ${rest} 秒`;
   return `${rest} 秒`;
 }
 

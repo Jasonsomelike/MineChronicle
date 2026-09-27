@@ -13,7 +13,7 @@ import {
 describe('integer tick display', () => {
   it('formats aggregate ticks beyond i64 without rounding', () => {
     expect(formatTickTotal('18446744073709551614')).toBe(
-      '10675199116730 天 1 小时',
+      '10675199116730 天 1 小时 33 分 0 秒',
     );
     expect(() => formatTickTotal('-1')).toThrow();
   });
@@ -23,10 +23,10 @@ describe('integer tick display', () => {
     ['20', '1 秒'],
     ['364', '18 秒'],
     ['1199', '59 秒'],
-    ['1200', '1 分'],
-    ['72000', '1 小时'],
-    ['73200', '1 小时 1 分'],
-    ['9223372036854775807', '5337599558365 天'],
+    ['1200', '1 分 0 秒'],
+    ['72000', '1 小时 0 分 0 秒'],
+    ['73200', '1 小时 1 分 0 秒'],
+    ['9223372036854775807', '5337599558365 天 0 小时 46 分 30 秒'],
   ])('formats %s without float rounding', (input, output) => {
     expect(formatPlayTicks(input)).toBe(output);
   });
@@ -42,11 +42,11 @@ describe('second display', () => {
   it.each([
     ['0', '0 秒'],
     ['59', '59 秒'],
-    ['60', '1 分'],
-    ['3600', '1 小时'],
-    ['3660', '1 小时 1 分'],
-    ['37737', '10 小时 28 分'],
-    ['9007199254740993', '104249991374 天 7 小时'],
+    ['60', '1 分 0 秒'],
+    ['3600', '1 小时 0 分 0 秒'],
+    ['3660', '1 小时 1 分 0 秒'],
+    ['37737', '10 小时 28 分 57 秒'],
+    ['9007199254740993', '104249991374 天 7 小时 36 分 33 秒'],
   ])('formats %s seconds', (input, output) => {
     expect(formatSeconds(input)).toBe(output);
   });
