@@ -428,6 +428,12 @@
   gap: var(--space-2);
 }
 .stat-icon-placeholder {
+  /* The letter pill inside is `position: absolute` (below), so this span must be its
+     containing block. Nothing here was positioned, and the nearest ancestor that
+     establishes one is `.session-page` (container-type on `.app-shell`), so every
+     placeholder's letter escaped to the page's bottom-right corner and stacked there -
+     one stray blue pill floating over the 图标与资源 divider. */
+  position: relative;
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);

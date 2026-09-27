@@ -8,94 +8,99 @@
  * new. Names describe the ROLE, not the colour, so a token never lies about what
  * it holds once the theme changes.
  *
- * The dark palette is a warm deep green-grey, not neutral black: it keeps the
- * product's warm identity, and pure-black surfaces make a data-dense UI harsh to
- * read for long sessions.
+ * Both palettes are translated from Arco Design's published token tables (the
+ * light color-bg/text/border steps and the arcoblue family; the dark bg-1..4
+ * ladder with white-alpha text), so every value traces to a static colour card
+ * rather than an algorithm. The dark ground is #17171A - Arco's bg-1, near-black
+ * but not #000, which keeps a data-dense UI readable across long sessions.
  *
- * Contrast is measured, not eyeballed. Body text on `--surface` is 12.4:1 in
- * light and 11.6:1 in dark; muted text is 4.55:1 and 5.1:1, both at or above the
+ * Contrast is measured, not eyeballed. Body text on `--surface` is 16.13:1 in
+ * light and 12.93:1 in dark; muted text is 7.10:1 and 8.36:1, both well past the
  * 4.5:1 AA threshold. The measurement is re-run after any palette change.
  */
 :root {
   color-scheme: light;
 
-  --warm-paper: #f7f8f8;
+  --warm-paper: #f7f8fa;
   --warm-surface: #ffffff;
-  --warm-line: #dde3e1;
-  --warm-ink: #18211e;
-  --warm-green: #0d6b48;
-  --warm-muted: #4a5852;
+  --warm-line: #e5e6eb;
+  --warm-ink: #1d2129;
+  --brand: #165dff;
+  --warm-muted: #4e5969;
 
   /* Surfaces, from the page floor upward. */
-  --page: #f7f8f8;
+  --page: #f7f8fa;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-sunken: #eceeed;
-  --surface-hover: #eff2f1;
-  --surface-active: #e2e7e5;
+  --surface-sunken: #f2f3f5;
+  --surface-hover: #f2f3f5;
+  --surface-active: #e5e6eb;
   /* Tinted card used by the observation and health summaries. */
-  --surface-tint: #f2f5f4;
+  --surface-tint: #f7f8fa;
   /* A quiet control's resting surface: the secondary button inside the scan panel, and in
      dark mode the sort heading and the settings jump as well. It used to be written out in
      the rules that paint it, which is how the light half of the pair ended up as a literal
      in a component rule while its dark half lived here. */
-  --surface-control: #edf1e7;
-  /* The dark header/CTA green, and the surface it sits on. */
-  --surface-strong: #0d6b48;
-  --surface-strong-hover: #0a5738;
+  --surface-control: #f2f3f5;
+  /* The filled CTA surface, and the surface its hover steps to. #4080FF - Arco's lighter
+     hover step - puts white text at 3.65:1, so the hover goes one step darker instead. */
+  --surface-strong: #165dff;
+  --surface-strong-hover: #0e42d2;
 
   /* Text, from strongest to faintest. */
-  --text: #18211e;
-  --text-strong: #0c1311;
-  --text-muted: #4a5852;
-  --text-faint: #57655f;
+  --text: #1d2129;
+  --text-strong: #1d2129;
+  --text-muted: #4e5969;
+  --text-faint: #4e5969;
   --text-on-strong: #ffffff;
-  --text-accent: #0b5c3e;
-  --text-label: #24322d;
+  --text-accent: #165dff;
+  --text-label: #272e3b;
 
   /* Borders. */
-  --border: #dde3e1;
-  --border-soft: #e7ebe9;
-  --border-strong: #c9d2cf;
-  --border-input: #ccd5d2;
+  --border: #e5e6eb;
+  --border-soft: #f2f3f5;
+  --border-strong: #c9cdd4;
+  --border-input: #c9cdd4;
 
   /* Feedback. */
-  --danger: #b42318;
-  --danger-surface: #fdeceb;
-  --success: #0d6b48;
-  --success-surface: #eaf5ef;
+  --danger: #cb272d;
+  --danger-surface: #ffece8;
+  --success: #008026;
+  --success-surface: #e8ffea;
 
   /* The decorative wash behind the page. Kept as a token pair so the dark theme
      can drop it to a much fainter tint instead of removing the depth entirely. */
-  --wash-a: #eef1f080;
-  --wash-b: #e9efec80;
+  --wash-a: #e8f3ff80;
+  --wash-b: #f2f3f580;
 
-  --text-status: #0b5c3e;
-  --text-hint: #3d4a45;
-  --text-caption: #52605a;
-  --text-caption-warm: #4e5c56;
-  --text-summary: #4a5852;
-  --text-button: #24322d;
+  --text-status: #008026;
+  --text-hint: #4e5969;
+  --text-caption: #4e5969;
+  --text-caption-warm: #4e5969;
+  --text-summary: #4e5969;
+  --text-button: #1d2129;
   --heading-on-strong: #ffffff;
-  --caption-on-strong: #c9e6d8;
+  --caption-on-strong: #e8f3ff;
 
   /* Semantic tints. A warning or error panel must keep its meaning in both
      themes, so these are roles rather than shared neutrals. */
-  --border-danger: #f0d6d3;
-  --surface-info: #e9f0f4;
-  --surface-warning: #faf6ec;
-  --surface-danger: #fdeceb;
-  --warning: #8a5a00;
+  --border-danger: #fdcdc5;
+  --surface-info: #e8f3ff;
+  --surface-warning: #fff7e8;
+  --surface-danger: #ffece8;
+  --warning: #a64500;
 
-  /* Bar colour for the ECharts ranking chart. ECharts paints SVG, so it
-     cannot read a CSS variable and resolves this value in JavaScript. */
-  --chart-bar: #0d6b48;
+  /* Bar colour for the ranking chart, painted from CSS through var(). An earlier
+     comment claimed ECharts resolved this value in JavaScript; src carries no
+     ECharts code any more, and the consumers are the CSS rules in styles.css and
+     pages.css. The name stays so those rules do not have to rename. */
+  --chart-bar: #165dff;
 
   /* Amber accent for the second tracking metric. */
-  --accent-amber: #8a5a00;
+  --accent-amber: #a64500;
 
   /* The focus ring, measured at >=3:1 against every surface in both themes. */
-  --focus-ring: #0b5c3e;
+  --focus-ring: #165dff;
 
   background: var(--page);
   color: var(--text);
@@ -126,65 +131,80 @@
   --shadow-pop: none;
   --shadow-modal: none;
 
-  --warm-paper: #0c100f;
-  --warm-surface: #181e1d;
-  --warm-line: #2b3532;
-  --warm-ink: #e6ebe9;
-  --warm-green: #34d399;
-  --warm-muted: #b3beba;
+  --warm-paper: #17171a;
+  --warm-surface: #232324;
+  --warm-line: #333335;
+  --warm-ink: rgba(255, 255, 255, 0.9);
+  --brand: #689fff;
+  --warm-muted: rgba(255, 255, 255, 0.7);
 
-  --page: #0c100f;
-  --surface: #181e1d;
-  --surface-raised: #232b29;
-  --surface-sunken: #0a0d0c;
-  --surface-hover: #2c3633;
-  --surface-active: #323d39;
-  --surface-tint: #1b2321;
-  --surface-control: #1f2b25;
-  --surface-strong: #34d399;
-  --surface-strong-hover: #5ce0ae;
+  --page: #17171a;
+  --surface: #232324;
+  --surface-raised: #2a2a2b;
+  --surface-sunken: #17171a;
+  --surface-hover: #2e2e30;
+  --surface-active: #313132;
+  --surface-tint: #2a2a2b;
+  --surface-control: #323233;
+  /* The filled CTA surface. Arco's own dark primary #3C7EFF holds white text at
+     3.73:1, under the gate's AA bar, so the light theme's #165DFF is carried over
+     (white on it is 5.19:1). If a side-by-side with arco.design reads "not Arco
+     enough", the gate wins. */
+  --surface-strong: #165dff;
+  --surface-strong-hover: #0e42d2;
 
-  --text: #e6ebe9;
-  --text-strong: #f5f8f7;
-  --text-muted: #b3beba;
-  --text-faint: #a5b1ad;
-  --text-on-strong: #062d20;
-  --text-accent: #5ce0ae;
-  --text-label: #d3dcd9;
+  --text: rgba(255, 255, 255, 0.9);
+  --text-strong: rgba(255, 255, 255, 0.9);
+  --text-muted: rgba(255, 255, 255, 0.7);
+  --text-faint: rgba(255, 255, 255, 0.7);
+  --text-on-strong: #ffffff;
+  --text-accent: #689fff;
+  --text-label: rgba(255, 255, 255, 0.9);
 
-  --border: #2b3532;
-  --border-soft: #232b29;
-  --border-strong: #3d4a46;
-  --border-input: #3d4a46;
+  --border: #333335;
+  --border-soft: #2a2a2b;
+  --border-strong: #484849;
+  --border-input: #484849;
 
-  --danger: #f87171;
-  --danger-surface: #2a1a1a;
-  --success: #34d399;
-  --success-surface: #12241c;
+  /* Feedback. The tinted surfaces below are pre-composited solids - Arco's 20%
+     colour alphas flattened onto --surface (#232324) - because the design check's
+     background walk treats a translucent backgroundColor as its raw channels, so
+     an rgba(…, .2) here would be measured against a false ground. --wash-a/b stay
+     translucent on purpose: their only consumers are the `::backdrop` rules in
+     styles.css, which that element walk never samples. */
+  /* red-7, not red-6: the pre-composited danger tints below are bright enough
+     that red-6 as text lands 3.98:1 on #4d3131 (the rollback .event-duration,
+     measured by the design gate). red-7 on the same fill is 5.09:1 - the pairing
+     the direction itself measured for this chip - and every other --danger text
+     sits on a darker ground, where the lighter red only raises the ratio. */
+  --danger: #f98d86;
+  --danger-surface: #4d3131;
+  --success: #27c346;
+  --success-surface: #24432b;
 
   /* Pulled far back: on a dark floor a bright wash reads as a stain, not depth. */
-  --wash-a: #16201e80;
-  --wash-b: #121a1880;
+  --wash-a: rgba(255, 255, 255, 0.04);
+  --wash-b: rgba(255, 255, 255, 0.02);
 
-  --text-status: #5ce0ae;
-  --text-hint: #a5b1ad;
-  --text-caption: #a5b1ad;
-  --text-caption-warm: #a5b1ad;
-  --text-summary: #b3beba;
-  --text-button: #d3dcd9;
-  --heading-on-strong: #062d20;
-  --caption-on-strong: #0d3d2c;
+  --text-status: #27c346;
+  --text-hint: rgba(255, 255, 255, 0.7);
+  --text-caption: rgba(255, 255, 255, 0.7);
+  --text-caption-warm: rgba(255, 255, 255, 0.7);
+  --text-summary: rgba(255, 255, 255, 0.7);
+  --text-button: rgba(255, 255, 255, 0.9);
+  --heading-on-strong: #ffffff;
+  --caption-on-strong: #ffffff;
 
-  --accent-amber: #fbbf24;
-  --chart-bar: #34d399;
-  --border-danger: #4a2a2a;
-  --surface-info: #152229;
-  --surface-warning: #2a2418;
-  --surface-danger: #2a1a1a;
-  --warning: #fbbf24;
+  --accent-amber: #ff9626;
+  --chart-bar: #3c7eff;
+  --border-danger: #6d3c3b;
+  --surface-info: #28354f;
+  --surface-warning: #4f3a25;
+  --surface-danger: #4d3131;
+  --warning: #ff9626;
 
   /* Lightened so it still clears 3:1 against dark surfaces. */
-  --focus-ring: #34d399;
+  --focus-ring: #689fff;
 }
 
 /*
@@ -247,7 +267,7 @@ body {
   background: var(--surface-sunken);
 }
 .wordmark .brand-mark svg {
-  color: var(--warm-green);
+  color: var(--brand);
 }
 .app-nav button {
   border-radius: var(--radius-sm);
@@ -256,12 +276,12 @@ body {
   background: transparent;
   color: var(--text-muted);
 }
-/* The rail's current page is a jade tint, not the jade fill.
+/* The rail's current page is a tint, not the fill.
 
    The fill was right for a horizontal bar, where the current chip sat in a row of seven
    and had to survive a glance from across the screen. In a vertical rail it would put a
-   solid green block in the top-left corner of every screen, next to a chart whose bars
-   are the same green - the accent would stop meaning "data". A tint plus the accent text
+   solid accent block in the top-left corner of every screen, next to a chart whose bars
+   are the same accent - the accent would stop meaning "data". A tint plus the accent text
    colour still separates the current item from six muted ones, and `--text-accent` on
    `--surface-hover` is measured well past AA in both themes (verified by
    scripts/qa-design-check.mjs). */
@@ -440,7 +460,7 @@ body {
 }
 .tracking-state article > span svg {
   flex-shrink: 0;
-  color: var(--warm-green);
+  color: var(--brand);
 }
 .tracking-state article:nth-child(2) > span svg {
   /* The amber accent, lightened for dark surfaces so it stays visible rather
@@ -502,8 +522,8 @@ body {
    rule ties on specificity (0,2,0) with styles.css's `.event-increment /
    .event-rollback / .event-initial_import .event-duration`, so it decides nothing
    for those three - but a `mixed` span matches none of them, and measured, this
-   is the declaration that paints it (`--surface-hover`, `#eff2f1` light and
-   `#2c3633` dark). Deleting it repainted the mixed chip as `--surface-tint`.
+   is the declaration that paints it (`--surface-hover`, `#f2f3f5` light and
+   `#2e2e30` dark). Deleting it repainted the mixed chip as `--surface-tint`.
    It is the neutral base, so it stays. */
 .timeline-events .event-duration {
   display: inline-block;
@@ -539,10 +559,13 @@ body {
   background: var(--surface-hover);
 }
 .statistics .statistics-table th:first-child {
-  border-top-left-radius: 10px;
+  /* These two literals shadowed the old --radius-md of 10px; with the ladder
+     collapsed onto 8 they follow it, so the header band's corners are never
+     rounder than the card corner above them. */
+  border-top-left-radius: var(--radius-md);
 }
 .statistics .statistics-table th:last-child {
-  border-top-right-radius: 10px;
+  border-top-right-radius: var(--radius-md);
 }
 .scan-panel .stat-sort-heading {
   display: inline-flex;
@@ -665,7 +688,7 @@ body {
   margin-bottom: 6px;
   border: 1px solid var(--warm-line);
   border-radius: var(--radius-md);
-  color: var(--warm-green);
+  color: var(--brand);
   background: var(--surface-hover);
   text-align: left;
   text-decoration: none;

@@ -24,3 +24,7 @@ agent
 # Machine-owned: ZCode workflow drafts/journals and the review run's scratch evidence.
 .zcode
 .research
+# The template-research batch dropped its fetched evidence at the root
+# (.research-*.css/.less, including one saved 404 body that cannot parse at all),
+# so `format:check` tripped on files no batch wrote.
+.research-*

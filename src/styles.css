@@ -324,6 +324,16 @@ main {
   min-width: 0;
   max-width: min(360px, 100%);
 }
+.self-player-input > button {
+  /* The row squeezes when the label paragraph and the capped field both want their
+     natural width, and the button was the only member without a floor: it shrank to
+     50px, its 32px of padding left 18px of content box, and the two-character label
+     wrapped into a vertical 保/存 stack. The field already owns the give (`min-width:
+     0` above), so the button stops shrinking; `nowrap` is the Arco button contract -
+     a primary label never breaks across lines. */
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .dashboard-heading {
   display: flex;
   justify-content: space-between;

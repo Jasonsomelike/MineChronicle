@@ -1,6 +1,6 @@
-/* Design scales. Role-named; colour roles live in warmth.css. */
+/* Design scales. Role-named; colour roles live in warmth.css - which is imported
+   after this sheet, so the focus ring colour is defined there and only there. */
 :root {
-  --focus-ring: #2f6a4f;
   --focus-ring-width: 3px;
   --focus-ring-offset: 2px;
 
@@ -40,23 +40,35 @@
   --type-heading: 20px;
   --type-display: 28px;
 
-  --font-ui: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  /* The latin segment stays with Segoe UI (Windows) and the CJK segment is Arco's
+     own stack: macOS falls to PingFang SC, Windows to Microsoft YaHei. No new
+     font files - system families only, so nothing leaves the origin. */
+  --font-ui: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono',
     Consolas, monospace;
 
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  /* Arco's ladder is three steps - 2/4/8 for border-radius-small/medium/large -
+     so md and lg collapse onto the same 8px. The card corner moving 16 -> 8 is
+     the most visible part of the surface language change. */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
   --radius-pill: 999px;
 
-  --shadow-hairline: 0 2px 5px #40523712;
-  --shadow-card: 0 4px 18px #4d573b04;
-  --shadow-pop: 0 8px 24px #20352e24;
-  --shadow-modal: 0 20px 80px #15372a33;
-  --shadow-nav: 0 3px 8px #37533c14, inset 0 1px #ffffff20;
-  --shadow-field: 0 1px 3px #40523714, inset 0 0 0 1px var(--border);
-  --shadow-focus-glow: 0 0 0 4px #62895c12;
+  /* Neutral shadows: the base colour is #1D2129 (Arco's text-1 / color-mask-bg
+     family), replacing the green-cast #405237… set. --shadow-pop is Arco's own
+     popup shadow, measured off arco.css. */
+  --shadow-hairline: 0 2px 5px rgba(29, 33, 41, 0.05);
+  --shadow-card: 0 4px 18px rgba(29, 33, 41, 0.04);
+  --shadow-pop: 0 4px 10px rgba(0, 0, 0, 0.1);
+  --shadow-modal: 0 20px 80px rgba(29, 33, 41, 0.2);
+  --shadow-nav: 0 3px 8px rgba(29, 33, 41, 0.06),
+    inset 0 1px rgba(255, 255, 255, 0.12);
+  --shadow-field: 0 1px 3px rgba(29, 33, 41, 0.04),
+    inset 0 0 0 1px var(--border);
+  --shadow-focus-glow: 0 0 0 4px rgba(22, 93, 255, 0.12);
 
   /* Not elevation: a ring that punches a gap through to the surface behind, used
      where a small badge overlaps a bar. Structural, so it stays in dark mode while
