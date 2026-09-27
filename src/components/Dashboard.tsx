@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
+import { Collapse, Segmented } from 'antd';
 import type { ScanSummary } from '../lib/scan';
 import {
   summarize,
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 import Timeline from './Timeline';
 import PlayerPicker from './PlayerPicker';
+import { SecondaryButton, TextButton } from './ui';
 import { selectedPlayer } from '../lib/players';
 import { emptyScope } from '../lib/activity';
 import './Dashboard.css';
@@ -268,13 +270,9 @@ export default function Dashboard({
                 <p>
                   当前筛选是「未选择玩家」，所以没有可汇总的读数。该选择会保留到下次启动；选好玩家后这里会显示累计时长与世界分布。
                 </p>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={openPlayerPicker}
-                >
+                <SecondaryButton onClick={openPlayerPicker}>
                   选择玩家
-                </button>
+                </SecondaryButton>
               </div>
             ) : (
               <>
@@ -282,21 +280,25 @@ export default function Dashboard({
                     redraws. It used to sit below the card, where it changed a surface
                     the reader had already passed: the two were 33px apart and it
                     still read as changing the list under it instead. */}
+                {/* The two pressed-state buttons became an antd Segmented: the
+                    control's semantics moved from role=group + aria-pressed to the
+                    library's radio model (role=radiogroup with aria-checked
+                    options). The one mapping below still drives both this control
+                    and the ruler it redraws, so the selection cannot disagree with
+                    the plotted rows. */}
                 <div
                   className="ranking-switch"
                   role="group"
                   aria-label="排行维度"
                 >
-                  {panels.map((panel) => (
-                    <button
-                      key={panel.dimension}
-                      type="button"
-                      aria-pressed={panel.active}
-                      onClick={() => setRanking(panel.dimension)}
-                    >
-                      {RANKING_TABS[panel.dimension]}
-                    </button>
-                  ))}
+                  <Segmented
+                    value={ranking}
+                    onChange={(next) => setRanking(next as RankingDimension)}
+                    options={panels.map((panel) => ({
+                      value: panel.dimension,
+                      label: RANKING_TABS[panel.dimension],
+                    }))}
+                  />
                 </div>
                 {/* The ruler replaces an illustration and a caption. The headline
                     figure above stays; what changes is that the card now shows how the
@@ -369,10 +371,10 @@ export default function Dashboard({
           page that owns it, so the only thing this position keeps is the way there -
           a link rather than a copy of the answer. */}
       <p className="ranking-link">
-        <button type="button" className="text-button" onClick={onWorlds}>
+        <TextButton onClick={onWorlds}>
           在世界与玩家查看全部
           <span aria-hidden="true"> →</span>
-        </button>
+        </TextButton>
       </p>
       <p className="scan-note">
         按最近有效读数排行；不含已缺失世界与不可读统计。共享根目录只计算一次，复制世界尚未去重。
@@ -399,13 +401,7 @@ export default function Dashboard({
                 {pseudo.baseline
                   ? ` · ${pseudo.baseline} 次会话缺少本地基线，未计入`
                   : ''}{' '}
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={onObservation}
-                >
-                  查看实例观测
-                </button>
+                <TextButton onClick={onObservation}>查看实例观测</TextButton>
               </p>
               {/* Fine print under the counts, not a third fact beside them: same
                   caption size, so it separates by ink and measure instead. */}
@@ -421,29 +417,39 @@ export default function Dashboard({
             </p>
           ) : null}
         </div>
-        <button type="button" className="secondary-button" onClick={onSettings}>
-          查看数据健康
-        </button>
+        <SecondaryButton onClick={onSettings}>查看数据健康</SecondaryButton>
       </div>
       {rollbacks.length ? (
-        <details className="rollback-list">
-          <summary>最近回档记录 · 显示 {rollbacks.length} 条</summary>
-          {rollbacks.map((r, index) => (
-            <article
-              key={`${r.world_path}:${r.uuid}:${r.detected_at}:${index}`}
-            >
-              <strong>{r.world_name}</strong>
-              <p>
-                {data.players.find(([id]) => id === r.uuid)?.[1] ?? r.uuid} ·{' '}
-                {formatTickTotal(r.old_ticks)} → {formatTickTotal(r.new_ticks)}
-              </p>
-              <p>
-                {new Date(r.detected_at).toLocaleString()} · 本次增量
-                0，历史保留
-              </p>
-            </article>
-          ))}
-        </details>
+        /* The hand-written <details> is a ghost Collapse; the `.rollback-list`
+           class moves to the Collapse root so its type scale and spacing rules
+           still key on it, and the header text plays the role `summary` played. */
+        <Collapse
+          ghost
+          className="rollback-list"
+          expandIcon={() => null}
+          items={[
+            {
+              key: 'rollbacks',
+              label: `最近回档记录 · 显示 ${rollbacks.length} 条`,
+              children: rollbacks.map((r, index) => (
+                <article
+                  key={`${r.world_path}:${r.uuid}:${r.detected_at}:${index}`}
+                >
+                  <strong>{r.world_name}</strong>
+                  <p>
+                    {data.players.find(([id]) => id === r.uuid)?.[1] ?? r.uuid}{' '}
+                    · {formatTickTotal(r.old_ticks)} →{' '}
+                    {formatTickTotal(r.new_ticks)}
+                  </p>
+                  <p>
+                    {new Date(r.detected_at).toLocaleString()} · 本次增量
+                    0，历史保留
+                  </p>
+                </article>
+              )),
+            },
+          ]}
+        />
       ) : null}
       <Timeline
         report={report}

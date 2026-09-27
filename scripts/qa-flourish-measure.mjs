@@ -124,7 +124,10 @@ for (const theme of THEMES) {
       const rows = [...document.querySelectorAll('.world-result')].map((d) => {
         const bar = d.querySelector('.world-mini-bar');
         const fill = bar?.querySelector('i');
-        const summary = d.querySelector('summary');
+        // The row header: a native `summary` while the row was a <details>, the
+        // antd Collapse header text since the library migration - same children,
+        // so the hooks below read identically off either node.
+        const summary = d.querySelector('summary, .ant-collapse-header-text');
         const total = d.querySelector('.world-total');
         const name = summary.querySelector('strong');
         const inst = summary.querySelector('.world-instance');

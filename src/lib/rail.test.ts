@@ -127,7 +127,6 @@ describe('rail hover state machine', () => {
     });
 
     it.each([
-      ['navigate', (c: RailController) => c.navigate()],
       ['lightDismiss', (c: RailController) => c.lightDismiss()],
       ['escape', (c: RailController) => c.escape()],
       ['windowBlur', (c: RailController) => c.windowBlur()],

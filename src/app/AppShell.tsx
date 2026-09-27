@@ -223,11 +223,15 @@ export default function AppShell({
 }) {
   const { view, navigate, activeSection, setActiveSection, runtime } = state;
   /* The rail opens on intent (pointer resting 100ms) or on focus (immediately), and
-     closes on five events - leave after a 200ms grace, navigation, a press outside,
-     Escape, window blur. There is no stored preference behind any of it: `railOpen` is
-     this component's session state alone, the DOM carries it as one `.is-open` class,
-     and the same window width always draws the same resting rail. The timers live in
-     src/lib/rail.ts; this component only wires DOM events to the controller. */
+     closes on leave (after a 150ms grace), a press outside, Escape, window blur, or
+     focus leaving beyond the rail while the pointer is NOT resting on it. Clicks
+     never close it - navigating included: the click lands under a pointer that is
+     still on the rail, and collapsing the overlay there yanked it out from under the
+     cursor on every destination click (the click-collapse regression). There is no
+     stored preference behind any of it: `railOpen` is this component's session state
+     alone, the DOM carries it as one `.is-open` class, and the same window width
+     always draws the same resting rail. The timers live in src/lib/rail.ts; this
+     component only wires DOM events to the controller. */
   const [railOpen, setRailOpen] = useState(false);
   const railRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -325,7 +329,12 @@ export default function AppShell({
         onBlur={(event) => {
           /* focusout with a relatedTarget still inside the rail (Tab moving between
              buttons) is not a departure. A null relatedTarget is: the focus went
-             somewhere this node cannot name. */
+             somewhere this node cannot name. And a departure is only real when the
+             pointer has left too: navigating from a rail click moves focus out to the
+             new page's `.session-page` (useAppState's useLayoutEffect) while the
+             cursor is still resting on the rail, and closing for that is the
+             click-collapse bug again. The pointer holding the rail is what the hover
+             model honours; a keyboard Tab-out with the cursor elsewhere still closes. */
           const rail = railRef.current;
           if (
             rail &&
@@ -333,6 +342,7 @@ export default function AppShell({
             rail.contains(event.relatedTarget)
           )
             return;
+          if (rail && rail.matches(':hover')) return;
           controller.focusOut();
         }}
       >
@@ -376,10 +386,11 @@ export default function AppShell({
                       title={railOpen ? undefined : PAGE_LABELS[id]}
                       aria-current={view === id ? 'page' : undefined}
                       onClick={() => {
+                        /* No close on the choice: a click is not a departure. The
+                           pointer is still resting where it clicked, so the overlay
+                           stays up until the mouse actually leaves (grace), Escape,
+                           a press outside, or the window losing focus. */
                         navigate(id);
-                        /* Close on the choice, not on the pointer eventually
-                           leaving: the click IS the departure. */
-                        controller.navigate();
                       }}
                     >
                       <Icon size={18} aria-hidden="true" />

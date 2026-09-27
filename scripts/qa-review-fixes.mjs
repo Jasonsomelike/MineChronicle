@@ -116,13 +116,25 @@ try {
    * Every checkbox in the app is 16-18px. `.scan-panel input` used to hand the
    * 自动备份 box the text-field metrics (`min-width: 220px`,
    * `min-height: var(--control-md)`), measuring 220x38.
+   *
+   * The antd migration replaced the two always-visible checkboxes (自动备份,
+   * 开机自启) with Switches, so this census now covers both kinds: native /
+   * antd checkbox inputs keep the 14-20px square bounds, and an antd Switch is
+   * 28-22px at worst (its own geometry, not field metrics). At least two
+   * toggle controls must be present - the guard is a census, not a spot check.
    */
-  const boxes = await page.evaluate(() =>
-    [...document.querySelectorAll("input[type='checkbox']")]
+  const toggles = await page.evaluate(() =>
+    [
+      ...document.querySelectorAll(
+        "input[type='checkbox'], .ant-switch[role='switch']",
+      ),
+    ]
       .map((el) => {
         const r = el.getBoundingClientRect();
         if (!r.width || !r.height) return null;
+        const isSwitch = el.classList.contains('ant-switch');
         return {
+          kind: isSwitch ? 'switch' : 'checkbox',
           label:
             el.closest('label')?.innerText.replace(/\s+/g, ' ').trim() ??
             el.getAttribute('aria-label') ??
@@ -134,10 +146,21 @@ try {
       .filter(Boolean),
   );
   assert.ok(
-    boxes.length >= 2,
-    `expected several checkboxes, saw ${boxes.length}`,
+    toggles.length >= 2,
+    `expected several checkboxes/switches, saw ${toggles.length}`,
   );
-  for (const box of boxes) {
+  for (const box of toggles) {
+    if (box.kind === 'switch') {
+      assert.ok(
+        box.h <= 26,
+        `switch "${box.label}" must be control-sized, measured ${box.w}x${box.h}`,
+      );
+      assert.ok(
+        box.w >= 28 && box.h >= 14,
+        `switch "${box.label}" must stay tappable, measured ${box.w}x${box.h}`,
+      );
+      continue;
+    }
     assert.ok(
       box.w <= 20 && box.h <= 20,
       `checkbox "${box.label}" must be a normal size, measured ${box.w}x${box.h}`,

@@ -1,4 +1,4 @@
-/* global window, document, getComputedStyle, localStorage */
+/* global window, document, getComputedStyle, localStorage, HTMLElement */
 /**
  * Design-scale and contrast check.
  *
@@ -452,6 +452,18 @@ for (const theme of ['light', 'dark']) {
         if (node.classList.contains('filter-drawer')) return;
         node.setAttribute('open', '');
       });
+      // The antd migration moved some disclosures from <details> to Collapse
+      // (DataHealth's evidence list was the first). Their hidden panels are
+      // display:none and would silently drop out of the walk below, so the same
+      // coverage is restored by expanding every collapsed panel - the exact
+      // equivalent of the details loop above, gated to not re-close open ones.
+      document
+        .querySelectorAll(
+          '.ant-collapse-item:not(.ant-collapse-item-active) > .ant-collapse-header',
+        )
+        .forEach((node) => {
+          if (node instanceof HTMLElement) node.click();
+        });
     });
     await page.waitForTimeout(200);
 

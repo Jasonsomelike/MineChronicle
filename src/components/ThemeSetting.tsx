@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
+import { Segmented } from 'antd';
 import {
   applyTheme,
   loadThemePreference,
@@ -7,8 +8,13 @@ import {
   watchSystemTheme,
 } from '../lib/theme';
 import type { ThemePreference } from '../lib/theme';
+import { useResolvedTheme } from '../app/ThemeContext';
 
-const OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
+const OPTIONS: {
+  value: ThemePreference;
+  label: string;
+  icon: typeof Sun;
+}[] = [
   { value: 'system', label: '跟随系统', icon: Monitor },
   { value: 'light', label: '亮色', icon: Sun },
   { value: 'dark', label: '暗色', icon: Moon },
@@ -23,31 +29,41 @@ const OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
  *
  * While the preference is 跟随系统 this also listens for OS changes, so the app
  * follows along without a restart.
+ *
+ * One channel, two painters: every change goes through `choose`/`watchSystemTheme`,
+ * which write `data-theme` (the hand-written sheets re-theme instantly) and update
+ * the theme context (antd's algorithm re-derives) in the same React commit, so the
+ * hand-written surfaces and the antd surfaces never disagree about which theme is
+ * showing.
  */
 export default function ThemeSetting() {
   const [preference, setPreference] = useState<ThemePreference>('system');
+  const { setResolved } = useResolvedTheme();
   // The preference alone cannot say which theme is showing, because 'system'
   // resolves to one of two. This tracks the outcome for the caption.
-  const [resolved, setResolved] = useState<'light' | 'dark'>('light');
+  const [resolved, setLocalResolved] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const stored = loadThemePreference();
     setPreference(stored);
-    setResolved(applyTheme(stored));
+    setLocalResolved(applyTheme(stored));
   }, []);
 
   useEffect(() => {
     if (preference !== 'system') return;
     return watchSystemTheme((theme) => {
       applyTheme('system');
+      setLocalResolved(theme);
       setResolved(theme);
     });
-  }, [preference]);
+  }, [preference, setResolved]);
 
   function choose(next: ThemePreference) {
     setPreference(next);
     saveThemePreference(next);
-    setResolved(applyTheme(next));
+    const theme = applyTheme(next);
+    setLocalResolved(theme);
+    setResolved(theme);
   }
 
   const active = OPTIONS.find((option) => option.value === preference);
@@ -65,25 +81,24 @@ export default function ThemeSetting() {
             : `已固定为${active?.label ?? ''}，不再随系统变化。`}
         </p>
       </div>
-      <div className="theme-choice" role="radiogroup" aria-label="外观主题">
-        {OPTIONS.map((option) => {
+      <Segmented
+        aria-label="外观主题"
+        className="theme-choice"
+        value={preference}
+        onChange={(value) => choose(value as ThemePreference)}
+        options={OPTIONS.map((option) => {
           const Icon = option.icon;
-          const selected = option.value === preference;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              className="theme-choice-option"
-              onClick={() => choose(option.value)}
-            >
-              <Icon size={15} aria-hidden="true" />
-              {option.label}
-            </button>
-          );
+          return {
+            value: option.value,
+            label: (
+              <>
+                <Icon size={15} aria-hidden="true" />
+                {option.label}
+              </>
+            ),
+          };
         })}
-      </div>
+      />
     </div>
   );
 }

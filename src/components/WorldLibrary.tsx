@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronsDownUp, Search, History, BarChart3 } from 'lucide-react';
+import { Collapse, Input } from 'antd';
 import type { ScanSummary, WorldSummary } from '../lib/scan';
 import { worldGroups, worldTicks, byPlayTimeDesc } from '../lib/worlds';
 import type { PageId } from '../app/routes';
@@ -65,87 +66,101 @@ function World({
 }) {
   const [expanded, setExpanded] = useState(search);
   const open = openProp ?? expanded;
+  /* The hand-written <details> became an antd Collapse (ghost): same disclosure,
+     library disclosure semantics. The `.world-result` class and `data-status`
+     land on the Collapse root (antd forwards unknown props there), so the page
+     styles and the qa-design-check degraded-world assertion keep their hooks -
+     the header node plays the role `summary` played, and the row content sits in
+     the panel body. antd owns the open/close motion; the dual-source state
+     (`openProp ?? expanded`) survives unchanged: flat view is controlled by the
+     open Set, the grouped view keeps its own state seeded by the search flag. */
   return (
-    <details
+    <Collapse
+      ghost
       className="world-result"
       data-status={world.status}
-      open={open}
-      onToggle={(e) => {
-        const next = e.currentTarget.open;
+      activeKey={open ? ['detail'] : []}
+      /* The row carried no visible disclosure marker (hover ink only); a null
+         icon keeps that shape instead of adding an arrow the row never had. */
+      expandIcon={() => null}
+      onChange={(keys) => {
+        const next = keys.length > 0;
         if (openProp === undefined) setExpanded(next);
         onOpenChange?.(next);
       }}
-    >
-      <summary>
-        <strong>{world.name}</strong>
-        {instanceName ? (
-          <span className="world-instance" title={instanceName}>
-            {instanceName}
-          </span>
-        ) : null}
-        <WorldTotal world={world} maxTicks={maxTicks} />
-        <span className="world-status">
-          {world.status === 'Missing'
-            ? '目录已缺失 · 历史保留'
-            : world.status === 'Degraded'
-            ? '元数据缺失或损坏'
-            : `${world.players.length} 位玩家`}
-        </span>
-      </summary>
-      {open ? (
-        <>
-          <p className="world-path">{displayPath(world.path)}</p>
-          <p>Minecraft {world.minecraft_version ?? '版本未知'}</p>
-          <div className="world-detail-actions">
-            <button
-              className="text-button"
-              onClick={() => onActivity('timeline', world.path)}
-            >
-              <History size={14} />
-              时间线与追踪
-            </button>
-            <button
-              className="text-button"
-              onClick={() => onActivity('statistics', world.path)}
-            >
-              <BarChart3 size={14} />
-              更多统计
-            </button>
-          </div>
-          {!world.players.length ? <p>此世界尚无可用的玩家统计。</p> : null}
-          {world.players.map((player) => (
-            <div key={player.uuid} className="player-result">
-              <PlayerName
-                player={player}
-                disabled={busy || !saved}
-                onSaved={onSaved}
-              />
-              <strong
-                title={
-                  player.play_ticks === null
-                    ? undefined
-                    : `${player.play_ticks} ticks`
-                }
-              >
-                {player.play_ticks === null
-                  ? player.conflicting
-                    ? '来源冲突，等待确认'
-                    : '本次未读取到统计'
-                  : formatPlayTicks(player.play_ticks)}
-              </strong>
-              <span>
-                {player.source_paths.length} 个统计来源 · 最近存档读数
-              </span>
-              {player.initial_play_ticks !== null ? (
-                <span>
-                  首次导入历史：{formatPlayTicks(player.initial_play_ticks)}
+      items={[
+        {
+          key: 'detail',
+          label: (
+            <>
+              <strong>{world.name}</strong>
+              {instanceName ? (
+                <span className="world-instance" title={instanceName}>
+                  {instanceName}
                 </span>
               ) : null}
-            </div>
-          ))}
-        </>
-      ) : null}
-    </details>
+              <WorldTotal world={world} maxTicks={maxTicks} />
+              <span className="world-status">
+                {world.status === 'Missing'
+                  ? '目录已缺失 · 历史保留'
+                  : world.status === 'Degraded'
+                  ? '元数据缺失或损坏'
+                  : `${world.players.length} 位玩家`}
+              </span>
+            </>
+          ),
+          children: (
+            <>
+              <p className="world-path">{displayPath(world.path)}</p>
+              <p>Minecraft {world.minecraft_version ?? '版本未知'}</p>
+              <div className="world-detail-actions">
+                <TextButton onClick={() => onActivity('timeline', world.path)}>
+                  <History size={14} />
+                  时间线与追踪
+                </TextButton>
+                <TextButton
+                  onClick={() => onActivity('statistics', world.path)}
+                >
+                  <BarChart3 size={14} />
+                  更多统计
+                </TextButton>
+              </div>
+              {!world.players.length ? <p>此世界尚无可用的玩家统计。</p> : null}
+              {world.players.map((player) => (
+                <div key={player.uuid} className="player-result">
+                  <PlayerName
+                    player={player}
+                    disabled={busy || !saved}
+                    onSaved={onSaved}
+                  />
+                  <strong
+                    title={
+                      player.play_ticks === null
+                        ? undefined
+                        : `${player.play_ticks} ticks`
+                    }
+                  >
+                    {player.play_ticks === null
+                      ? player.conflicting
+                        ? '来源冲突，等待确认'
+                        : '本次未读取到统计'
+                      : formatPlayTicks(player.play_ticks)}
+                  </strong>
+                  <span>
+                    {player.source_paths.length} 个统计来源 · 最近存档读数
+                  </span>
+                  {player.initial_play_ticks !== null ? (
+                    <span>
+                      首次导入历史：{formatPlayTicks(player.initial_play_ticks)}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </>
+          ),
+        },
+      ]}
+    />
   );
 }
 export default function WorldLibrary({
@@ -242,18 +257,18 @@ export default function WorldLibrary({
             setPage(0);
           }}
         />
-        <label>
-          <Search size={16} />
-          <input
-            aria-label="查找世界或玩家"
-            value={query}
-            onChange={(e) => {
-              onQuery(e.target.value);
-              setPage(0);
-            }}
-            placeholder="实例、世界、玩家名或 UUID"
-          />
-        </label>
+        <Input
+          className="library-search"
+          aria-label="查找世界或玩家"
+          prefix={<Search size={16} aria-hidden="true" />}
+          allowClear
+          value={query}
+          onChange={(e) => {
+            onQuery(e.target.value);
+            setPage(0);
+          }}
+          placeholder="实例、世界、玩家名或 UUID"
+        />
         {mode === 'grouped' ? (
           <SecondaryButton
             disabled={open.size === 0}
@@ -337,50 +352,61 @@ export default function WorldLibrary({
             .map((group) => {
               const expanded = open.has(group.root.path);
               return (
-                <details
+                /* Same treatment as `.world-result`: the folder disclosure is a
+                   ghost Collapse now, with the `.world-group` class and the open
+                   Set as the single controlled source. */
+                <Collapse
                   key={group.root.path}
+                  ghost
                   className="world-group"
-                  open={expanded}
-                  onToggle={(e) => {
-                    const expanded = e.currentTarget.open;
+                  activeKey={expanded ? ['group'] : []}
+                  expandIcon={() => null}
+                  onChange={(keys) => {
+                    const next = keys.length > 0;
                     setOpen((prev) => {
-                      if (prev.has(group.root.path) === expanded) return prev;
-                      const next = new Set(prev);
-                      if (expanded) next.add(group.root.path);
-                      else next.delete(group.root.path);
-                      return next;
+                      if (prev.has(group.root.path) === next) return prev;
+                      const copy = new Set(prev);
+                      if (next) copy.add(group.root.path);
+                      else copy.delete(group.root.path);
+                      return copy;
                     });
                   }}
-                >
-                  <summary>
-                    <strong>{group.name}</strong>
-                    <span>
-                      {group.shared ? '共享根目录 · ' : ''}
-                      {group.worlds.length} 个世界
-                    </span>
-                  </summary>
-                  {expanded ? (
-                    <div className="world-group-content">
-                      <p className="world-path">
-                        {displayPath(group.root.path)}
-                      </p>
-                      {group.worlds.map((world) => (
-                        <World
-                          key={world.path}
-                          world={world}
-                          // The same maximum as the flat view, so a bar means the same
-                          // length in both modes.
-                          maxTicks={maxWorldTicks}
-                          search={search}
-                          busy={busy}
-                          saved={report.saved}
-                          onSaved={onSaved}
-                          onActivity={onActivity}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </details>
+                  items={[
+                    {
+                      key: 'group',
+                      label: (
+                        <>
+                          <strong>{group.name}</strong>
+                          <span>
+                            {group.shared ? '共享根目录 · ' : ''}
+                            {group.worlds.length} 个世界
+                          </span>
+                        </>
+                      ),
+                      children: (
+                        <div className="world-group-content">
+                          <p className="world-path">
+                            {displayPath(group.root.path)}
+                          </p>
+                          {group.worlds.map((world) => (
+                            <World
+                              key={world.path}
+                              world={world}
+                              // The same maximum as the flat view, so a bar means the same
+                              // length in both modes.
+                              maxTicks={maxWorldTicks}
+                              search={search}
+                              busy={busy}
+                              saved={report.saved}
+                              onSaved={onSaved}
+                              onActivity={onActivity}
+                            />
+                          ))}
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
               );
             })}
       {pages > 1 ? (

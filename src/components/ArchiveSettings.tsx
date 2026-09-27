@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArchiveRestore, FolderOpen, Save } from 'lucide-react';
+import { Button, Checkbox, Input, Select, Switch } from 'antd';
 import {
   archiveStatus,
   configureBackups,
@@ -81,21 +82,20 @@ export default function ArchiveSettings() {
           <details>
             <summary>实际档案位置与备份目录</summary>
             <p className="world-path">{status.database_path}</p>
-            <button
-              type="button"
-              className="secondary-button"
+            <Button
+              icon={<FolderOpen size={14} />}
               onClick={() => void run(() => openArchiveFolder(false))}
             >
-              <FolderOpen size={14} /> 打开档案目录
-            </button>
+              打开档案目录
+            </Button>
             <label>
               备份目录
-              <input
+              <Input
                 value={directory ?? status.policy.directory}
                 onChange={(e) => setDirectory(e.target.value)}
               />
             </label>
-            <button
+            <Button
               disabled={busy}
               onClick={() =>
                 void run(
@@ -110,65 +110,68 @@ export default function ArchiveSettings() {
               }
             >
               保存目录
-            </button>
+            </Button>
           </details>
           <div className="backup-controls">
             <label>
-              <input
-                type="checkbox"
-                role="switch"
+              {/* The switch alone is labelled 自动备份 (the label text wraps it,
+                  and a Switch is a button, so clicking the text toggles it);
+                  change is saved immediately through the same run() three-state
+                  the other controls in this card use. */}
+              <Switch
+                aria-label="自动备份"
                 checked={status.policy.enabled}
                 disabled={busy}
-                onChange={(e) =>
+                onChange={(checked) =>
                   void run(
                     () =>
                       configureBackups(
-                        e.target.checked,
+                        checked,
                         status.policy.retention,
                         status.policy.directory,
                       ),
                     '自动备份设置已保存',
                   )
                 }
-              />{' '}
+              />
               自动备份
             </label>
             <label>
               保留自动备份
-              <select
+              <Select
                 value={status.policy.retention}
                 disabled={busy}
-                onChange={(e) =>
+                onChange={(value) =>
                   void run(
                     () =>
                       configureBackups(
                         status.policy.enabled,
-                        Number(e.target.value),
+                        value,
                         status.policy.directory,
                       ),
                     '保留数量已保存',
                   )
                 }
-              >
-                {[7, 14, 30].map((n) => (
-                  <option key={n} value={n}>
-                    {n} 份
-                  </option>
-                ))}
-              </select>
+                options={[7, 14, 30].map((n) => ({
+                  value: n,
+                  label: `${n} 份`,
+                }))}
+              />
             </label>
-            <button
+            <Button
+              type="primary"
+              icon={<Save size={14} />}
               disabled={busy}
               onClick={() => void run(createBackup, '手动备份已保存')}
             >
-              <Save size={14} /> 立即备份
-            </button>
-            <button
-              className="secondary-button"
+              立即备份
+            </Button>
+            <Button
+              icon={<FolderOpen size={14} />}
               onClick={() => void run(() => openArchiveFolder(true))}
             >
-              <FolderOpen size={14} /> 打开备份目录
-            </button>
+              打开备份目录
+            </Button>
           </div>
           <p className="scan-note">
             程序运行时每小时检查；每天有数据变化时最多备份一次。手动备份与恢复前备份不会自动删除。仅备份本软件档案和设置，不包含
@@ -189,32 +192,33 @@ export default function ArchiveSettings() {
             <summary>选择备份并恢复</summary>
             <label>
               已有备份
-              <select value={path} onChange={(e) => selectPath(e.target.value)}>
-                <option value="">选择一份备份</option>
-                {[...status.policy.records].reverse().map((b) => (
-                  <option key={b.path} value={b.path}>
-                    {new Date(b.created_at).toLocaleString()} ·{' '}
-                    {b.kind === 'auto'
+              <Select
+                value={path || undefined}
+                placeholder="选择一份备份"
+                allowClear
+                onChange={(value) => selectPath(value ?? '')}
+                options={[...status.policy.records].reverse().map((b) => ({
+                  value: b.path,
+                  label: `${new Date(b.created_at).toLocaleString()} · ${
+                    b.kind === 'auto'
                       ? '自动'
                       : b.kind === 'manual'
                       ? '手动'
-                      : '恢复前'}{' '}
-                    · {b.worlds} 个世界
-                  </option>
-                ))}
-              </select>
+                      : '恢复前'
+                  } · ${b.worlds} 个世界`,
+                }))}
+              />
             </label>
             <label>
               或输入备份文件完整路径
-              <input
+              <Input
                 value={path}
                 onChange={(e) => selectPath(e.target.value)}
                 placeholder="例如 D:\\备份\\minechronicle.sqlite3"
               />
             </label>
-            <button
-              type="button"
-              className="secondary-button"
+            <Button
+              icon={<FolderOpen size={14} />}
               disabled={busy}
               onClick={() =>
                 void run(async () => {
@@ -223,10 +227,9 @@ export default function ArchiveSettings() {
                 })
               }
             >
-              <FolderOpen size={14} /> 浏览备份文件
-            </button>
-            <button
-              className="secondary-button"
+              浏览备份文件
+            </Button>
+            <Button
               disabled={busy || !path.trim()}
               onClick={() =>
                 void run(async () => {
@@ -243,7 +246,7 @@ export default function ArchiveSettings() {
               }
             >
               校验并预览
-            </button>
+            </Button>
             {preview && preview.path === path.trim() && (
               <div className="restore-preview">
                 <p className="world-path">恢复文件：{preview.path}</p>
@@ -255,15 +258,16 @@ export default function ArchiveSettings() {
                 <p>
                   恢复将替换当前档案和其中的设置。会先保留当前档案；游戏或扫描运行中不能恢复。
                 </p>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={confirm}
-                    onChange={(e) => setConfirm(e.target.checked)}
-                  />{' '}
+                {/* The confirmation gate: restore stays disabled until this
+                    box is checked - the one guard before an irreversible write. */}
+                <Checkbox
+                  checked={confirm}
+                  onChange={(e) => setConfirm(e.target.checked)}
+                >
                   我已确认要恢复这份档案
-                </label>
-                <button
+                </Checkbox>
+                <Button
+                  type="primary"
                   disabled={busy || !confirm || status.pending_restore}
                   onClick={() =>
                     void run(
@@ -273,7 +277,7 @@ export default function ArchiveSettings() {
                   }
                 >
                   备份当前档案并准备恢复
-                </button>
+                </Button>
               </div>
             )}
           </details>
@@ -288,18 +292,17 @@ export default function ArchiveSettings() {
                     : '较早版本安排'}
                 </span>
               )}
-              <button disabled={busy} onClick={() => void run(restartRestore)}>
+              <Button disabled={busy} onClick={() => void run(restartRestore)}>
                 重启并完成恢复
-              </button>
-              <button
+              </Button>
+              <Button
                 disabled={busy}
-                className="secondary-button"
                 onClick={() =>
                   void run(cancelRestore, '已取消恢复，当前档案保持不变')
                 }
               >
                 取消待恢复
-              </button>
+              </Button>
             </p>
           )}
         </>

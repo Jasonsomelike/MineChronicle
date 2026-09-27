@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { UserRound } from 'lucide-react';
+import { Button, Input } from 'antd';
+import { TextButton } from './ui';
 import type { ScanSummary } from '../lib/scan';
 import { playerOptions } from '../lib/players';
 import {
@@ -58,7 +60,7 @@ export default function SelfPlayerSettings({
             </p>
           </div>
           <div className="self-player-input">
-            <input
+            <Input
               id="self-player-identity"
               aria-label="玩家名称 / UUID"
               disabled={!loaded || saving}
@@ -73,21 +75,21 @@ export default function SelfPlayerSettings({
                 setMessage('');
               }}
             />
-            <button type="submit" disabled={!loaded || saving}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              disabled={!loaded || saving}
+            >
               {saving ? '保存中…' : '保存'}
-            </button>
+            </Button>
           </div>
         </div>
         {error ? (
           <p role="alert">
             {error}{' '}
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => void loadSelfPlayer().catch(() => {})}
-            >
+            <TextButton onClick={() => void loadSelfPlayer().catch(() => {})}>
               重试
-            </button>
+            </TextButton>
           </p>
         ) : !loaded ? (
           <p role="status">正在读取已保存的身份…</p>

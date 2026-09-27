@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { Power, MonitorCog } from 'lucide-react';
+import { Switch } from 'antd';
 import { displayPath } from '../lib/path';
 import ThemeSetting from './ThemeSetting';
 interface StartupStatus {
@@ -60,17 +61,15 @@ export default function StartupSettings() {
             {busy ? '保存中…' : status?.enabled ? '已开启' : '已关闭'}
           </p>
         </div>
-        <label className="setting-switch">
-          <input
-            type="checkbox"
-            role="switch"
+        <span className="setting-switch">
+          <Switch
             aria-label="开机自启动"
             checked={status?.enabled ?? false}
             disabled={!status?.supported || busy}
-            onChange={(e) => void change(e.target.checked)}
+            onChange={(checked) => void change(checked)}
           />
           <span aria-hidden="true">自启</span>
-        </label>
+        </span>
       </div>
       {status?.executable ? (
         <details>

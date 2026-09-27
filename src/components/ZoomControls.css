@@ -41,23 +41,21 @@
   background: var(--surface-hover);
 }
 .zoom-controls button:disabled {
+  /* Only the fade is ours now. The buttons are antd Buttons: the disabled
+     fill comes from colorBgContainerDisabled, the ring from the library's
+     border token, and cursor: not-allowed from the library - all of which is
+     what qa-review-fixes's disabled census demands (distinct fill, readable
+     label, not-allowed cursor). */
   opacity: 0.35;
-  cursor: default;
 }
-.scan-panel .zoom-controls select {
+/* The zoom Select is antd; v6 sizes a single Select through a custom property
+   on the root, so the compact 28px form is one declaration, not a selector
+   rewrite. The old native-select rule this replaces set the same width. */
+.zoom-controls .ant-select {
   width: 82px;
   min-width: 82px;
-  height: var(--control-sm);
-  padding: 2px 6px;
-  border: 0;
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--type-body);
-  line-height: 1.4;
+  --ant-select-height: var(--control-sm);
   font-variant-numeric: tabular-nums;
-  cursor: pointer;
 }
 .zoom-controls .zoom-reset {
   border-left: 1px solid var(--border-soft);

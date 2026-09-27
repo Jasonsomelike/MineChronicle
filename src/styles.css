@@ -198,16 +198,8 @@ main {
   flex-shrink: 0;
   font-size: var(--type-body);
 }
-.setting-switch input {
-  /* This checkbox, the tracking switch and the two picker lists each checked themselves
-     with `accent-color` set to a literal green - three values, none of them the green the
-     app already calls its strong surface, and no theme could ever move them. They all
-     point at `--surface-strong` now; a fourth name for the same colour would only be a
-     fifth place to forget. */
-  accent-color: var(--surface-strong);
-  width: 18px;
-  height: 18px;
-}
+/* The control inside is an antd Switch now - its geometry and fill come from
+   the theme tokens, so the old 18px input rule is deleted rather than ported. */
 .setting-badge {
   flex-shrink: 0;
   border-radius: var(--radius-lg);
@@ -247,13 +239,6 @@ main {
   gap: 8px;
   margin: 0;
   white-space: nowrap;
-}
-.scan-panel .setting-switch > input {
-  flex: 0 0 18px;
-  min-width: 18px;
-  width: 18px;
-  height: 18px;
-  padding: 0;
 }
 .setting-row > div {
   min-width: 0;
@@ -751,7 +736,19 @@ li span {
   margin-bottom: 24px;
   font-size: var(--type-body);
 }
-button {
+/* The hand-written control baseline. `[class*='ant-']` keeps it off the library's
+   controls: antd renders Switch and friends as real <button> elements, and this
+   rule's min-height/padding/fill would inflate them (measured: the 开机自启动
+   Switch at 40x38). Library controls take their geometry from the theme tokens
+   in src/lib/antdTokens.ts instead.
+   The exclusion sits inside `:where()` on purpose: the bare `button` rule this
+   replaced was element-level, so every class-qualified control rule below
+   (.player-trigger, .health-tabs button, …) outranked it. Writing the exclusion
+   as a plain `:not()` lifts the baseline to (0,1,1) and those rules stop winning
+   - measured on the timeline page, the three activity pickers came out blue-
+   filled (the baseline's --surface-strong) instead of the outlined control
+   .player-trigger declares. `:where()` keeps the exclusion at zero cost. */
+button:where(:not([class*='ant-'])) {
   background: var(--surface-strong);
   border: 0;
   border-radius: var(--radius-sm);
@@ -771,7 +768,7 @@ button {
 /* Guarded, because a bare `button:hover` has the same specificity as
    `button:disabled` and comes first in the file: it won both, so the `‹` arrow on
    page 1 kept a hover fill. */
-button:hover:not(:disabled) {
+button:where(:not([class*='ant-'])):hover:not(:disabled) {
   background: var(--surface-strong-hover);
 }
 /* Any button that draws a glyph beside its label lays them out on one row.
@@ -782,8 +779,10 @@ button:hover:not(:disabled) {
    (.app-nav, .text-button, .library-toolbar, .instance-row, .timeline, …) keep
    winning, because wrapping this in `:where()` drops its specificity to the bare
    `button` element - lower than every class-qualified rule above. It is a
-   fallback, not an override; the 6px also matches the gap those rules use. */
-:where(button:has(> svg)) {
+   fallback, not an override; the 6px also matches the gap those rules use.
+   antd buttons own their icon layout, so they are excluded like the baseline
+   above. */
+:where(button:not([class*='ant-']):has(> svg)) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -838,8 +837,10 @@ button:hover:not(:disabled) {
  * and 7.64:1 in dark, so a disabled *label* is still readable - disabling
  * something is a reason to stop calling it primary, not a reason to make its text
  * unreadable. The 1px `--border` ring is the same hairline every resting card
- * uses: it defines the button's edge without asserting emphasis. */
-button:disabled {
+ * uses: it defines the button's edge without asserting emphasis. antd buttons
+ * are excluded - the `!important` here would repaint the library's own disabled
+ * states, which the theme tokens already cover. */
+button:where(:not([class*='ant-'])):disabled {
   background: var(--surface) !important;
   color: var(--text-faint) !important;
   border: 1px solid var(--border) !important;
@@ -1177,14 +1178,8 @@ footer {
   font-weight: 400;
   font-size: var(--type-caption);
 }
-.scan-panel .tracking-toggle input {
-  min-width: 0;
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
-  accent-color: var(--surface-strong);
-  cursor: pointer;
-}
+/* The control inside is an antd Switch now; the 16px input sizing is gone with
+   the native checkbox. */
 .watch-status {
   display: flex;
   align-items: center;
@@ -1718,8 +1713,13 @@ footer {
 .player-trigger svg {
   flex-shrink: 0;
 }
-.player-trigger:hover,
-.player-trigger[aria-expanded='true'] {
+/* `button.` prefixes the states above element level: the baseline's
+   `button:where(...):hover:not(:disabled)` counts (0,2,1) and a bare
+   `.player-trigger:hover` is only (0,2,0), so the primary-action hover fill
+   used to win and a hovered/open picker flashed blue over its outlined rest.
+   Tying at (0,2,1) lets the later-in-file rule take over. */
+button.player-trigger:hover,
+button.player-trigger[aria-expanded='true'] {
   background: var(--surface-hover);
   color: var(--text);
 }
@@ -2781,8 +2781,7 @@ button.stat-icon:hover {
   margin: 0 !important;
   gap: 8px !important;
 }
-.library-toolbar button,
-.pagination button {
+.library-toolbar button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2812,7 +2811,11 @@ button.stat-icon:hover {
   padding: 20px 0;
   font-size: var(--type-caption);
 }
-.pagination button {
+/* The adapter's pager (src/components/ui/index.tsx) is antd Buttons and draws
+   from the theme tokens. The dashboard's rank pager and the timeline's pager
+   are still hand-written, so the quiet 34x34 paint stays for them - scoped to
+   non-antd buttons so it cannot repaint the library's arrows underneath. */
+.pagination button:not([class*='ant-']) {
   width: 34px;
   height: 34px;
   padding: 9px;
@@ -2836,7 +2839,7 @@ button.stat-icon:hover {
      `none` in dark, where depth comes from the surface ladder. */
   box-shadow: var(--shadow-hairline);
 }
-.pagination button:hover:not(:disabled) {
+.pagination button:not([class*='ant-']):hover:not(:disabled) {
   background: var(--surface-active);
 }
 .health-tabs {
@@ -3321,7 +3324,9 @@ button.stat-icon:hover {
   background: var(--surface-strong);
   color: var(--text-on-strong);
 }
-.pagination input {
+/* ant- inputs are excluded so the rule cannot reach the Select's internal
+   search field when the jump control is an antd Select. */
+.pagination input:not([class*='ant-']) {
   width: 76px;
 }
 
@@ -3402,8 +3407,10 @@ button.stat-icon:hover {
   gap: 8px;
   margin: 10px 0;
 }
+/* Text fields and Selects stretch like the native ones they replaced; the
+   select-element selector is gone with the native control. */
 .archive-settings input:not([type='checkbox']),
-.archive-settings select {
+.archive-settings .ant-select {
   min-width: 0;
   max-width: 100%;
   flex: 1;
@@ -3533,12 +3540,8 @@ button.stat-icon:hover {
   }
 }
 
-.scan-panel .archive-settings input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  margin: 0;
-}
+/* The 确认要恢复 checkbox is an antd Checkbox now; the 16px guard that fixed the
+   enormous-blue-box regression is deleted with the native control it sized. */
 
 .session-end-dialog {
   width: min(460px, calc(100% - 32px));

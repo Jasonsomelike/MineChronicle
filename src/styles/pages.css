@@ -508,3 +508,238 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------------------------------------------------------------------------
+   Data pages on antd (second migration batch).
+
+   The library's own styles come from cssinjs; where a preserved hook class now
+   sits on an antd node (`.world-result` on a ghost Collapse, `.pagination` on a
+   nav around antd's Pagination, ...), the rules below re-dress those nodes with
+   the app's tokens. These sheets are in the design-check's component whitelist,
+   so every size here is one of the five rungs and every colour a token.
+   --------------------------------------------------------------------------- */
+
+/* --- 世界与玩家: the world row on a ghost Collapse -----------------------
+   The header node plays the role `summary` played; its inner `.ant-collapse-
+   title` span carries the row's flex layout (antd v6 renders the label inside
+   `.ant-collapse-title`; the v5-era `.ant-collapse-header-text` no longer
+   exists in the DOM, and a rule aimed at it dies silently - measured live,
+   the world name and its instance suffix rendered glued at 0px apart), and
+   the hover ink stays on the header. The degraded-world status colour keeps
+   coming from the `.world-result[data-status='Degraded'] .world-status` rule
+   above - the hook class moved to the Collapse root, so the selector still
+   resolves. */
+.world-result.ant-collapse-ghost,
+.world-group.ant-collapse-ghost {
+  background: transparent;
+}
+
+.world-result > .ant-collapse-item,
+.world-group > .ant-collapse-item {
+  border-bottom: 0;
+}
+
+.world-result > .ant-collapse-item > .ant-collapse-header {
+  min-height: 36px;
+  padding: var(--space-1) var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.world-result > .ant-collapse-item > .ant-collapse-header:hover {
+  background: var(--surface-hover);
+}
+
+.world-result > .ant-collapse-item-active > .ant-collapse-header {
+  padding-bottom: var(--space-2);
+}
+
+.world-result .ant-collapse-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--type-lead);
+}
+
+.world-result .ant-collapse-title strong {
+  color: var(--text-strong);
+}
+
+.world-result .ant-collapse-content > .ant-collapse-content-box {
+  padding: 0 0 var(--space-2);
+}
+
+/* The folder group header: same treatment as its `<summary>` had. */
+.world-group > .ant-collapse-item > .ant-collapse-header {
+  padding: 16px 0;
+  cursor: pointer;
+  font-size: var(--type-lead);
+  overflow-wrap: anywhere;
+}
+
+.world-group .ant-collapse-title strong {
+  color: var(--text-strong);
+}
+
+.world-group .ant-collapse-title span {
+  /* The summary-era value was an off-grid 14px; the token grid's 12px step
+     reads the same and keeps the spacing budget from growing. */
+  margin-left: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+}
+
+.world-group .ant-collapse-content > .ant-collapse-content-box {
+  padding: 0 0 12px 20px;
+}
+
+/* The list search box: antd's affix wrapper takes the sizing cap the bare
+   `<input>` had. */
+.library-toolbar .library-search {
+  flex: 1 1 220px;
+  max-width: min(360px, 100%);
+  min-width: 0;
+}
+
+/* --- 更多统计 ----------------------------------------------------------- */
+
+/* The category strip: antd Tabs with the chip's metrics. `small` keeps its
+   rule above (`.statistics-categories small`) - the count must stay on the
+   12px rung, UA defaults would drop it below the type floor's neighbours. */
+.statistics-categories .ant-tabs {
+  width: 100%;
+}
+
+.statistics-categories .ant-tabs-nav {
+  margin-bottom: 0;
+}
+
+.statistics-categories .ant-tabs-nav::before {
+  border-bottom: 0;
+}
+
+.statistics-categories .ant-tabs-tab {
+  padding: var(--space-2) var(--space-1);
+}
+
+.statistics-categories .stat-category-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Density: the `is-compact` / `is-comfortable` container classes keep mapping
+   to the cell padding the hand-written table used; the antd size prop only
+   sets a baseline that these override. */
+.statistics-table.is-compact .ant-table-thead > tr > th,
+.statistics-table.is-compact .ant-table-tbody > tr > td {
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+
+.statistics-table.is-comfortable .ant-table-thead > tr > th,
+.statistics-table.is-comfortable .ant-table-tbody > tr > td {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+/* The sort-icon container. antd zeroes its font-size on purpose
+   (es/table/style/sorter.js:70 - the icons size themselves from
+   `fontSizeIcon` on `-up`/`-down`), but the node is visible and carries no
+   text, so the design check's element walk samples it as a 0px font - off the
+   five-rung scale and under the floor. There is no component token for that
+   literal, so the override lives here instead: 12px puts the container on the
+   scale, and `line-height: 0` keeps its layout contribution exactly what the
+   zero was (measured: the sort arrows stay the `fontSizeIcon` size and the
+   header row height is unchanged). */
+.statistics-table .ant-table-column-sorter {
+  font-size: var(--type-caption);
+  line-height: 0;
+}
+
+/* The search field in the tool band shares the capped width of the world
+   library's. */
+.statistics .statistics-toolbar .statistics-search {
+  flex: 1 1 220px;
+  max-width: min(360px, 100%);
+}
+
+/* --- 时间线 / 实例观测: pickers in the filter bands --------------------- */
+.timeline-filters .ant-picker,
+.timeline-filters .ant-select,
+.filter-drawer .observation-filters .ant-picker {
+  min-width: 0;
+}
+
+/* The instance/status Selects filled the label's width like the `<select>`
+   they replaced. */
+.filter-drawer .observation-filters .ant-select {
+  width: 100%;
+}
+
+/* --- 时间线: the observed-parts disclosure on a ghost Collapse ---------- */
+.timeline-events > li .event-details > .ant-collapse-item {
+  border-bottom: 0;
+}
+
+.timeline-events
+  > li
+  .event-details
+  > .ant-collapse-item
+  > .ant-collapse-header {
+  padding: 0;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: var(--type-caption);
+}
+
+.timeline-events
+  > li
+  .event-details
+  > .ant-collapse-item
+  > .ant-collapse-header:hover {
+  color: var(--text-muted);
+}
+
+.timeline-events
+  > li
+  .event-details
+  .ant-collapse-content
+  > .ant-collapse-content-box {
+  padding: 4px 0 0;
+}
+
+/* --- 生涯概览: the rollback disclosure on a ghost Collapse -------------- */
+.rollback-list > .ant-collapse-item {
+  border-bottom: 0;
+}
+
+.rollback-list > .ant-collapse-item > .ant-collapse-header {
+  padding: 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rollback-list .ant-collapse-content > .ant-collapse-content-box {
+  padding: 8px 0 0;
+}
+
+/* --- 图标预览: the native <dialog> became an antd Modal -----------------
+   `.stat-image-dialog` carries over the dialog-era paint (border, backdrop
+   wash, fixed width) that keyed on the element itself; on the Modal root that
+   paint must not fight the library's own surface, so the modal chrome is
+   cleared and the inner `.stat-image-*` rules do the dressing. */
+.ant-modal.stat-image-dialog {
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ant-modal.stat-image-dialog .ant-modal-content {
+  padding: 0;
+}

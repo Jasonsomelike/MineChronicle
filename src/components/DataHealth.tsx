@@ -1,20 +1,12 @@
 import { useState } from 'react';
-import {
-  Check,
-  Clock3,
-  GitFork,
-  X,
-  Undo2,
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { Check, Clock3, GitFork, X, Undo2, ArrowUpRight } from 'lucide-react';
+import { Button, Collapse, Select } from 'antd';
 import { decideClone, reviewHealth, issueNames } from '../lib/health';
 import type { HealthSummary, CloneCandidate } from '../lib/health';
 import type { ScanSummary } from '../lib/scan';
 import { displayPath } from '../lib/path';
 import { formatPlayTicks } from '../lib/duration';
-import { Tabs, tabId } from './ui';
+import { Pagination, Tabs, TextButton, tabId } from './ui';
 
 function Candidate({
   candidate,
@@ -70,14 +62,10 @@ function Candidate({
       <div className="clone-worlds">
         {[candidate.world_a, candidate.world_b].map((world) => (
           <div key={world.id}>
-            <button
-              className="text-button"
-              type="button"
-              onClick={() => onOpen(world.path)}
-            >
+            <TextButton onClick={() => onOpen(world.path)}>
               <strong>{world.name}</strong>
               <ArrowUpRight size={14} />
-            </button>
+            </TextButton>
             <p className="world-path">{displayPath(world.path)}</p>
           </div>
         ))}
@@ -86,23 +74,42 @@ function Candidate({
         发现时玩家
         UUID、完整统计内容和世界元数据一致。仅凭这些信息不能确定复制方向与继承时长。
       </p>
-      <details>
-        <summary>
-          {candidate.evidence.length} 位玩家的匹配证据 ·{' '}
-          {new Date(candidate.detected_at).toLocaleString()}
-        </summary>
-        {candidate.evidence.map((e) => (
-          <div key={e.uuid} className="clone-evidence">
-            <strong>{names.get(e.uuid) ?? e.uuid}</strong>
-            <span>{formatPlayTicks(e.ticks)}</span>
-            <code>{e.uuid}</code>
-            <details>
-              <summary>统计文件校验信息</summary>
-              <code title={e.stats_hash}>{e.stats_hash}</code>
-            </details>
-          </div>
-        ))}
-      </details>
+      {/* Two-level disclosure on antd Collapse (ghost): the evidence list, and
+          inside each row the stats-file checksum. The `.clone-evidence` rows
+          keep their class - the styles that lay them out key on it. */}
+      <Collapse
+        ghost
+        items={[
+          {
+            key: 'evidence',
+            label: (
+              <>
+                {candidate.evidence.length} 位玩家的匹配证据 ·{' '}
+                {new Date(candidate.detected_at).toLocaleString()}
+              </>
+            ),
+            children: candidate.evidence.map((e) => (
+              <div key={e.uuid} className="clone-evidence">
+                <strong>{names.get(e.uuid) ?? e.uuid}</strong>
+                <span>{formatPlayTicks(e.ticks)}</span>
+                <code>{e.uuid}</code>
+                <Collapse
+                  ghost
+                  items={[
+                    {
+                      key: 'stats-hash',
+                      label: '统计文件校验信息',
+                      children: (
+                        <code title={e.stats_hash}>{e.stats_hash}</code>
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+            )),
+          },
+        ]}
+      />
       {candidate.status === 'confirmed' ? (
         <p className="lineage-note">
           原世界：
@@ -116,58 +123,47 @@ function Candidate({
         <>
           <label className="lineage-parent">
             原世界
-            <select
-              value={parent}
-              onChange={(e) => setParent(e.target.value)}
+            <Select
+              value={parent || undefined}
+              placeholder="请选择原世界"
+              onChange={(value) => setParent(value)}
               disabled={busy}
-            >
-              <option value="">请选择原世界</option>
-              {[candidate.world_a, candidate.world_b].map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name} · {displayPath(w.path)}
-                </option>
-              ))}
-            </select>
+              options={[candidate.world_a, candidate.world_b].map((w) => ({
+                value: String(w.id),
+                label: `${w.name} · ${displayPath(w.path)}`,
+              }))}
+            />
           </label>
           <div className="health-actions">
-            <button
-              type="button"
+            <Button
+              type="primary"
               disabled={busy || !parent}
+              icon={<Check size={15} />}
               onClick={() => void decide('confirmed')}
             >
-              <Check size={15} />
               确认复制 / 分支
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
+            </Button>
+            <Button
               disabled={busy}
+              icon={<X size={15} />}
               onClick={() => void decide('rejected')}
             >
-              <X size={15} />
               独立世界
-            </button>
-            <button
-              type="button"
-              className="text-button"
+            </Button>
+            <TextButton
               disabled={busy || candidate.status === 'deferred'}
               onClick={() => void decide('deferred')}
             >
               <Clock3 size={15} />
               稍后处理
-            </button>
+            </TextButton>
           </div>
         </>
       ) : (
-        <button
-          className="text-button"
-          type="button"
-          disabled={busy}
-          onClick={() => void decide('pending')}
-        >
+        <TextButton disabled={busy} onClick={() => void decide('pending')}>
           <Undo2 size={15} />
           撤销复核
-        </button>
+        </TextButton>
       )}
       {error ? (
         <p role="alert" className="scan-error">
@@ -311,73 +307,39 @@ export default function DataHealth({
                     <p className="world-path">{displayPath(row.item.path)}</p>
                   ) : null}
                   <div className="health-actions">
-                    <button
-                      className="secondary-button"
-                      type="button"
+                    <Button
                       disabled={!!busy}
+                      icon={
+                        row.item.reviewed ? (
+                          <Undo2 size={15} />
+                        ) : (
+                          <Check size={15} />
+                        )
+                      }
                       onClick={() =>
                         void review(row.item.key, !row.item.reviewed)
                       }
                     >
-                      {row.item.reviewed ? (
-                        <Undo2 size={15} />
-                      ) : (
-                        <Check size={15} />
-                      )}{' '}
                       {row.item.reviewed ? '恢复待处理' : '标记已复核'}
-                    </button>
+                    </Button>
                     {row.item.target ? (
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => onOpen(row.item.target)}
-                      >
+                      <TextButton onClick={() => onOpen(row.item.target)}>
                         <ArrowUpRight size={15} />
                         查找相关世界
-                      </button>
+                      </TextButton>
                     ) : null}
                   </div>
                 </article>
               ),
             )}
             {pages > 1 ? (
-              <div className="pagination">
-                <label>
-                  跳转到{' '}
-                  <select
-                    aria-label="数据健康页码"
-                    value={current}
-                    onChange={(event) => setPage(Number(event.target.value))}
-                  >
-                    {Array.from({ length: pages }, (_, i) => (
-                      <option key={i} value={i}>
-                        第 {i + 1} 页
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  title="上一页"
-                  aria-label="上一页"
-                  type="button"
-                  disabled={current === 0}
-                  onClick={() => setPage(current - 1)}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span>
-                  {current + 1} / {pages}
-                </span>
-                <button
-                  title="下一页"
-                  aria-label="下一页"
-                  type="button"
-                  disabled={current === pages - 1}
-                  onClick={() => setPage(current + 1)}
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+              <Pagination
+                page={current}
+                pages={pages}
+                onPrev={() => setPage(current - 1)}
+                onNext={() => setPage(current + 1)}
+                onJump={setPage}
+              />
             ) : null}
           </div>
         </div>

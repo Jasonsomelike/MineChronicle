@@ -6,8 +6,10 @@
  * in localStorage, not on `<html>` - and the same window width always draws the same
  * rail. Expansion is an interaction state, not a preference: pointing at the rail (or
  * focusing into it) opens a 192px overlay (`--sidebar-w`) on top of the content column,
- * and leaving, focusing away, navigating, pressing Escape, pressing anywhere else, or
- * blurring the window closes it again. `styles/shell.css` owns the geometry; this module
+ * and leaving, focusing away, pressing Escape, pressing anywhere else, or blurring the
+ * window closes it again. Clicking - navigating included - never closes it: the click
+ * lands under a pointer that is still on the rail, so collapsing there would yank the
+ * overlay out from under the cursor. `styles/shell.css` owns the geometry; this module
  * owns only the timing.
  *
  * Four states, one of them the resting one:
@@ -15,10 +17,10 @@
  *   intent-pending - the pointer arrived and the 100ms intent window is running, so a
  *                    sweep across the rail does not open it.
  *   open           - the overlay is up; `onChange(true)` has been delivered.
- *   grace-pending  - the pointer left and the 200ms leave-grace is running, so a tremble
+ *   grace-pending  - the pointer left and the 150ms leave-grace is running, so a tremble
  *                    across the boundary does not close it; re-entering cancels it.
  *
- * Every close event (navigate, light dismiss, Escape, window blur, focus out) cancels
+ * Every close event (light dismiss, Escape, window blur, focus out) cancels
  * both timers on its way out, so no stale timer can fire into a state that has already
  * moved on. `canOpen()` gates the two open events only: below 860px the rail reflows
  * into the top strip (`display: contents`, no box, so pointer events cannot even land on
@@ -31,7 +33,7 @@ export const INTENT_DELAY_MS = 100;
 
 /** How long the rail stays open after the pointer leaves: long enough to survive a
  *  tremble across the rail/content boundary, short enough to feel deliberate. */
-export const LEAVE_GRACE_MS = 200;
+export const LEAVE_GRACE_MS = 150;
 
 /** The one media query that decides whether a hover overlay can exist at all. Mirrors
  *  the `@media (max-width: 859.98px)` strip block in `styles/shell.css`: written from
@@ -72,8 +74,6 @@ export type RailController = {
   focusIn: () => void;
   /** Focus left the rail for a target outside it: close immediately. */
   focusOut: () => void;
-  /** A destination was chosen: close immediately, without waiting for the pointer. */
-  navigate: () => void;
   /** A press landed outside the rail while open (popover light dismiss): close now. */
   lightDismiss: () => void;
   /** Escape was pressed while open: close now. */
@@ -184,10 +184,6 @@ export function createRailController({
     },
 
     focusOut() {
-      close();
-    },
-
-    navigate() {
       close();
     },
 

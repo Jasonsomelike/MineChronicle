@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
+import { Button, Select } from 'antd';
 import {
   applyZoom,
   loadZoom,
@@ -95,46 +96,40 @@ export default function ZoomControls() {
         aria-label="界面缩放"
         aria-busy={busy}
       >
-        <button
-          type="button"
+        <Button
           title="缩小界面"
           aria-label="缩小界面"
           disabled={value <= MIN_ZOOM}
+          icon={<Minus size={15} />}
           onClick={() => void changeZoom(requested.current - 25)}
-        >
-          <Minus size={15} />
-        </button>
-        <select
+        />
+        {/* The wheel can leave `value` on any 5-step; the option list always
+            contains the current value, so the Select can display it. */}
+        <Select
           aria-label="界面缩放比例"
           title="界面缩放比例"
           value={value}
-          onChange={(event) => void changeZoom(Number(event.target.value))}
-        >
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}%
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
+          onChange={(next) => void changeZoom(Number(next))}
+          options={options.map((option) => ({
+            value: option,
+            label: `${option}%`,
+          }))}
+        />
+        <Button
           title="放大界面"
           aria-label="放大界面"
           disabled={value >= MAX_ZOOM}
+          icon={<Plus size={15} />}
           onClick={() => void changeZoom(requested.current + 25)}
-        >
-          <Plus size={15} />
-        </button>
-        <button
-          type="button"
+        />
+        <Button
           className="zoom-reset"
           title="恢复 100%"
           aria-label="恢复 100% 缩放"
           disabled={value === 100 && !error}
+          icon={<RotateCcw size={14} />}
           onClick={() => void changeZoom(100)}
-        >
-          <RotateCcw size={14} />
-        </button>
+        />
       </div>
       {error ? (
         <span className="zoom-error" role="alert">

@@ -1,25 +1,49 @@
-import {
-  useId,
-  useRef,
-  type ButtonHTMLAttributes,
-  type HTMLAttributes,
-  type ReactNode,
+import { useId } from 'react';
+import type {
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  MouseEventHandler,
+  ReactNode,
 } from 'react';
+import type { ButtonProps } from 'antd';
+import { Button, Select, Tabs as AntTabs } from 'antd';
+
+/**
+ * The UI adapter: hand-written control signatures, antd implementations.
+ *
+ * The export signatures are FROZEN - every consumer (WorldLibrary, DataHealth,
+ * and the settings cards as they migrate) keeps compiling without changes while
+ * the rendering underneath moves to the library. The legacy class names are kept
+ * on the rendered elements: they are the hooks the qa-* scripts and the surviving
+ * component stylesheets key on (className passthrough is the migration's default
+ * policy).
+ */
 
 /** Secondary / quiet action. */
 export function SecondaryButton({
   children,
   className = '',
+  /* The HTML `type` is a signature leftover (type="button"); antd's `type`
+     means the visual variant, so the HTML one is consumed and dropped. `color`
+     is the same story: an HTML passthrough in the old signature, an antd token
+     name now, so it never reaches the library. Destructure-and-drop keeps the
+     frozen wide signature; the underscored names are deliberately unused. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  type: _htmlType,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  color: _htmlColor,
+  onClick,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button
-      type="button"
+    <Button
+      type="default"
       className={`secondary-button ${className}`.trim()}
-      {...props}
+      {...(props as ButtonProps)}
+      onClick={onClick as MouseEventHandler<HTMLElement>}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -27,16 +51,27 @@ export function SecondaryButton({
 export function TextButton({
   children,
   className = '',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  type: _htmlType,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  color: _htmlColor,
+  onClick,
+  style,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button
-      type="button"
+    <Button
+      type="text"
       className={`text-button ${className}`.trim()}
-      {...props}
+      /* The old .text-button sized itself to its text (min-height: 0, padding
+         0); antd's control-height chip would space out the inline lists that
+         hold these links. Inline styles win the cascade against cssinjs. */
+      style={{ height: 'auto', minHeight: 0, padding: 0, ...style }}
+      {...(props as ButtonProps)}
+      onClick={onClick as MouseEventHandler<HTMLElement>}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -65,12 +100,16 @@ export function tabId(base: string, key: string) {
 }
 
 /**
- * ARIA tabs: the tablist, its roving tabindex and its arrow-key roaming.
+ * ARIA tabs on antd.
  *
- * The panel is the caller's element and is wired in with `panelId`; a tablist whose
- * tabs control nothing tells a screen reader that a panel exists and then does not
- * name it, which is worse than no tabs at all. `id` is the base for the tab ids, so
- * the panel can point back at the selected tab with `aria-labelledby`.
+ * antd brings the keyboard model the hand-rolled version implemented by hand:
+ * roving tabindex, arrow keys that wrap, Home/End, and overflow scrolling for
+ * long tab strips. The `id` prop is forwarded, and the tab machinery derives
+ * each tab's id as `${id}-tab-${key}` - the exact scheme `tabId` computes, so a
+ * caller's external panel keeps pointing at the selected tab with
+ * `aria-labelledby`. The tablist itself is antd's `.ant-tabs-nav`; the group
+ * `label` is surfaced as a visually hidden line beside the strip because the
+ * library offers no aria-label pass-through to the tablist node.
  */
 export function Tabs<T extends string>({
   id,
@@ -78,7 +117,6 @@ export function Tabs<T extends string>({
   value,
   options,
   onChange,
-  panelId,
 }: {
   /** Base for the generated tab ids. Defaults to a React-generated unique id. */
   id?: string;
@@ -86,63 +124,42 @@ export function Tabs<T extends string>({
   value: T;
   options: readonly (readonly [T, string])[];
   onChange: (next: T) => void;
-  /** The element the selected tab controls; becomes each tab's `aria-controls`. */
+  /** Kept for signature compatibility; antd owns the panel association. */
   panelId?: string;
 }) {
   const generated = useId();
   const base = id ?? generated;
-  const list = useRef<HTMLDivElement>(null);
   return (
-    <div
-      ref={list}
-      className="health-tabs"
-      role="tablist"
-      aria-label={label}
-      onKeyDown={(event) => {
-        const last = options.length - 1;
-        const at = options.findIndex(([key]) => key === value);
-        const step =
-          event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-        const next =
-          step !== 0
-            ? (at + step + options.length) % options.length
-            : event.key === 'Home'
-            ? 0
-            : event.key === 'End'
-            ? last
-            : -1;
-        /* The arrows wrap, so the group is a ring and the ends are not dead ends. */
-        if (next < 0 || next === at) return;
-        event.preventDefault();
-        onChange(options[next][0]);
-        /* Focus follows the selection. The tablist is a single tab stop, so nothing else
-           would move the keyboard cursor onto the tab that just became selected. */
-        const tabs =
-          list.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-        tabs?.[next]?.focus();
-      }}
-    >
-      {options.map(([key, text]) => (
-        <button
-          key={key}
-          id={tabId(base, key)}
-          type="button"
-          role="tab"
-          aria-selected={value === key}
-          aria-controls={panelId}
-          /* One tab stop for the whole tablist, with the arrows moving inside it - the
-             behaviour the role promises. Every tab used to be a stop, which made the
-             group cost one press per option and left the arrows doing nothing. */
-          tabIndex={value === key ? 0 : -1}
-          onClick={() => onChange(key)}
-        >
-          {text}
-        </button>
-      ))}
-    </div>
+    <>
+      {/* The strip's group name. The library's tablist node is built with fixed
+          props, so the label travels as text the reader can still reach
+          (`.sr-only` keeps it out of layout, not out of the accessibility
+          tree). */}
+      <span className="sr-only">{label}</span>
+      <AntTabs
+        id={base}
+        activeKey={value}
+        onChange={(key) => onChange(key as T)}
+        items={options.map(([key, text]) => ({ key, label: text }))}
+        className="health-tabs"
+        aria-label={label}
+      />
+    </>
   );
 }
 
+/**
+ * Pager: antd arrows and jump select, the hand-written markup's hook set.
+ *
+ * Deliberately NOT antd's `<Pagination>` primitive: it renders its arrows with a
+ * `title` and no `aria-label`, and replaces the count span with an input, while
+ * `qa-review-fixes` (on #/worlds) and `qa-flourish-measure` pin `.pagination
+ * button` with aria-labels, equal geometry, and the disabled/enabled contrast
+ * pair. antd Button/Select composition keeps every one of those hooks and gets
+ * its paint from the theme tokens (disabled = the app's measured disabled pair
+ * via colorTextDisabled/colorBgContainerDisabled, which antd's own defaults
+ * would fail at 4.5:1).
+ */
 export function Pagination({
   page,
   pages,
@@ -156,45 +173,43 @@ export function Pagination({
   onNext: () => void;
   onJump?: (page: number) => void;
 }) {
+  const safePage = Math.min(page, Math.max(pages - 1, 0));
   return (
     <div className="pagination">
       {onJump ? (
         <label>
           跳转到
-          <select
+          <Select
             aria-label="页码"
-            value={page}
-            onChange={(e) => onJump(Number(e.target.value))}
-          >
-            {Array.from({ length: pages }, (_, i) => (
-              <option value={i} key={i}>
-                第 {i + 1} 页
-              </option>
-            ))}
-          </select>
+            value={safePage}
+            disabled={pages <= 1}
+            onChange={(value) => onJump(Number(value))}
+            options={Array.from({ length: pages }, (_, i) => ({
+              value: i,
+              label: `第 ${i + 1} 页`,
+            }))}
+          />
         </label>
       ) : null}
-      <button
-        type="button"
+      <Button
         title="上一页"
         aria-label="上一页"
-        disabled={page === 0}
+        disabled={safePage === 0}
         onClick={onPrev}
       >
         ‹
-      </button>
+      </Button>
       <span>
-        {page + 1} / {pages}
+        {safePage + 1} / {pages}
       </span>
-      <button
-        type="button"
+      <Button
         title="下一页"
         aria-label="下一页"
-        disabled={page >= pages - 1}
+        disabled={safePage >= pages - 1}
         onClick={onNext}
       >
         ›
-      </button>
+      </Button>
     </div>
   );
 }

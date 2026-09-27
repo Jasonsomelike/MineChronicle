@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Button, Modal } from 'antd';
 import type { ObservedSessionsPage } from '../lib/tracking';
 import {
   clearSessionEnd,
@@ -11,6 +12,7 @@ import {
   localInputToUtc,
   utcToLocalInput,
 } from '../lib/duration';
+import { TextButton } from './ui';
 
 type Session = NonNullable<ObservedSessionsPage['sessions']>[number];
 
@@ -28,6 +30,15 @@ function spanSeconds(from: string, to: string): string | null {
  * Only the user knows when a game actually stopped after the observer itself
  * shut down, so this is the one place a session end can come from outside the
  * process probe. Everything typed here is marked as manual and can be undone.
+ *
+ * The hand-written <dialog> became an antd Modal, and the StrictMode dance the
+ * native element forced is gone with it: `showModal` had to run in an effect,
+ * whose cleanup fired `close` during the StrictMode remount and - without the
+ * `userClosed` flag - would have unmounted the dialog before it was ever seen
+ * (verified in the browser; see the history below). The Modal is controlled by
+ * an `open` state instead, so a remount just re-renders it. The flag survives
+ * with a narrower job: only a user-intended close may reach the parent, because
+ * `afterClose` also fires after the programmatic hide that follows save/undo.
  */
 export default function SessionEndDialog({
   session,
@@ -38,30 +49,16 @@ export default function SessionEndDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const field = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(true);
   const [bounds, setBounds] = useState<ManualEndBounds | null>(null);
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const isManual = session.ended_source === 'manual';
-  // Distinguishes closing *because* the user closed it from the dialog being
-  // torn down by the effect's own cleanup.
-  //
-  // StrictMode mounts, runs the cleanup, then mounts again. The cleanup calls
-  // `close()`, which fires the `close` event; without this flag that event would
-  // call `onClose()`, the parent would unmount this component, and the dialog
-  // would never appear at all. Verified in the browser.
+  // True only when the close came from the user (cancel, save, undo) - not
+  // from a programmatic hide the parent should not react to twice.
   const userClosed = useRef(false);
-
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => {
-      userClosed.current = false;
-      element?.close();
-    };
-  }, []);
 
   // The limits come from the backend so the dialog and the write agree. They are
   // recomputed again on save: the row can change while this is open.
@@ -136,10 +133,8 @@ export default function SessionEndDialog({
     try {
       await setSessionEnd(session.id, local);
       onSaved();
-      // Closed through requestClose so the unmount does not happen while the
-      // element is still in the modal state.
       userClosed.current = true;
-      dialog.current?.close();
+      setOpen(false);
     } catch (cause: unknown) {
       fail(String(cause));
     } finally {
@@ -155,7 +150,7 @@ export default function SessionEndDialog({
       await clearSessionEnd(session.id);
       onSaved();
       userClosed.current = true;
-      dialog.current?.close();
+      setOpen(false);
     } catch (cause: unknown) {
       setError(String(cause));
     } finally {
@@ -164,36 +159,68 @@ export default function SessionEndDialog({
   }
 
   /**
-   * Close because the user asked to, as opposed to the effect cleanup calling
-   * `close()` during teardown. Only the former should reach the parent, or the
-   * StrictMode remount would unmount this component before it is ever seen.
+   * Close because the user asked to - Escape, the mask, or the 取消 button.
+   * The Modal's own close paths all funnel here, mirroring the native
+   * `onCancel` handling the <dialog> version had.
    */
   function requestClose() {
     if (busy) return;
     userClosed.current = true;
-    dialog.current?.close();
+    setOpen(false);
   }
 
   return (
-    <dialog
-      ref={dialog}
+    <Modal
+      open={open}
+      /* The native dialog's width cap, carried over verbatim. */
+      width="min(460px, calc(100% - 32px))"
       className="session-end-dialog"
-      aria-label="填写观测结束时间"
-      onCancel={(event) => {
-        // Escape: suppress the default close so `requestClose` owns the path and
-        // the flag is set.
-        event.preventDefault();
-        requestClose();
-      }}
-      onClose={() => {
+      title={isManual ? '修改结束时间' : '填写结束时间'}
+      /* The native dialog had no close X; the escape hatch was Esc, the mask,
+         and the 取消 button - keep exactly those. Motion is off (empty
+         transition names fall through to "no motion" in rc-dialog): the app's
+         reduced-motion reset (styles.css) removes the very animation/transition
+         events antd's leave animation waits for, which left the closing modal
+         stuck half-invisible under prefers-reduced-motion: reduce - the native
+         dialog closed instantly, and instant is what a desktop dialog should
+         do anyway. */
+      transitionName=""
+      maskTransitionName=""
+      maskClosable
+      keyboard
+      onCancel={requestClose}
+      /* With motion off, afterClose lands on the same tick as the hide - the
+         equivalent of the native element's `close` event. */
+      afterClose={() => {
         if (userClosed.current) onClose();
       }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) requestClose();
-      }}
+      footer={[
+        ...(isManual
+          ? [
+              <TextButton
+                key="undo"
+                disabled={busy}
+                onClick={() => void undo()}
+              >
+                撤销手动填写
+              </TextButton>,
+            ]
+          : []),
+        <Button key="cancel" disabled={busy} onClick={requestClose}>
+          取消
+        </Button>,
+        <Button
+          key="save"
+          type="primary"
+          loading={busy}
+          disabled={busy || !bounds}
+          onClick={() => void save()}
+        >
+          {busy ? '保存中…' : '保存'}
+        </Button>,
+      ]}
     >
       <div className="session-end-body">
-        <h3>{isManual ? '修改结束时间' : '填写结束时间'}</h3>
         <p className="session-end-note">
           该实例在运行，但本软件没观测到它关闭，所以结束时间未知。填入后这段时间会计入
           「未归因运行时长」。
@@ -229,6 +256,7 @@ export default function SessionEndDialog({
             ref={field}
             type="datetime-local"
             step={1}
+            autoFocus
             value={value}
             disabled={busy}
             // Ties the message below to this field for screen readers, and
@@ -257,35 +285,7 @@ export default function SessionEndDialog({
             {error}
           </p>
         ) : null}
-        <div className="picker-actions">
-          {isManual ? (
-            <button
-              type="button"
-              className="text-button"
-              disabled={busy}
-              onClick={() => void undo()}
-            >
-              撤销手动填写
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={busy}
-            onClick={requestClose}
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={busy || !bounds}
-            onClick={() => void save()}
-          >
-            {busy ? '保存中…' : '保存'}
-          </button>
-        </div>
       </div>
-    </dialog>
+    </Modal>
   );
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { Button, Table } from 'antd';
 import type { ObservedSessionsPage } from '../lib/tracking';
 import { displayPath } from '../lib/path';
 import { formatGroupSeconds, formatSeconds } from '../lib/duration';
+import { TextButton } from './ui';
 import SessionEndDialog from './SessionEndDialog';
 
 const date = (value: string) =>
@@ -17,81 +19,7 @@ const date = (value: string) =>
 
 type Session = NonNullable<ObservedSessionsPage['sessions']>[number];
 
-/** One session row. Shared by every group's table. */
-function SessionRow({
-  session,
-  onEdit,
-}: {
-  session: Session;
-  onEdit: (session: Session) => void;
-}) {
-  const manual = session.ended_source === 'manual';
-  return (
-    <tr>
-      <td title={displayPath(session.game_root)}>{session.instance_name}</td>
-      <td>
-        <time dateTime={session.started_at}>{date(session.started_at)}</time>
-      </td>
-      <td>
-        {session.ended_at ? (
-          <>
-            <time dateTime={session.ended_at}>{date(session.ended_at)}</time>
-            {manual ? (
-              // A typed value is an estimate. Marking it keeps it from reading
-              // exactly like an observed one.
-              <span
-                className="observed-sessions-tag"
-                title={
-                  session.edited_at
-                    ? `手动填写于 ${date(session.edited_at)}`
-                    : '手动填写'
-                }
-              >
-                手动
-              </span>
-            ) : null}
-          </>
-        ) : session.status === 'running' ? (
-          '等待实例关闭'
-        ) : (
-          '结束时间未知'
-        )}
-      </td>
-      <td>
-        {!session.ended_at ? (
-          '—'
-        ) : session.missing_baseline ? (
-          <span className="scan-note">缺少本地基线</span>
-        ) : (
-          formatSeconds(session.pseudo_seconds ?? '0')
-        )}
-      </td>
-      <td>
-        {session.status === 'running'
-          ? '运行中'
-          : session.status === 'closed'
-          ? '已结束'
-          : '观测中断'}
-      </td>
-      <td>
-        {session.status === 'running' ? (
-          // The observer owns a live session; a manual end would be contradicted
-          // on the next poll.
-          <span className="scan-note">等待观测</span>
-        ) : (
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => onEdit(session)}
-          >
-            {session.ended_at ? '修改' : '填写'}
-          </button>
-        )}
-      </td>
-    </tr>
-  );
-}
-
+/** The per-group session table. One row per observed session. */
 function SessionTable({
   sessions,
   onEdit,
@@ -100,27 +28,110 @@ function SessionTable({
   onEdit: (session: Session) => void;
 }) {
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>实例</th>
-          <th>观测开始时间</th>
-          <th>观测结束时间</th>
-          <th>未归因运行时长</th>
-          <th>状态</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sessions.map((session) => (
-          <SessionRow key={session.id} session={session} onEdit={onEdit} />
-        ))}
-      </tbody>
-    </table>
+    /* The hand-written table became an antd Table at the small density. No
+       pagination and no sorting here: paging is each group's own pager below,
+       and the row set arrives pre-sliced from the backend. `onCell` keeps the
+       instance cell's `title` (the full path) that the native `<td>` carried. */
+    <Table
+      size="small"
+      rowKey="id"
+      pagination={false}
+      dataSource={sessions}
+      columns={[
+        {
+          title: '实例',
+          dataIndex: 'instance_name',
+          onCell: (session) => ({ title: displayPath(session.game_root) }),
+        },
+        {
+          title: '观测开始时间',
+          dataIndex: 'started_at',
+          render: (_, session) => (
+            <time dateTime={session.started_at}>
+              {date(session.started_at)}
+            </time>
+          ),
+        },
+        {
+          title: '观测结束时间',
+          dataIndex: 'ended_at',
+          render: (_, session) =>
+            session.ended_at ? (
+              <>
+                <time dateTime={session.ended_at}>
+                  {date(session.ended_at)}
+                </time>
+                {session.ended_source === 'manual' ? (
+                  // A typed value is an estimate. Marking it keeps it from reading
+                  // exactly like an observed one.
+                  <span
+                    className="observed-sessions-tag"
+                    title={
+                      session.edited_at
+                        ? `手动填写于 ${date(session.edited_at)}`
+                        : '手动填写'
+                    }
+                  >
+                    手动
+                  </span>
+                ) : null}
+              </>
+            ) : session.status === 'running' ? (
+              '等待实例关闭'
+            ) : (
+              '结束时间未知'
+            ),
+        },
+        {
+          title: '未归因运行时长',
+          dataIndex: 'pseudo_seconds',
+          render: (_, session) =>
+            !session.ended_at ? (
+              '—'
+            ) : session.missing_baseline ? (
+              <span className="scan-note">缺少本地基线</span>
+            ) : (
+              formatSeconds(session.pseudo_seconds ?? '0')
+            ),
+        },
+        {
+          title: '状态',
+          dataIndex: 'status',
+          render: (_, session) =>
+            session.status === 'running'
+              ? '运行中'
+              : session.status === 'closed'
+              ? '已结束'
+              : '观测中断',
+        },
+        {
+          title: '操作',
+          dataIndex: 'id',
+          render: (_, session) =>
+            session.status === 'running' ? (
+              // The observer owns a live session; a manual end would be contradicted
+              // on the next poll.
+              <span className="scan-note">等待观测</span>
+            ) : (
+              <TextButton onClick={() => onEdit(session)}>
+                {session.ended_at ? '修改' : '填写'}
+              </TextButton>
+            ),
+        },
+      ]}
+    />
   );
 }
 
-/** One instance's own pager. Rendered inside the group it belongs to. */
+/** One instance's own pager. Rendered inside the group it belongs to.
+ *
+ * Deliberately NOT antd's `<Pagination>`: its simple mode replaces the
+ * 「第 x / y 页 · 共 n 条」 status span with a jump input, and two qa scripts
+ * (qa-reliability-flow, qa-observation-flow) read exactly that span inside
+ * `.observation-group-pagination`. The nav, the span and both hook classes
+ * therefore stay hand-written; only the two buttons became antd Buttons. The
+ * SurfaceMap's "antd Pagination simple" step is taken in the text-position
+ * sense by the readout itself - the class hooks win over the primitive swap. */
 function GroupPagination({
   page,
   pageCount,
@@ -145,22 +156,20 @@ function GroupPagination({
           ? '正在读取…'
           : `第 ${page} / ${pageCount} 页 · 共 ${recordCount} 条`}
       </span>
-      <button
-        type="button"
+      <Button
         className="secondary-button"
         disabled={loading || page <= 1}
         onClick={() => onPage(page - 1)}
       >
         上一页
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
         className="secondary-button"
         disabled={loading || single || page >= pageCount}
         onClick={() => onPage(page + 1)}
       >
         下一页
-      </button>
+      </Button>
     </nav>
   );
 }

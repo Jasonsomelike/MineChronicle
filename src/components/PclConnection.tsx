@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RefreshCw, Link2, FolderCog } from 'lucide-react';
+import { AutoComplete, Button, Switch } from 'antd';
 import type { PclSyncStatus } from '../lib/pclSync';
 import { syncPclNow, setPclSync, selectPclLauncher } from '../lib/pclSync';
 import { displayPath } from '../lib/path';
@@ -54,14 +55,14 @@ export default function PclConnection({
       </div>
       <div className="connection-actions">
         <label>
-          <input
-            type="checkbox"
-            role="switch"
+          {/* Optimistic update, with the rollback compensation preserved: the
+              parent's state flips immediately, and a failed setPclSync puts the
+              previous value back before the error surfaces. */}
+          <Switch
             aria-label="自动同步 PCL"
             checked={status.enabled}
             disabled={busy}
-            onChange={(e) => {
-              const enabled = e.target.checked;
+            onChange={(enabled) => {
               const previous = status.enabled;
               onEnabled(enabled);
               void run(async () => {
@@ -79,15 +80,15 @@ export default function PclConnection({
         <span className="scan-note">
           {status.enabled ? '每 15 秒检查配置' : '自动同步已暂停'}
         </span>
-        <button
-          type="button"
-          className="secondary-button"
+        <Button
+          icon={
+            <RefreshCw size={15} className={status.running ? 'spinning' : ''} />
+          }
           disabled={busy || status.running}
           onClick={() => void run(syncPclNow)}
         >
-          <RefreshCw size={15} className={status.running ? 'spinning' : ''} />
           立即同步
-        </button>
+        </Button>
       </div>
       <p className="scan-note">
         最近同步：
@@ -120,31 +121,30 @@ export default function PclConnection({
         </p>
         <label>
           配置目录
-          <input
+          {/* Was a native input + datalist for launcher-path suggestions; the
+              antd AutoComplete keeps the same affordance (type a path, see the
+              launchers PCL knows about, pick or keep typing). */}
+          <AutoComplete
             aria-label="PCL 配置目录"
             value={path}
-            onChange={(e) => setPath(e.target.value)}
+            onChange={(value) => setPath(value)}
             placeholder={
               status.launcher
                 ? displayPath(status.launcher)
                 : 'PCL.exe 所在目录'
             }
-            list="pcl-launchers"
+            options={(status.link?.launchers ?? []).map((p) => ({
+              value: displayPath(p),
+            }))}
           />
         </label>
-        <datalist id="pcl-launchers">
-          {status.link?.launchers.map((p) => (
-            <option key={p} value={displayPath(p)} />
-          ))}
-        </datalist>
-        <button
-          className="secondary-button"
+        <Button
+          icon={<Link2 size={14} />}
           disabled={busy || !path.trim()}
           onClick={() => void run(() => selectPclLauncher(path.trim()))}
         >
-          <Link2 size={14} />
           连接此配置
-        </button>
+        </Button>
       </details>
       {status.issues.length ? (
         <p role="status" className="scan-error">

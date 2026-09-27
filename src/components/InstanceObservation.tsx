@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import dayjs from 'dayjs';
+import { Button, DatePicker, Select } from 'antd';
 import { Radar, RefreshCw } from 'lucide-react';
 import { loadObservedSessionsPage } from '../lib/tracking';
 import type { ObservationQuery } from '../lib/tracking';
 import { usePageActive } from './SessionPage';
 import ObservedSessions from './ObservedSessions';
 import ReadStatus from './ReadStatus';
+import { TextButton } from './ui';
 import { useResource } from '../lib/useResource';
 const empty = { game_root: '', from: '', to: '', status: '' };
 export default function InstanceObservation({
@@ -80,14 +83,19 @@ export default function InstanceObservation({
         </h2>
         <div className="heading-actions">
           <span className="scan-note">记录保存在本地档案中</span>
-          <button
-            type="button"
+          {/* antd Button keeps the `.secondary-button` class; while the request is
+              in flight its `loading` state swaps the lucide glyph for the
+              library's spinner - the same feedback the disabled state gave, with
+              motion. */}
+          <Button
             className="secondary-button"
+            icon={<RefreshCw size={14} />}
             onClick={refreshHistory}
+            loading={request.loading}
             disabled={request.loading}
           >
-            <RefreshCw size={14} /> 刷新观测
-          </button>
+            刷新观测
+          </Button>
         </div>
       </div>
       <div className="settings-card observation-controls">{children}</div>
@@ -107,55 +115,62 @@ export default function InstanceObservation({
         <div className="activity-filters observation-filters">
           <label>
             实例
-            <select
+            <Select
               aria-label="实例"
               value={query.game_root}
-              onChange={(e) => change({ ...query, game_root: e.target.value })}
-            >
-              <option value="">全部实例</option>
-              {data?.instances?.map((i) => (
-                <option key={i.game_root} value={i.game_root}>
-                  {i.name} · {i.game_root}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => change({ ...query, game_root: value })}
+              options={[
+                { value: '', label: '全部实例' },
+                ...(data?.instances?.map((i) => ({
+                  value: i.game_root,
+                  label: `${i.name} · ${i.game_root}`,
+                })) ?? []),
+              ]}
+            />
           </label>
+          {/* The DatePickers format straight back to `YYYY-MM-DD` strings - the
+              shape ObservationQuery has always carried over IPC. */}
           <label>
             开始日期
-            <input
-              type="date"
-              value={query.from}
-              onChange={(e) => change({ ...query, from: e.target.value })}
+            <DatePicker
+              value={query.from ? dayjs(query.from, 'YYYY-MM-DD') : null}
+              onChange={(value) =>
+                change({
+                  ...query,
+                  from: value ? value.format('YYYY-MM-DD') : '',
+                })
+              }
+              allowClear
             />
           </label>
           <label>
             结束日期
-            <input
-              type="date"
-              value={query.to}
-              onChange={(e) => change({ ...query, to: e.target.value })}
+            <DatePicker
+              value={query.to ? dayjs(query.to, 'YYYY-MM-DD') : null}
+              onChange={(value) =>
+                change({
+                  ...query,
+                  to: value ? value.format('YYYY-MM-DD') : '',
+                })
+              }
+              allowClear
             />
           </label>
           <label>
             状态
-            <select
+            <Select
               aria-label="状态"
               value={query.status}
-              onChange={(e) => change({ ...query, status: e.target.value })}
-            >
-              <option value="">全部状态</option>
-              <option value="running">运行中</option>
-              <option value="closed">已结束</option>
-              <option value="interrupted">观测中断</option>
-            </select>
+              onChange={(value) => change({ ...query, status: value })}
+              options={[
+                { value: '', label: '全部状态' },
+                { value: 'running', label: '运行中' },
+                { value: 'closed', label: '已结束' },
+                { value: 'interrupted', label: '观测中断' },
+              ]}
+            />
           </label>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => change(empty)}
-          >
-            清除筛选
-          </button>
+          <TextButton onClick={() => change(empty)}>清除筛选</TextButton>
           <p className="scan-note">
             按本地观测开始日期筛选；实例观测不随玩家选择变化。筛选结果与本页记录固定于上次刷新，全部历史累计随数据更新。
           </p>
@@ -165,16 +180,17 @@ export default function InstanceObservation({
           to the heading so it is reachable without scrolling past the summary. */}
       {data?.new_records || data?.history_changed ? (
         <p className="observation-stale">
-          <button
+          <Button
             className="secondary-button"
+            icon={<RefreshCw size={14} />}
             onClick={refreshHistory}
+            loading={request.loading}
             disabled={request.loading}
           >
-            <RefreshCw size={14} />{' '}
             {data.new_records
               ? `有 ${data.new_records} 条新观测，刷新查看`
               : '观测有更新，刷新查看'}
-          </button>
+          </Button>
         </p>
       ) : null}
       <ReadStatus {...request} />

@@ -1,6 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
 import App from './App';
+import { ThemeProvider } from './app/ThemeContext';
 import { applyTheme, loadThemePreference } from './lib/theme';
 import { clearLegacyRailPreference } from './lib/rail';
 // Bundled, not linked: the app is offline, so a font CDN would fail. The
@@ -12,6 +15,10 @@ import './styles.css';
 import './styles/shell.css';
 import './styles/pages.css';
 import './motion.css';
+
+// antd's DatePicker reads its month names and first-day-of-week from dayjs's
+// own locale; ConfigProvider's `locale` covers only the component strings.
+dayjs.locale('zh-cn');
 
 // Applied before the first render on purpose: doing it in a React effect would
 // paint the light palette for one frame first, which reads as a flash every
@@ -28,6 +35,8 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Missing application root');
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </React.StrictMode>,
 );

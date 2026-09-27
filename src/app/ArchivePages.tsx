@@ -12,6 +12,8 @@ import SelfPlayerSettings from '../components/SelfPlayerSettings';
 import StartupSettings from '../components/StartupSettings';
 import ZoomControls from '../components/ZoomControls';
 import ReadStatus from '../components/ReadStatus';
+import { TextButton } from '../components/ui';
+import { Button, Input, Select, Switch } from 'antd';
 import { Globe2 } from 'lucide-react';
 import { formatTickTotal } from '../lib/duration';
 import { displayPath } from '../lib/path';
@@ -57,13 +59,9 @@ function SettingsImport({ state }: { state: AppState }) {
         .minecraft、实例集合或游戏根目录，自动寻找下层存档。扫描只读取游戏文件，结果保存到
         MineChronicle 的本地数据库。
       </p>
-      <button
-        type="button"
-        disabled={busy || loading}
-        onClick={() => void connectPcl()}
-      >
+      <Button disabled={busy || loading} onClick={() => void connectPcl()}>
         读取 PCL 文件夹
-      </button>
+      </Button>
       {pcl ? (
         <details className="pcl-link">
           <summary>PCL 文件夹列表 · {pcl.folders.length} 个</summary>
@@ -74,18 +72,18 @@ function SettingsImport({ state }: { state: AppState }) {
           {pcl.launchers.length > 0 ? (
             <label>
               使用此 PCL 的全局设置
-              <select
+              <Select
                 value={launcher}
                 disabled={busy}
-                onChange={(e) => setLauncher(e.target.value)}
-              >
-                <option value="">仅使用实例明确配置</option>
-                {pcl.launchers.map((path) => (
-                  <option key={path} value={path}>
-                    {displayPath(path)}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setLauncher(value)}
+                options={[
+                  { value: '', label: '仅使用实例明确配置' },
+                  ...pcl.launchers.map((path) => ({
+                    value: path,
+                    label: displayPath(path),
+                  })),
+                ]}
+              />
             </label>
           ) : null}
           {pcl.folders.map((folder) => (
@@ -110,7 +108,7 @@ function SettingsImport({ state }: { state: AppState }) {
         <label htmlFor="game-roots">
           搜索目录 <span>每行一个，最多 32 个</span>
         </label>
-        <textarea
+        <Input.TextArea
           id="game-roots"
           value={input}
           onChange={(event) => setInput(event.target.value)}
@@ -124,18 +122,13 @@ function SettingsImport({ state }: { state: AppState }) {
           版本。只读取文件，不修改游戏内容。
         </p>
         <div className="scan-actions">
-          <button type="submit" disabled={busy || loading}>
+          <Button type="primary" htmlType="submit" disabled={busy || loading}>
             {busy ? '扫描中…' : '扫描并保存'}
-          </button>
+          </Button>
           {busy ? (
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={cancelling}
-              onClick={() => void cancel()}
-            >
+            <Button disabled={cancelling} onClick={() => void cancel()}>
               {cancelling ? '正在取消…' : '取消扫描'}
-            </button>
+            </Button>
           ) : null}
         </div>
       </form>
@@ -378,9 +371,8 @@ export default function ArchivePages({ state }: { state: AppState }) {
               </span>
               <small>{trackingStatus.watched_directories} 个监控目录</small>
               <label className="tracking-toggle">
-                <input
-                  type="checkbox"
-                  role="switch"
+                <Switch
+                  aria-label="自动追踪"
                   checked={trackingStatus.enabled}
                   onChange={() => void toggleTracking()}
                 />
@@ -407,7 +399,8 @@ export default function ArchivePages({ state }: { state: AppState }) {
           <h2>从你的第一个世界开始</h2>
           <p>导入 Minecraft 文件夹，即可查看玩家、世界和游玩统计。</p>
           <div className="scan-actions">
-            <button
+            <Button
+              type="primary"
               onClick={() => {
                 navigate('settings');
                 requestAnimationFrame(() =>
@@ -416,16 +409,15 @@ export default function ArchivePages({ state }: { state: AppState }) {
               }}
             >
               选择游戏目录
-            </button>
-            <button
-              className="secondary-button"
+            </Button>
+            <Button
               onClick={() => {
                 navigate('settings');
                 void connectPcl();
               }}
             >
               从 PCL 读取目录
-            </button>
+            </Button>
           </div>
         </section>
       ) : null}
@@ -451,10 +443,7 @@ export default function ArchivePages({ state }: { state: AppState }) {
            message is about a scan the user started in 导入与设置, and it used to follow
            them to every other page with nothing to dismiss it. */
         <p className="scan-error" role="alert" hidden={view !== 'settings'}>
-          {error}{' '}
-          <button type="button" className="text-button" onClick={clearError}>
-            知道了
-          </button>
+          {error} <TextButton onClick={clearError}>知道了</TextButton>
         </p>
       ) : null}
       {notice ? (
@@ -464,10 +453,7 @@ export default function ArchivePages({ state }: { state: AppState }) {
            until the next scan starts. `clearError` empties both halves, so the two can
            never be left disagreeing about whether the slot is empty. */
         <p className="scan-notice" role="status" hidden={view !== 'settings'}>
-          {notice}{' '}
-          <button type="button" className="text-button" onClick={clearError}>
-            知道了
-          </button>
+          {notice} <TextButton onClick={clearError}>知道了</TextButton>
         </p>
       ) : null}
       {report ? (

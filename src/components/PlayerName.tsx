@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Button, Input } from 'antd';
 import type { PlayerSummary, ScanSummary } from '../lib/scan';
 import { setPlayerAlias } from '../lib/scan';
+import { SecondaryButton, TextButton } from './ui';
 
 export default function PlayerName({
   player,
@@ -39,6 +41,8 @@ export default function PlayerName({
       </span>
       <code>{player.uuid}</code>
       {editing ? (
+        /* The rename keeps its own submit-based form (no antd Form): the save
+           fires on submit exactly as before, straight through IPC. */
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -47,7 +51,7 @@ export default function PlayerName({
         >
           <label>
             玩家名称
-            <input
+            <Input
               value={name}
               maxLength={64}
               required
@@ -55,12 +59,14 @@ export default function PlayerName({
               onChange={(event) => setName(event.target.value)}
             />
           </label>
-          <button disabled={saving || disabled || !name.trim()}>
-            {saving ? '保存中…' : '保存名称'}
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
+          <Button
+            htmlType="submit"
+            disabled={saving || disabled || !name.trim()}
+            loading={saving}
+          >
+            保存名称
+          </Button>
+          <SecondaryButton
             disabled={saving}
             onClick={() => {
               // Leaving the form is also leaving the failure: the error belongs to the
@@ -70,12 +76,10 @@ export default function PlayerName({
             }}
           >
             取消
-          </button>
+          </SecondaryButton>
         </form>
       ) : (
-        <button
-          type="button"
-          className="secondary-button"
+        <SecondaryButton
           disabled={disabled}
           onClick={() => {
             setName(player.preferred_name ?? '');
@@ -83,7 +87,7 @@ export default function PlayerName({
           }}
         >
           设置名称
-        </button>
+        </SecondaryButton>
       )}
       {error ? (
         /* The failure used to be the raw backend string on its own, with no way back: the
@@ -92,14 +96,12 @@ export default function PlayerName({
            already uses. */
         <p role="alert" className="scan-error">
           {error} · 原有名称保持不变。{' '}
-          <button
-            type="button"
-            className="text-button"
+          <TextButton
             disabled={saving || disabled || !name.trim()}
             onClick={() => void save()}
           >
             立即重试
-          </button>
+          </TextButton>
         </p>
       ) : null}
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { Modal } from 'antd';
 import { X, ImageIcon } from 'lucide-react';
 import type { StatResource } from '../lib/activity';
 import { iconUrl } from '../lib/runtimeResources';
@@ -8,6 +8,20 @@ export interface IconSelection {
   icon: NonNullable<StatResource['icon']>;
 }
 
+/**
+ * One stat icon, larger, with its provenance.
+ *
+ * The hand-written <dialog> became an antd Modal, following the pattern
+ * `SessionEndDialog` established for this migration: a controlled Modal with no
+ * mount-time effects (so the StrictMode remount dance the native element forced
+ * is gone - `showModal` had to run in an effect whose cleanup fired `close`),
+ * and motion disabled because the app's reduced-motion reset strips the very
+ * transition events antd's leave animation waits for, which left the closing
+ * dialog half-invisible. The parent still unmounts on close; Escape and the
+ * mask funnel through `onCancel` exactly as the native element's `cancel` and
+ * the backdrop click did. The `.stat-image-*` classes and the autofocus close
+ * button carry over unchanged.
+ */
 export default function StatIconPreview({
   selection,
   onClose,
@@ -15,24 +29,24 @@ export default function StatIconPreview({
   selection: IconSelection;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const { icon, label } = selection;
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
   return (
-    <dialog
-      ref={dialog}
+    <Modal
+      open
+      /* The native dialog's width cap, carried over verbatim. */
+      width="min(440px, calc(100% - 32px))"
       className="stat-image-dialog"
       aria-label={`${label}图标`}
-      onClose={(event) => {
-        if (!event.currentTarget.open) onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      footer={null}
+      closable={false}
+      /* The native dialog had no title bar; the header inside the body - heading
+         plus the autofocus close button - is the dialog's own chrome, kept
+         as-is. */
+      transitionName=""
+      maskTransitionName=""
+      maskClosable
+      keyboard
+      onCancel={onClose}
     >
       <div className="stat-image-content">
         <div className="stat-image-heading">
@@ -68,6 +82,6 @@ export default function StatIconPreview({
         </div>
         <p className="stat-image-source">{icon.source}</p>
       </div>
-    </dialog>
+    </Modal>
   );
 }

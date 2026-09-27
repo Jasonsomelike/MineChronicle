@@ -1,19 +1,16 @@
 import { useResource } from '../lib/useResource';
 import ReadStatus from './ReadStatus';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ArrowUpRight,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  History,
-} from 'lucide-react';
+import dayjs from 'dayjs';
+import { Button, Collapse, DatePicker, Pagination, Select } from 'antd';
+import { ArrowUpRight, Check, History } from 'lucide-react';
 import { loadTimeline, eventNames, emptyScope } from '../lib/activity';
 import type { ActivityScope, TimelinePage } from '../lib/activity';
 import type { ScanSummary } from '../lib/scan';
 import { formatTickTotal } from '../lib/duration';
 import { displayPath } from '../lib/path';
 import ActivityFilters from './ActivityFilters';
+import { TextButton } from './ui';
 import { usePageActive } from './SessionPage';
 export default function Timeline({
   report,
@@ -100,10 +97,10 @@ export default function Timeline({
           {compact ? '最近时间线' : '时间线'}
         </h2>
         {compact ? (
-          <button className="text-button" onClick={onAll}>
+          <TextButton onClick={onAll}>
             全部记录
             <ArrowUpRight size={14} />
-          </button>
+          </TextButton>
         ) : (
           <span>{data?.total ?? 0} 条记录</span>
         )}
@@ -119,26 +116,31 @@ export default function Timeline({
             }}
           />
           <div className="timeline-filters">
+            {/* The DatePickers are the input layer only: their dayjs values are
+                formatted straight back to `YYYY-MM-DD` strings here, which is the
+                shape loadTimeline has always received - a dayjs object must never
+                reach the IPC query. The wrapping <label> keeps the implicit
+                field-to-name association the native inputs had. */}
             <label>
               开始日期
-              <input
-                type="date"
-                value={from}
-                onChange={(e) => {
-                  setFrom(e.target.value);
+              <DatePicker
+                value={from ? dayjs(from, 'YYYY-MM-DD') : null}
+                onChange={(value) => {
+                  setFrom(value ? value.format('YYYY-MM-DD') : '');
                   setOffset(0);
                 }}
+                allowClear
               />
             </label>
             <label>
               结束日期
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => {
-                  setTo(e.target.value);
+              <DatePicker
+                value={to ? dayjs(to, 'YYYY-MM-DD') : null}
+                onChange={(value) => {
+                  setTo(value ? value.format('YYYY-MM-DD') : '');
                   setOffset(0);
                 }}
+                allowClear
               />
             </label>
             <div
@@ -153,10 +155,10 @@ export default function Timeline({
                   ['month', '本月'],
                 ] as const
               ).map(([id, label]) => (
-                <button
+                <Button
                   key={id}
-                  type="button"
                   className="secondary-button"
+                  size="small"
                   onClick={() => {
                     const now = new Date();
                     const day = (offsetDays: number) => {
@@ -196,25 +198,25 @@ export default function Timeline({
                   }}
                 >
                   {label}
-                </button>
+                </Button>
               ))}
             </div>
             <label>
               事件
-              <select
+              <Select
                 value={kind}
-                onChange={(e) => {
-                  setKind(e.target.value);
+                onChange={(value) => {
+                  setKind(value);
                   setOffset(0);
                 }}
-              >
-                <option value="">所有事件</option>
-                {Object.entries(eventNames).map(([key, name]) => (
-                  <option key={key} value={key}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: '所有事件' },
+                  ...Object.entries(eventNames).map(([key, name]) => ({
+                    value: key,
+                    label: name,
+                  })),
+                ]}
+              />
             </label>
           </div>
           <p className="scan-note">
@@ -232,9 +234,7 @@ export default function Timeline({
       </p>
       <div className="filter-summary">
         <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
-        <button type="button" className="text-button" onClick={clearFilters}>
-          清除本页筛选
-        </button>
+        <TextButton onClick={clearFilters}>清除本页筛选</TextButton>
       </div>
       {loading ? (
         <p role="status">正在读取时间线…</p>
@@ -322,14 +322,14 @@ export default function Timeline({
                         {e.merged_count} 次观测
                       </span>
                     ) : null}
-                    <button
-                      className="text-button event-world"
+                    <TextButton
+                      className="event-world"
                       title={displayPath(e.world_path)}
                       onClick={() => onOpen(e.world_path)}
                     >
                       {e.world_name}
                       <ArrowUpRight size={13} />
-                    </button>
+                    </TextButton>
                   </div>
                   <p className="event-meta">
                     {/* A button, because this row's only action has to be reachable
@@ -337,9 +337,8 @@ export default function Timeline({
                         onClick, so nobody tabbing through the page could copy anything.
                         The confirmation is transient and replaces nothing: the name stays
                         where it was and the fact follows it. */}
-                    <button
-                      type="button"
-                      className="text-button event-player"
+                    <TextButton
+                      className="event-player"
                       title={`UUID ${e.uuid} · 点击复制`}
                       aria-label={`复制 ${e.player_name ?? e.uuid} 的 UUID`}
                       onClick={() =>
@@ -356,7 +355,7 @@ export default function Timeline({
                           已复制
                         </span>
                       ) : null}
-                    </button>
+                    </TextButton>
                     <span className="event-duration">
                       {e.kind === 'increment'
                         ? `+ ${formatTickTotal(e.delta_ticks)}`
@@ -377,42 +376,58 @@ export default function Timeline({
                   {merged && e.parts?.length ? (
                     // The individual observations, so the merged total stays
                     // auditable: a reader can see how it was built up, including
-                    // the import and rollback that opened the span.
-                    <details className="event-details event-parts">
-                      <summary>展开 {e.parts.length} 次观测</summary>
-                      <ol>
-                        {e.parts.map((part) => (
-                          <li
-                            key={part.observed_at}
-                            className={`part-${part.kind ?? 'increment'}`}
-                          >
-                            <time dateTime={part.observed_at}>
-                              {new Date(part.observed_at).toLocaleTimeString(
-                                [],
-                                { hour: '2-digit', minute: '2-digit' },
-                              )}
-                            </time>
-                            <span className="part-kind">
-                              {eventNames[part.kind ?? 'increment'] ??
-                                part.kind ??
-                                ''}
-                            </span>
-                            <span className="part-delta">
-                              {part.kind === 'rollback'
-                                ? `${formatTickTotal(
-                                    part.old_ticks ?? '0',
-                                  )} → 回档`
-                                : part.kind === 'initial_import'
-                                ? // An import's delta is always 0 - it records the
-                                  // baseline the later increments are measured
-                                  // against, so its own change is not a duration.
-                                  '建立基线'
-                                : `+ ${formatTickTotal(part.delta_ticks)}`}
-                            </span>
-                          </li>
-                        ))}
-                      </ol>
-                    </details>
+                    // the import and rollback that opened the span. A ghost
+                    // Collapse carries both hook classes (`.event-details
+                    // .event-parts`) on its root, so the compact-timeline spacing
+                    // rules still apply.
+                    <Collapse
+                      ghost
+                      className="event-details event-parts"
+                      items={[
+                        {
+                          key: 'parts',
+                          label: `展开 ${e.parts.length} 次观测`,
+                          children: (
+                            <ol>
+                              {e.parts.map((part) => (
+                                <li
+                                  key={part.observed_at}
+                                  className={`part-${part.kind ?? 'increment'}`}
+                                >
+                                  <time dateTime={part.observed_at}>
+                                    {new Date(
+                                      part.observed_at,
+                                    ).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </time>
+                                  <span className="part-kind">
+                                    {eventNames[part.kind ?? 'increment'] ??
+                                      part.kind ??
+                                      ''}
+                                  </span>
+                                  <span className="part-delta">
+                                    {part.kind === 'rollback'
+                                      ? `${formatTickTotal(
+                                          part.old_ticks ?? '0',
+                                        )} → 回档`
+                                      : part.kind === 'initial_import'
+                                      ? // An import's delta is always 0 - it records the
+                                        // baseline the later increments are measured
+                                        // against, so its own change is not a duration.
+                                        '建立基线'
+                                      : `+ ${formatTickTotal(
+                                          part.delta_ticks,
+                                        )}`}
+                                  </span>
+                                </li>
+                              ))}
+                            </ol>
+                          ),
+                        },
+                      ]}
+                    />
                   ) : null}
                 </div>
               </li>
@@ -421,46 +436,24 @@ export default function Timeline({
         </ol>
       ) : null}
       {!compact && data && data.total > 50 ? (
-        <div className="pagination">
-          <label>
-            跳转到{' '}
-            <input
-              type="number"
-              aria-label="时间线页码"
-              min={1}
-              max={Math.ceil(data.total / 50)}
-              value={Math.floor(offset / 50) + 1}
-              onChange={(event) => {
-                const page = Number(event.target.value);
-                if (
-                  Number.isInteger(page) &&
-                  page >= 1 &&
-                  page <= Math.ceil(data.total / 50)
-                )
-                  setOffset((page - 1) * 50);
-              }}
-            />
-          </label>
-          <button
-            title="上一页"
-            aria-label="上一页"
-            disabled={loading || offset === 0}
-            onClick={() => setOffset(Math.max(0, offset - 50))}
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <span>
-            {Math.floor(offset / 50) + 1} / {Math.ceil(data.total / 50)}
-          </span>
-          <button
-            title="下一页"
-            aria-label="下一页"
-            disabled={loading || offset + 50 >= data.total}
-            onClick={() => setOffset(offset + 50)}
-          >
-            <ChevronRight size={15} />
-          </button>
-        </div>
+        /* The pager is an antd Pagination in simple mode: the "1 / 8" readout
+           became the library's jump field, which keeps 50/page and the jump-to
+           semantics. The wrapper nav carries the pager's name (the native input's
+           `aria-label="时间线页码"` moved onto it - antd's jumper input gets its
+           own accessible name from the zh_CN locale) and the `.pagination` class
+           the shared footer styles key on. Offset math stays the one source:
+           onChange converts the page back to `(page-1) * 50`. */
+        <nav className="pagination" aria-label="时间线页码">
+          <Pagination
+            simple
+            disabled={loading}
+            current={Math.floor(offset / 50) + 1}
+            pageSize={50}
+            total={data.total}
+            showSizeChanger={false}
+            onChange={(page) => setOffset((page - 1) * 50)}
+          />
+        </nav>
       ) : null}
     </section>
   );

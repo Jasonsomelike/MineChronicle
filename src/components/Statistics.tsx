@@ -2,14 +2,12 @@ import { emptyScope } from '../lib/activity';
 import { useResource } from '../lib/useResource';
 import ReadStatus from './ReadStatus';
 import { useEffect, useRef, useState } from 'react';
+import type { HTMLAttributes } from 'react';
+import { Input, Pagination, Segmented, Switch, Table, Tabs } from 'antd';
+import type { TableColumnsType } from 'antd';
 import {
   BarChart3,
-  ChevronLeft,
-  ChevronRight,
   Search,
-  ArrowDownWideNarrow,
-  ArrowUpNarrowWide,
-  ArrowUpDown,
   ChevronDown,
   ListFilter,
   Hand,
@@ -43,6 +41,7 @@ import { UNKNOWN_DURATION, formatTickTotal } from '../lib/duration';
 import ActivityFilters from './ActivityFilters';
 import StatIconPreview from './StatIconPreview';
 import type { IconSelection } from './StatIconPreview';
+import { TextButton } from './ui';
 import { discoverIcons, iconUrl } from '../lib/runtimeResources';
 import type { Resolution, DiscoverDetail } from '../lib/runtimeResources';
 import {
@@ -93,7 +92,6 @@ export default function Statistics({
     [data, setData] = useState<StatisticsPage | null>(null),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
-  const categoryTabs = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setOffset(0);
   }, [scope.uuids, scope.players_none]);
@@ -255,6 +253,207 @@ export default function Statistics({
     setError(request.error);
     setLoading(request.loading);
   }, [request.data, request.error, request.loading, offset]);
+  /* The three columns. The reading column's sort is server-side: no compare
+     function, only the controlled cycle default → descend → ascend → default
+     (sortDirections ['descend','ascend'] over a controlled sortOrder reproduces
+     the hand-rolled three-state order exactly, including reaching 默认顺序
+     again). The three-state `title` hint and the `aria-sort` value travel on the
+     header cell via onHeaderCell, as the hand-written th carried them. */
+  const statColumns: TableColumnsType<StatisticsPage['rows'][number]> = [
+    {
+      title: '分类 / 统计键',
+      dataIndex: 'key',
+      render: (_, row) => {
+        const resource =
+          row.resources?.find((r) => r.icon) ?? row.resources?.[0];
+        const local = discovered[`${row.category}:${row.key}`];
+        const icon = local?.image
+          ? {
+              image: local.image,
+              size: 32,
+              width: local.width,
+              height: local.height,
+              kind: local.kind ?? 'item',
+              source: local.source,
+            }
+          : resource?.icon;
+        const isAir = row.key === 'minecraft:air';
+        return (
+          <div className="stat-identity">
+            {icon ? (
+              <button
+                type="button"
+                className="stat-icon"
+                title={`查看${row.label ?? row.key}图标`}
+                aria-label={`查看${row.label ?? row.key}图标`}
+                onClick={() =>
+                  setPreview({ label: row.label ?? row.key, icon })
+                }
+              >
+                <img
+                  className={`stat-sprite${
+                    icon.kind === 'item' ? ' pixel-texture' : ''
+                  }`}
+                  src={iconUrl(icon.image)}
+                  onLoad={(e) => {
+                    if (local?.image && !local.width) {
+                      const { naturalWidth: width, naturalHeight: height } =
+                        e.currentTarget;
+                      setDiscovered((old) => ({
+                        ...old,
+                        [`${row.category}:${row.key}`]: {
+                          ...local,
+                          width,
+                          height,
+                        },
+                      }));
+                    }
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/stat-fallback.svg';
+                  }}
+                  width={icon.width ?? icon.size}
+                  height={icon.height ?? icon.size}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+              </button>
+            ) : (
+              <span
+                className="stat-icon stat-icon-placeholder"
+                title={
+                  isAir
+                    ? '空气（无可见材质）'
+                    : `分类占位 · ${local?.reason ?? '尚未找到可用游戏模型'}`
+                }
+              >
+                {(() => {
+                  const CatIcon =
+                    groupIcons[
+                      (row.category.split(':').pop() ??
+                        'other') as keyof typeof groupIcons
+                    ] ?? groupIcons.other;
+                  const letter = (row.label ?? resource?.english ?? row.key)
+                    .replace(/^minecraft:/, '')
+                    .slice(0, 1)
+                    .toUpperCase();
+                  return (
+                    <>
+                      <CatIcon size={18} aria-hidden="true" />
+                      <span
+                        className="stat-placeholder-letter"
+                        aria-hidden="true"
+                      >
+                        {letter}
+                      </span>
+                    </>
+                  );
+                })()}
+              </span>
+            )}
+            <div className="stat-description">
+              <strong className="stat-label">
+                {row.label ?? resource?.english ?? row.key}
+              </strong>
+              {row.resources?.some((r) => r.origin === 'reviewed') ? (
+                <small className="stat-supplement">补充译名</small>
+              ) : null}
+              {showTech ? (
+                <div className="stat-tech">
+                  <small title={row.category}>
+                    {row.category_label ?? row.category} ·{' '}
+                    {row.key.includes(':')
+                      ? row.key.split(':')[0]
+                      : 'Minecraft'}
+                  </small>
+                  <code>{row.key}</code>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      title: '读数',
+      dataIndex: 'value',
+      sorter: true,
+      sortDirections: ['descend', 'ascend'],
+      sortOrder:
+        sort === 'value_desc'
+          ? 'descend'
+          : sort === 'value_asc'
+          ? 'ascend'
+          : null,
+      onHeaderCell: () => ({
+        title:
+          sort === 'value_desc'
+            ? '当前降序；切换为升序（按原始读数）'
+            : sort === 'value_asc'
+            ? '当前升序；恢复默认顺序'
+            : '当前默认顺序；切换为降序（按原始读数）',
+        'aria-sort':
+          sort === 'value_desc'
+            ? 'descending'
+            : sort === 'value_asc'
+            ? 'ascending'
+            : 'none',
+      }),
+      render: (_, row) =>
+        row.value !== null ? (
+          <span
+            className="stat-reading"
+            title={statisticRawTitle(row.value, row.unit)}
+          >
+            <span className="stat-value">
+              {formatStatistic(row.value, row.unit)}
+            </span>
+            {statisticUnitSuffix(row.unit) ? (
+              <small className="stat-unit">
+                {statisticUnitSuffix(row.unit)}
+              </small>
+            ) : null}
+          </span>
+        ) : (
+          <details>
+            <summary>
+              {row.category === 'extra' ? '原始值' : '非整数数据'}
+            </summary>
+            {row.samples.map((s, i) => (
+              <pre key={i}>{s}</pre>
+            ))}
+          </details>
+        ),
+    },
+    {
+      title: '来源',
+      dataIndex: 'sources',
+      render: (_, row) =>
+        row.sources === 1 ? (
+          <span className="stat-provenance-count">1 份</span>
+        ) : (
+          <details className="stat-provenance">
+            <summary>{row.sources} 份</summary>
+            <div>{row.source_packs?.join('、') || '本地世界'}</div>
+            {row.resources?.map((r, i) => (
+              <div key={i}>
+                {row.resources.length > 1 ? (
+                  <b>
+                    {r.label ?? r.english} · {r.packs.join('、')}
+                  </b>
+                ) : null}
+                <span>{r.translation_source ?? '未找到可用语言资源'}</span>
+                {r.english && r.english !== r.label ? (
+                  <span>{r.english}</span>
+                ) : null}
+              </div>
+            ))}
+          </details>
+        ),
+    },
+  ];
   return (
     <section className="statistics" aria-label="更多统计">
       <div className="library-heading">
@@ -286,18 +485,18 @@ export default function Statistics({
             }}
           />
           <div className="library-toolbar statistics-toolbar">
-            <label>
-              <Search size={15} />
-              <input
-                aria-label="搜索统计分类或键"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setOffset(0);
-                }}
-                placeholder="钻石矿石、跳跃或模组 ID"
-              />
-            </label>
+            <Input
+              className="statistics-search"
+              aria-label="搜索统计分类或键"
+              prefix={<Search size={15} aria-hidden="true" />}
+              allowClear
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setOffset(0);
+              }}
+              placeholder="钻石矿石、跳跃或模组 ID"
+            />
             <span className="stat-results-count" aria-live="polite">
               {loading
                 ? '读取中…'
@@ -308,23 +507,21 @@ export default function Statistics({
           </div>
         </div>
         <div className="statistics-context">
-          <div className="health-tabs" role="tablist" aria-label="统计口径">
-            {[
-              ['current', '最近存档读数'],
-              ['initial', '首次导入历史'],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                role="tab"
-                aria-selected={mode === id}
-                onClick={() => {
-                  setMode(id);
-                  setOffset(0);
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          {/* The scope pair became a Segmented (radio model); the pressed-state
+              buttons and their aria-selected tabs are retired with the rest of
+              the hand-rolled tablist. */}
+          <div className="health-tabs" aria-label="统计口径">
+            <Segmented
+              value={mode}
+              onChange={(next) => {
+                setMode(next as string);
+                setOffset(0);
+              }}
+              options={[
+                { value: 'current', label: '最近存档读数' },
+                { value: 'initial', label: '首次导入历史' },
+              ]}
+            />
           </div>
           {data?.unavailable ? (
             <span className="stat-unavailable">
@@ -332,103 +529,69 @@ export default function Statistics({
             </span>
           ) : null}
         </div>
-        <div
-          className="statistics-categories"
-          ref={categoryTabs}
-          role="tablist"
-          aria-label="统计类别"
-        >
-          {statisticsGroups.map(([id, label], index) => {
-            const Icon = groupIcons[id];
-            const count =
-              id === 'all'
-                ? categoryTotal
-                : data?.categories.find((category) => category.id === id)
-                    ?.count ?? 0;
-            return (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={group === id}
-                tabIndex={group === id ? 0 : -1}
-                key={id}
-                onClick={() => {
-                  setGroup(id);
-                  setOffset(0);
-                }}
-                onKeyDown={(event) => {
-                  const direction =
-                    event.key === 'ArrowRight'
-                      ? 1
-                      : event.key === 'ArrowLeft'
-                      ? -1
-                      : 0;
-                  if (!direction && event.key !== 'Home' && event.key !== 'End')
-                    return;
-                  event.preventDefault();
-                  const next =
-                    event.key === 'Home'
-                      ? 0
-                      : event.key === 'End'
-                      ? statisticsGroups.length - 1
-                      : (index + direction + statisticsGroups.length) %
-                        statisticsGroups.length;
-                  setGroup(statisticsGroups[next][0]);
-                  setOffset(0);
-                  const tabs =
-                    categoryTabs.current?.querySelectorAll<HTMLButtonElement>(
-                      'button',
-                    );
-                  tabs?.item(next).focus();
-                }}
-              >
-                <Icon size={15} />
-                <span>{label}</span>
-                <small title={`${count.toLocaleString('zh-CN')} 项`}>
-                  {new Intl.NumberFormat('zh-CN', {
-                    notation: 'compact',
-                    maximumFractionDigits: 1,
-                  }).format(count)}
-                </small>
-              </button>
-            );
-          })}
+        {/* The category strip is antd Tabs: the icon and the count travel in each
+            tab's label, and the library owns the roving tabindex, Home/End,
+            wrapping arrows and overflow scrolling that the hand-rolled version
+            implemented key by key - `categoryTabs` and its focus plumbing are
+            gone with them. The sr-only line keeps the tablist named. */}
+        <span className="sr-only">统计类别</span>
+        <div className="statistics-categories">
+          <Tabs
+            activeKey={group}
+            onChange={(id) => {
+              setGroup(id as StatisticsGroup);
+              setOffset(0);
+            }}
+            items={statisticsGroups.map(([id, label]) => {
+              const Icon = groupIcons[id];
+              const count =
+                id === 'all'
+                  ? categoryTotal
+                  : data?.categories.find((category) => category.id === id)
+                      ?.count ?? 0;
+              return {
+                key: id,
+                label: (
+                  <span className="stat-category-tab">
+                    <Icon size={15} aria-hidden="true" />
+                    <span>{label}</span>
+                    <small title={`${count.toLocaleString('zh-CN')} 项`}>
+                      {new Intl.NumberFormat('zh-CN', {
+                        notation: 'compact',
+                        maximumFractionDigits: 1,
+                      }).format(count)}
+                    </small>
+                  </span>
+                ),
+              };
+            })}
+          />
         </div>
         <div className="filter-summary">
           <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
           <div className="filter-tools">
-            <div className="health-tabs" role="group" aria-label="表格密度">
-              <button
-                type="button"
-                aria-pressed={density === 'compact'}
-                onClick={() => setDensity('compact')}
-              >
-                紧凑
-              </button>
-              <button
-                type="button"
-                aria-pressed={density === 'comfortable'}
-                onClick={() => setDensity('comfortable')}
-              >
-                舒适
-              </button>
+            <div className="health-tabs" aria-label="表格密度">
+              <Segmented
+                value={density}
+                onChange={(next) =>
+                  setDensity(next as 'compact' | 'comfortable')
+                }
+                options={[
+                  { value: 'compact', label: '紧凑' },
+                  { value: 'comfortable', label: '舒适' },
+                ]}
+              />
             </div>
             <label className="setting-switch">
-              <input
-                type="checkbox"
-                role="switch"
+              {/* antd Switch carries the same role=switch semantics the ARIA
+                  checkbox had. */}
+              <Switch
                 checked={showTech}
-                onChange={(e) => setShowTech(e.target.checked)}
+                onChange={(checked) => setShowTech(checked)}
               />
               显示技术字段
             </label>
-            <button
-              type="button"
-              className="text-button"
-              onClick={clearFilters}
-            >
-              清除本页筛选
-            </button>
+            <TextButton onClick={clearFilters}>清除本页筛选</TextButton>
           </div>
         </div>
       </div>
@@ -447,243 +610,49 @@ export default function Statistics({
           </p>
         </div>
       ) : data.rows.length ? (
+        /* The big table is the migration's centrepiece: an antd Table carrying
+           the same three columns. Density is the library's own (compact → small,
+           comfortable → middle); the container keeps `aria-busy`/`is-loading`,
+           and every per-row hook survives - `data-stat-id` rides `onRow` for the
+           GSAP discovery animation, `.stat-sprite`/`.pixel-texture` stay on the
+           img, and the icon fallback / size backfill chain is untouched. */
         <div
           className={`statistics-table${
             loading ? ' is-loading' : ''
           } is-${density}`}
           aria-busy={loading}
         >
-          <table>
-            <thead>
-              <tr>
-                <th>分类 / 统计键</th>
-                <th
-                  aria-sort={
-                    sort === 'value_desc'
-                      ? 'descending'
-                      : sort === 'value_asc'
-                      ? 'ascending'
-                      : 'none'
-                  }
-                >
-                  <button
-                    className="stat-sort-heading"
-                    title={
-                      sort === 'value_desc'
-                        ? '当前降序；切换为升序（按原始读数）'
-                        : sort === 'value_asc'
-                        ? '当前升序；恢复默认顺序'
-                        : '当前默认顺序；切换为降序（按原始读数）'
-                    }
-                    onClick={() => {
-                      setSort(
-                        sort === 'default'
-                          ? 'value_desc'
-                          : sort === 'value_desc'
-                          ? 'value_asc'
-                          : 'default',
-                      );
-                      setOffset(0);
-                    }}
-                  >
-                    读数{' '}
-                    {sort === 'value_desc' ? (
-                      <ArrowDownWideNarrow size={15} />
-                    ) : sort === 'value_asc' ? (
-                      <ArrowUpNarrowWide size={15} />
-                    ) : (
-                      <ArrowUpDown size={15} />
-                    )}
-                  </button>
-                </th>
-                <th>来源</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.map((row) => {
-                const resource =
-                  row.resources?.find((r) => r.icon) ?? row.resources?.[0];
-                const local = discovered[`${row.category}:${row.key}`];
-                const icon = local?.image
-                  ? {
-                      image: local.image,
-                      size: 32,
-                      width: local.width,
-                      height: local.height,
-                      kind: local.kind ?? 'item',
-                      source: local.source,
-                    }
-                  : resource?.icon;
-                const isAir = row.key === 'minecraft:air';
-                return (
-                  <tr
-                    key={`${row.category}:${row.key}`}
-                    data-stat-id={`${row.category}:${row.key}`}
-                  >
-                    <td>
-                      <div className="stat-identity">
-                        {icon ? (
-                          <button
-                            type="button"
-                            className="stat-icon"
-                            title={`查看${row.label ?? row.key}图标`}
-                            aria-label={`查看${row.label ?? row.key}图标`}
-                            onClick={() =>
-                              setPreview({ label: row.label ?? row.key, icon })
-                            }
-                          >
-                            <img
-                              className={`stat-sprite${
-                                icon.kind === 'item' ? ' pixel-texture' : ''
-                              }`}
-                              src={iconUrl(icon.image)}
-                              onLoad={(e) => {
-                                if (local?.image && !local.width) {
-                                  const {
-                                    naturalWidth: width,
-                                    naturalHeight: height,
-                                  } = e.currentTarget;
-                                  setDiscovered((old) => ({
-                                    ...old,
-                                    [`${row.category}:${row.key}`]: {
-                                      ...local,
-                                      width,
-                                      height,
-                                    },
-                                  }));
-                                }
-                              }}
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.src = '/stat-fallback.svg';
-                              }}
-                              width={icon.width ?? icon.size}
-                              height={icon.height ?? icon.size}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          </button>
-                        ) : (
-                          <span
-                            className="stat-icon stat-icon-placeholder"
-                            title={
-                              isAir
-                                ? '空气（无可见材质）'
-                                : `分类占位 · ${
-                                    local?.reason ?? '尚未找到可用游戏模型'
-                                  }`
-                            }
-                          >
-                            {(() => {
-                              const CatIcon =
-                                groupIcons[
-                                  (row.category.split(':').pop() ??
-                                    'other') as keyof typeof groupIcons
-                                ] ?? groupIcons.other;
-                              const letter = (
-                                row.label ??
-                                resource?.english ??
-                                row.key
-                              )
-                                .replace(/^minecraft:/, '')
-                                .slice(0, 1)
-                                .toUpperCase();
-                              return (
-                                <>
-                                  <CatIcon size={18} aria-hidden="true" />
-                                  <span
-                                    className="stat-placeholder-letter"
-                                    aria-hidden="true"
-                                  >
-                                    {letter}
-                                  </span>
-                                </>
-                              );
-                            })()}
-                          </span>
-                        )}
-                        <div className="stat-description">
-                          <strong className="stat-label">
-                            {row.label ?? resource?.english ?? row.key}
-                          </strong>
-                          {row.resources?.some(
-                            (r) => r.origin === 'reviewed',
-                          ) ? (
-                            <small className="stat-supplement">补充译名</small>
-                          ) : null}
-                          {showTech ? (
-                            <div className="stat-tech">
-                              <small title={row.category}>
-                                {row.category_label ?? row.category} ·{' '}
-                                {row.key.includes(':')
-                                  ? row.key.split(':')[0]
-                                  : 'Minecraft'}
-                              </small>
-                              <code>{row.key}</code>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      {row.value !== null ? (
-                        <span
-                          className="stat-reading"
-                          title={statisticRawTitle(row.value, row.unit)}
-                        >
-                          <span className="stat-value">
-                            {formatStatistic(row.value, row.unit)}
-                          </span>
-                          {statisticUnitSuffix(row.unit) ? (
-                            <small className="stat-unit">
-                              {statisticUnitSuffix(row.unit)}
-                            </small>
-                          ) : null}
-                        </span>
-                      ) : (
-                        <details>
-                          <summary>
-                            {row.category === 'extra' ? '原始值' : '非整数数据'}
-                          </summary>
-                          {row.samples.map((s, i) => (
-                            <pre key={i}>{s}</pre>
-                          ))}
-                        </details>
-                      )}
-                    </td>
-                    <td>
-                      {row.sources === 1 ? (
-                        <span className="stat-provenance-count">1 份</span>
-                      ) : (
-                        <details className="stat-provenance">
-                          <summary>{row.sources} 份</summary>
-                          <div>
-                            {row.source_packs?.join('、') || '本地世界'}
-                          </div>
-                          {row.resources?.map((r, i) => (
-                            <div key={i}>
-                              {row.resources.length > 1 ? (
-                                <b>
-                                  {r.label ?? r.english} · {r.packs.join('、')}
-                                </b>
-                              ) : null}
-                              <span>
-                                {r.translation_source ?? '未找到可用语言资源'}
-                              </span>
-                              {r.english && r.english !== r.label ? (
-                                <span>{r.english}</span>
-                              ) : null}
-                            </div>
-                          ))}
-                        </details>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <Table
+            rowKey={(row) => `${row.category}:${row.key}`}
+            dataSource={data.rows}
+            size={density === 'compact' ? 'small' : 'middle'}
+            pagination={false}
+            /* data-stat-id rides the row for the GSAP discovery animation; the
+               data attribute needs the unknown-props cast because React's
+               HTMLAttributes typing has no data-* index. */
+            onRow={(row) =>
+              ({
+                'data-stat-id': `${row.category}:${row.key}`,
+              } as unknown as HTMLAttributes<HTMLTableRowElement>)
+            }
+            columns={statColumns}
+            /* Sorting is server-side; clicking the header only walks the
+               controlled three-state cycle and resets the page, exactly as the
+               hand-rolled heading button did. */
+            onChange={(_pagination, _filters, sorter) => {
+              const order = Array.isArray(sorter)
+                ? sorter[0]?.order
+                : sorter.order;
+              setSort(
+                order === 'descend'
+                  ? 'value_desc'
+                  : order === 'ascend'
+                  ? 'value_asc'
+                  : 'default',
+              );
+              setOffset(0);
+            }}
+          />
         </div>
       ) : (
         <div className="list-empty" role="status">
@@ -704,28 +673,21 @@ export default function Statistics({
         </div>
       )}
       {data && data.rows.length && data.total > data.page_size ? (
-        <div className="pagination">
-          <button
-            title="上一页"
-            aria-label="上一页"
-            disabled={loading || offset === 0}
-            onClick={() => setOffset(Math.max(0, offset - data.page_size))}
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <span>
-            {Math.floor(offset / data.page_size) + 1} /{' '}
-            {Math.ceil(data.total / data.page_size)}
-          </span>
-          <button
-            title="下一页"
-            aria-label="下一页"
-            disabled={loading || offset + data.page_size >= data.total}
-            onClick={() => setOffset(offset + data.page_size)}
-          >
-            <ChevronRight size={15} />
-          </button>
-        </div>
+        /* Same simple-mode Pagination as the timeline: the offset semantics stay
+           the one source of truth (current derives from offset, onChange writes
+           it back as `(page-1) * page_size`), 50/页 or whatever page_size the
+           backend sent, and the wrapping nav names the pager. */
+        <nav className="pagination" aria-label="统计页码">
+          <Pagination
+            simple
+            disabled={loading}
+            current={Math.floor(offset / data.page_size) + 1}
+            pageSize={data.page_size}
+            total={data.total}
+            showSizeChanger={false}
+            onChange={(page) => setOffset((page - 1) * data.page_size)}
+          />
+        </nav>
       ) : null}
       {/* Everything below the table is read only on request. The overview answers
           "what do these rows add up to", which is a different question from the list
@@ -788,18 +750,14 @@ export default function Statistics({
           </span>
         </summary>
         <div className="stat-icon-toolbar">
-          <button
-            type="button"
-            className="text-button"
+          <TextButton
             title="从本机已安装实例查找模型并补齐本页图标；不会写入游戏文件。打开页面只自动应用已有缓存。"
             disabled={loading || !data || checkingResources}
             onClick={() => void checkResources()}
           >
             检查本页游戏图标
-          </button>
-          <button
-            type="button"
-            className="text-button"
+          </TextButton>
+          <TextButton
             disabled={resourceDetails.length === 0}
             aria-expanded={detailsOpen}
             onClick={() => setDetailsOpen((open) => !open)}
@@ -809,7 +767,7 @@ export default function Statistics({
               : resourceDetails.length
               ? `查看明细（${resourceDetails.length}）`
               : '查看明细'}
-          </button>
+          </TextButton>
         </div>
         {detailsOpen && resourceDetails.length > 0 ? (
           <div
