@@ -38,6 +38,8 @@ export default [
       'scripts/visual-qa-spider-color.mjs',
       'scripts/visual-qa-two-box.mjs',
       'scripts/oneoff/probe-gsap-stat-icons.mjs',
+      'scripts/oneoff/probe-collapse-reduced-motion.mjs',
+      'scripts/oneoff/probe-visual-review-fixes.mjs',
       'scripts/qa-visual-snapshot.mjs',
     ],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },

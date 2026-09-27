@@ -496,7 +496,7 @@ export default function ArchivePages({ state }: { state: AppState }) {
               }}
             />
           </SessionPage>
-          <div hidden={view !== 'instances'}>
+          <SessionPage active={view === 'instances'} label="游戏实例">
             <PclInstances
               report={report}
               link={pcl}
@@ -507,7 +507,7 @@ export default function ArchivePages({ state }: { state: AppState }) {
                 navigate('worlds');
               }}
             />
-          </div>
+          </SessionPage>
           <SessionPage active={view === 'worlds'} label="世界与玩家">
             <WorldLibrary
               report={report}
