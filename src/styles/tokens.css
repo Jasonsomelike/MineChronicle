@@ -68,7 +68,9 @@
     inset 0 1px rgba(255, 255, 255, 0.12);
   --shadow-field: 0 1px 3px rgba(29, 33, 41, 0.04),
     inset 0 0 0 1px var(--border);
-  --shadow-focus-glow: 0 0 0 4px rgba(22, 93, 255, 0.12);
+  /* The active watch-dot's glow, tinted with the brand hue. The literal used to
+     carry the old blue's channels; the hue follows warmth.css's --brand. */
+  --shadow-focus-glow: 0 0 0 4px rgba(15, 118, 110, 0.14);
 
   /* Not elevation: a ring that punches a gap through to the surface behind, used
      where a small badge overlaps a bar. Structural, so it stays in dark mode while
@@ -77,12 +79,14 @@
 
   --motion-reveal: 650ms;
 
-  /* Sidebar rail, two widths and one column. The rail's resting shape is the compact
-     width: `--sidebar-w-compact` is the shell grid's first column and the rail's own
-     width at every viewport that has a rail at all. `--sidebar-w` is the hover-expanded
-     overlay's width - the labelled rail that floats over the content while the pointer
-     rests on it (or focus sits in it), never a grid column. The overlay takes no part
-     in the layout, so the content column cannot shift when it opens.
+  /* Sidebar rail, two widths and one column. The rail's resting shape depends on the
+     tier: at comfortable desktop widths (>= 1024px) the LABELLED width is the resting
+     shape - `--sidebar-w` is the shell grid's first column and the rail's own width
+     there, icons + labels + group headings inside the 184-208px band the direction
+     asked for. In the narrow-desktop band (860-1024px) `--sidebar-w-compact` is the
+     resting icon-only column and `--sidebar-w` becomes the hover/focus-expanded
+     overlay width instead. Below 860px the rail reflows into the top strip and neither
+     width applies.
 
      The primary navigation became a left column, so the three chrome heights this file
      used to carry (--chrome-header, --chrome-nav, and the `--chrome-header +
@@ -91,9 +95,14 @@
      exactly the bug they were introduced to fix, and one left behind would be invisible
      until the next person stacked something under the nav again. */
   --sidebar-w: 192px;
-  /* The rail's resting width: icons only, no labels. 72 and not 64: the two residency
-     labels are four CJK characters each, which is 48px at --type-caption, and a 64px
-     rail minus its padding and border left 47px for them - measured overflowing by 9px
-     on both. */
+  /* The icon-only width, resting shape of the narrow-desktop band. 72 and not 64: the
+     two residency labels are four CJK characters each, which is 48px at
+     --type-caption, and a 64px rail minus its padding and border left 47px for them -
+     measured overflowing by 9px on both. */
   --sidebar-w-compact: 72px;
+  /* Where the resting shape flips from the labelled rail to the icon rail. Windows
+     narrower than this still have a rail, but the page beside a permanent 192px column
+     read as cramped: measured at 960px (a 1920 half-snap) the content column would be
+     696px. Matches qa-rail-measure's narrow-desktop expectations. */
+  --rail-label-min: 1024px;
 }

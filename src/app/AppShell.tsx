@@ -222,18 +222,20 @@ export default function AppShell({
   children: ReactNode;
 }) {
   const { view, navigate, activeSection, setActiveSection, runtime } = state;
-  /* The rail opens on intent (pointer resting 100ms) or on focus (immediately), and
-     closes on leave (after a 150ms grace), a press outside, Escape, window blur, or
-     focus leaving beyond the rail while the pointer is NOT resting on it. Clicks
-     never close it - navigating included: the click lands under a pointer that is
-     still on the rail, and collapsing there yanked the expanded rail out from under
-     the cursor on every destination click (the click-collapse regression). Expansion
-     itself pushes the content column right (shell.css grows the grid's first track
-     with the rail's width), so nothing the reader is looking at is ever underneath
-     it. There is no stored preference behind any of it: `railOpen` is this
-     component's session state alone, the DOM carries it as one `.is-open` class, and
-     the same window width always draws the same resting rail. The timers live in
-     src/lib/rail.ts; this component only wires DOM events to the controller. */
+  /* The rail's resting shape depends on the window: 72px of icons below 1024px (labels
+     arrive on hover/focus via the controller), the full labelled 192px column at 1024px
+     and up. The controller still runs in both tiers - it adds `.is-open` on pointer
+     rest or focus and removes it on leave/Escape/outside press/window blur - and in
+     the labelled tier the class is inert geometry, because the rail already sits at
+     its full width and the open-state styles are overridden to nothing.
+
+     The narrow tier's expansion pushes the content column right (shell.css grows the
+     grid's first track with the rail's width), so nothing the reader is looking at is
+     ever underneath it. The labelled tier never changes width at all, so navigation
+     there cannot cover or shift the page. The controller's open state is session
+     state alone, the DOM carries it as one `.is-open` class, and the same window
+     width always draws the same resting rail. The timers live in src/lib/rail.ts;
+     this component only wires DOM events to the controller. */
   const [railOpen, setRailOpen] = useState(false);
   const railRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -279,7 +281,7 @@ export default function AppShell({
     /* Tauri can switch windows or minimize; on return the rail must not still be
        expanded over a layout the user never asked it to occupy. */
     const onWindowBlur = () => controller.windowBlur();
-    /* Dragging the window below 860px while open: the strip tier has no expanded rail
+    /* Dragging the window into the strip tier while open: the strip has no expanded rail
        to show, so the open state must not survive the resize. The controller only gates
        OPENING on canOpen(), and no pointer/blur event fires for a resize - this is
        the one close source that has to listen to the media query itself. */
@@ -311,10 +313,12 @@ export default function AppShell({
           all three - measured 501px/710px/518px rows, which left the nav half way down
           the window and the labels 1212px below the fold.
 
-          The first grid column is the 72px compact width at every viewport that has a
-          rail at all. When the rail expands it leaves the grid (`position: fixed`) and
-          floats over the content: the column never changes, so the content never
-          shifts by a pixel in either direction.
+          The first grid column is the 72px compact width in the 860-1024px band. When
+          the rail expands there it leaves the grid (`position: sticky` widening inside
+          the `auto` track) and pushes the content over: the column never changes, so
+          the content never shifts by a pixel in either direction. At 1024px and up the
+          labelled block in shell.css makes the 192px column the resting shape and the
+          expansion is inert - the rail is already at full width.
 
           Below 860px the rail stops being a box (`display: contents`) and its three
           children reflow into a top strip in this same DOM order, so there is no second
@@ -382,11 +386,19 @@ export default function AppShell({
                     <button
                       key={id}
                       type="button"
-                      /* Names the destination while the rail is collapsed to icons.
-                         Suppressed while it is expanded - the visible label says the
-                         same string, and a tooltip over a visible label is the same
-                         sentence twice. */
-                      title={railOpen ? undefined : PAGE_LABELS[id]}
+                      /* Names the destination only while the rail is a 72px icon
+                         column (860-1024px band at rest). In the labelled tier and in
+                         the strip the visible label says the same string, and a
+                         tooltip over a visible label is the same sentence twice.
+                         CSS answers "is the label visible" with the same breakpoints
+                         the rail's geometry uses, so the attribute cannot drift from
+                         what is on screen. */
+                      title={
+                        railOpen || window.matchMedia('(min-width: 1024px)')
+                          .matches
+                          ? undefined
+                          : PAGE_LABELS[id]
+                      }
                       aria-current={view === id ? 'page' : undefined}
                       onClick={() => {
                         /* No close on the choice: a click is not a departure. The

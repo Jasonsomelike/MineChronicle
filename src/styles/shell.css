@@ -25,7 +25,8 @@
      instead of floating the rail over it. The reader asked for exactly that -
      expansion must never cover the content's left edge - and an auto track is
      what makes the push follow the width transition frame by frame with no
-     second animation to keep in sync. */
+     second animation to keep in sync. At the labelled tier below, the rail never
+     changes width, so the track is static in practice. */
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: var(--space-4);
   /* Default `stretch`, deliberately: the rail's right edge is a full-height divider, so
@@ -168,11 +169,11 @@
   margin-top: auto;
 }
 
-/* The residency facts: icon + text in one span. The compact rail shows the icon and
-   keeps the full sentence in `title`; the expanded rail shows both; the top strip
-   swaps them (text, no icon). Centered while compact, like the icons above it: the
-   compact rail is a column of marks down one axis, and a left-hugging icon at the foot
-   would break the line they draw. */
+/* The residency facts: icon + text in one span. The narrow rail shows the icon and
+   keeps the full sentence in `title`; the expanded rail and the labelled rail show
+   both; the top strip swaps them (text, no icon). Centered while compact, like the
+   icons above it: the compact rail is a column of marks down one axis, and a
+   left-hugging icon at the foot would break the line they draw. */
 .local-label {
   display: flex;
   align-items: center;
@@ -186,9 +187,9 @@
 /* The rail foot is the GLANCE at the runtime reading; the status bar at the top of the
    content is the announcement. Same `.watch-dot` classes as the status bar, so the two
    can never disagree about what state they show. The label is hidden while compact
-   (a 72px rail has room for a dot only) and shown beside the dot when open or in the
-   top strip. The fragment is `aria-hidden` in AppShell - the status bar is the single
-   speaking surface. */
+   (a 72px rail has room for a dot only) and shown beside the dot when open, in the
+   labelled tier, or in the top strip. The fragment is `aria-hidden` in AppShell - the
+   status bar is the single speaking surface. */
 .rail-status {
   display: flex;
   align-items: center;
@@ -289,12 +290,14 @@
   flex-shrink: 0;
 }
 
-/* --- The resting shape: 72px, icons only -----------------------------------
-   This is the BASE state, not a breakpoint and not a preference: the rail is 72px at
-   every viewport that has a rail at all, and the labels come back only when the rail
-   expands (`.is-open`) or reflows into the top strip (media query below). The group
-   headings go with the labels - a heading over a column of bare icons names nothing,
-   and it is wider than the 72px rail can hold. */
+/* --- The narrow-desktop resting shape: 72px, icons only --------------------
+   This is the BASE state in the 860-1024px band, not a breakpoint of its own: the rail
+   is 72px there, and the labels come back when the rail expands (`.is-open`) or reflows
+   into the top strip (media query below). At 1024px and up the labelled block below
+   overrides it - that tier's resting shape IS the labelled column.
+
+   The group headings go with the labels wherever the labels go: a heading over a column
+   of bare icons names nothing, and it is wider than the 72px rail can hold. */
 
 .app-nav-label,
 .app-nav-group-title,
@@ -340,6 +343,49 @@
   display: inline;
 }
 
+/* --- The labelled tier: the rail's resting shape IS the labelled column -----
+   At 1024px and up the window has room for a permanent 192px of chrome beside the
+   page - measured, the content column keeps 816px at 1024 and 1216px at 1440 - so the
+   rail rests in its full form: icons + labels + group headings, no interaction needed
+   to name a destination. The narrow band below keeps the 72px + hover model; the strip
+   tier keeps the wrapped row.
+
+   The same `.is-open` class still arrives on hover/focus in this tier (the controller
+   is width-agnostic), but it changes nothing here: the rail is already at
+   `--sidebar-w`, so the class is inert geometry. The hover-open/close DOM events keep
+   firing - harmless, and removing them would fork the shell's behaviour by tier. */
+@media (min-width: 1024px) {
+  .app-rail {
+    width: var(--sidebar-w);
+  }
+  .app-nav-label,
+  .app-nav-group-title,
+  .wordmark-label,
+  .local-label-text,
+  .rail-status-label {
+    display: inline;
+  }
+  .wordmark,
+  .app-nav button,
+  .local-label,
+  .rail-status {
+    justify-content: flex-start;
+  }
+  .app-nav button {
+    padding: 0 var(--space-3);
+  }
+  /* Expansion is a no-op here - the rail already sits at its full width - so the
+     overlay's lift and background never engage, and the width transition below has
+     nothing to animate. Kept off rather than fought: the base rule's `transition`
+     still exists, it just has no property that changes in this tier. */
+  .app-rail.is-open {
+    width: var(--sidebar-w);
+    z-index: auto;
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
 /* --- The status strip ------------------------------------------------------ */
 
 .status-center {
@@ -383,9 +429,8 @@
    620px  the second residency label drops and the brand step comes down, so the strip
           stays a strip.
 
-   Between them and above, there is no width tier at all: the rail's resting shape is
-   the 72px column at every width, and expansion is the hover/focus interaction on top
-   of it, identical at 900px and 2048px.
+   Between 860 and 1024 the rail rests at 72px and labels arrive on hover/focus; at
+   1024 and up the labelled block above makes the labelled column the resting shape.
 
    Below 860px the primary nav intentionally stops sticking. Both it and the settings
    section nav used to pin at once, and the section nav's `top` cannot be a constant when
@@ -418,12 +463,16 @@
     font-size: var(--type-lead);
     padding-bottom: 0;
   }
-  /* Both labels come back with the rail's width - and the residency labels swap
-     shapes: text shown, icon hidden, the reverse of the compact rail. The group
-     headings stay hidden: the strip is a wrapped row and the headings would read as
-     stray words in it. */
+  /* The rail's labels are hidden by the narrow-band base rules (the 72px shape), and
+     the strip's job is to bring them all back permanently: text shown, icon hidden for
+     the residency pairs - the reverse of the rail's icon + text - and the group
+     headings stay hidden because the strip is a wrapped row where a heading would read
+     as a stray word. */
   .app-nav-label,
   .wordmark-label {
+    display: inline;
+  }
+  .rail-status-label {
     display: inline;
   }
   .local-label-text {
@@ -439,9 +488,6 @@
     justify-content: flex-start;
     /* A row item: the column foot's margin would push it off the baseline. */
     margin-bottom: 0;
-  }
-  .rail-status-label {
-    display: inline;
   }
   .header-tools {
     grid-column: 2;

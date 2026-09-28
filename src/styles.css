@@ -14,6 +14,12 @@
   background: var(--page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  /* A data tool first: every figure aligns by default, so a column of numbers
+     can be compared digit against digit without each rule opting in. The
+     per-component `tabular-nums` declarations that follow are the exceptions
+     that pair the feature with the mono family, not the only places it
+     applies. */
+  font-variant-numeric: tabular-nums;
 }
 /* Tailwind's preflight sets `small { font-size: 80% }`. Nested inside a parent that is
    already small this compounded to 9.6px and 10.4px - below any readable minimum.
@@ -327,7 +333,8 @@ main {
   flex-wrap: wrap;
 }
 .dashboard-heading p {
-  font-size: var(--type-body);
+  /* Superseded at 1247: the meta line's size and tabular figures are decided
+     once, next to the page-head rules. */
   margin: 8px 0 20px;
 }
 .dashboard-heading label {
@@ -1239,6 +1246,10 @@ footer {
   font-size: var(--type-heading);
 }
 .dashboard-heading p {
+  /* The same meta line `.library-heading span` draws for the list pages: the
+     scope sentence under the title, at the caption step. */
+  font-size: var(--type-caption);
+  font-variant-numeric: tabular-nums;
   margin: 7px 0 0;
 }
 .scan-panel .dashboard-heading label {
@@ -2767,8 +2778,15 @@ button.stat-icon:hover {
   }
 }
 .library-heading span {
+  /* The page head's meta line: one quiet step under the title, in the muted tone.
+     Not every supporting line is grey small text - this is the ONE line that
+     describes what the list below counts, and its hierarchy is carried by the
+     size step and the title's weight rather than by greying prose everywhere. */
   font-size: var(--type-caption);
   color: var(--text-muted);
+  /* A page head reads as one sentence; a number walking into the next phrase at
+     a different width breaks the scan. */
+  font-variant-numeric: tabular-nums;
 }
 .library-toolbar {
   margin-bottom: 16px;

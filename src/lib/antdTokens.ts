@@ -15,9 +15,10 @@
  * Dark mode uses `theme.darkAlgorithm` and overrides Map Tokens only: the
  * official guidance is to never set `colorBgBase` directly, so every surface
  * below is a named Map Token carried over from the dark block in warmth.css.
- * The dark primary keeps the light theme's #165DFF on purpose - Arco's own dark
- * primary #3C7EFF holds white text at 3.73:1 (below the AA bar) while #165DFF
- * measures 5.19:1; the reasoning lives in the warmth.css dark block.
+ * The dark primary keeps the light theme's #0F766E on purpose - the accent
+ * greens that read well as dark-theme text (#7FD4C0) all measure under 3:1
+ * under white, so the fill follows the same AA argument the blue palette made;
+ * the reasoning lives in the warmth.css dark block.
  */
 
 import { theme } from 'antd';
@@ -72,9 +73,9 @@ const LIGHT: ThemeConfig = {
     controlHeightSM: CONTROL_HEIGHT_SM,
     controlHeightLG: CONTROL_HEIGHT_LG,
     ...RADIUS_TOKENS,
-    colorPrimary: '#165dff',
-    colorInfo: '#165dff',
-    colorLink: '#165dff',
+    colorPrimary: '#0f766e',
+    colorInfo: '#0f766e',
+    colorLink: '#0f766e',
     colorError: '#cb272d',
     colorSuccess: '#008026',
     colorWarning: '#a64500',
@@ -104,17 +105,17 @@ const DARK: ThemeConfig = {
   /* Component-level overrides, per the gate's escalation order (components
      tokens first, never silent relaxations). In dark mode antd paints several
      *selected* control texts with colorPrimary - and the AA-motivated choice to
-     keep #165DFF as the dark fill color (white on it: 5.19:1) makes that blue
-     unreadable as text on dark surfaces (measured 2.79:1 on #17171A by
+     keep #0F766E as the dark fill color (white on it: 5.47:1) makes that pine
+     unreadable as text on dark surfaces (measured 2.87:1 on #17171A by
      scripts/qa-design-check.mjs). warmth.css solved the same pair with
-     --text-accent #689FFF, so the components here paint selected/hover states
-     from that accent family. Light mode needs no override: #165DFF text on
-     white measures 4.97:1. */
+     --text-accent #7FD4C0, so the components here paint selected/hover states
+     from that accent family. Light mode needs no override: #0F766E text on
+     white measures 5.47:1. */
   components: {
     Tabs: {
-      itemSelectedColor: '#689fff', // --text-accent, dark block
-      itemHoverColor: '#8cb0ff', // one step lighter than the accent
-      itemActiveColor: '#a5c6ff', // pressed step
+      itemSelectedColor: '#7fd4c0', // --text-accent, dark block
+      itemHoverColor: '#a3e4d4', // one step lighter than the accent
+      itemActiveColor: '#b8ecdf', // pressed step
     },
   },
   token: {
@@ -125,9 +126,9 @@ const DARK: ThemeConfig = {
     controlHeightLG: CONTROL_HEIGHT_LG,
     ...RADIUS_TOKENS,
     // See the module comment: AA keeps the light primary in dark mode.
-    colorPrimary: '#165dff',
-    colorInfo: '#165dff',
-    colorLink: '#689fff',
+    colorPrimary: '#0f766e',
+    colorInfo: '#0f766e',
+    colorLink: '#7fd4c0',
     colorError: '#f98d86',
     colorSuccess: '#27c346',
     colorWarning: '#ff9626',

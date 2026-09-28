@@ -8,15 +8,19 @@
  * new. Names describe the ROLE, not the colour, so a token never lies about what
  * it holds once the theme changes.
  *
- * Both palettes are translated from Arco Design's published token tables (the
- * light color-bg/text/border steps and the arcoblue family; the dark bg-1..4
- * ladder with white-alpha text), so every value traces to a static colour card
- * rather than an algorithm. The dark ground is #17171A - Arco's bg-1, near-black
- * but not #000, which keeps a data-dense UI readable across long sessions.
+ * The brand hue is a restrained pine green, chosen over the Arco blue this file
+ * carried before it: blue put the app's CTA fill, its chart bars, its selected
+ * states and its links on the same hue as every other data tool, and none of
+ * them said MineChronicle. Pine stays quiet next to the neutral surfaces, and
+ * the semantic hues (success green, amber, danger red) are untouched, so a
+ * "healthy" reading never shares the brand's exact fill.
  *
- * Contrast is measured, not eyeballed. Body text on `--surface` is 16.13:1 in
- * light and 12.93:1 in dark; muted text is 7.10:1 and 8.36:1, both well past the
- * 4.5:1 AA threshold. The measurement is re-run after any palette change.
+ * Both palettes are measured, not eyeballed. Light accent #0F766E: 5.47:1 on
+ * white, white on it 5.47:1, 4.93:1 on the sunken surfaces it sits on. Dark
+ * accent #7FD4C0: 9.03:1 on the surface. The dark CTA keeps the light fill
+ * (#0F766E, white on it 5.47:1) because the lighter dark-theme greens that read
+ * well as text measure under 3:1 under white. The measurement is re-run after
+ * any palette change by scripts/qa-design-check.mjs.
  */
 :root {
   color-scheme: light;
@@ -25,7 +29,7 @@
   --warm-surface: #ffffff;
   --warm-line: #e5e6eb;
   --warm-ink: #1d2129;
-  --brand: #165dff;
+  --brand: #0f766e;
   --warm-muted: #4e5969;
 
   /* Surfaces, from the page floor upward. */
@@ -42,10 +46,12 @@
      the rules that paint it, which is how the light half of the pair ended up as a literal
      in a component rule while its dark half lived here. */
   --surface-control: #f2f3f5;
-  /* The filled CTA surface, and the surface its hover steps to. #4080FF - Arco's lighter
-     hover step - puts white text at 3.65:1, so the hover goes one step darker instead. */
-  --surface-strong: #165dff;
-  --surface-strong-hover: #0e42d2;
+  /* The filled CTA surface, and the surface its hover steps to. #0C5F59 is one
+     step darker on the same hue; the previous hover (#4080FF's replacement
+     logic) put white text under 4.5:1, so the hover goes darker instead of
+     lighter. */
+  --surface-strong: #0f766e;
+  --surface-strong-hover: #0c5f59;
 
   /* Text, from strongest to faintest. */
   --text: #1d2129;
@@ -53,7 +59,7 @@
   --text-muted: #4e5969;
   --text-faint: #4e5969;
   --text-on-strong: #ffffff;
-  --text-accent: #165dff;
+  --text-accent: #0f766e;
   --text-label: #272e3b;
 
   /* Borders. */
@@ -69,8 +75,10 @@
   --success-surface: #e8ffea;
 
   /* The decorative wash behind the page. Kept as a token pair so the dark theme
-     can drop it to a much fainter tint instead of removing the depth entirely. */
-  --wash-a: #e8f3ff80;
+     can drop it to a much fainter tint instead of removing the depth entirely.
+     Tinted with the brand hue rather than the blue it carried: a blue wash under
+     a pine accent read as two palettes. */
+  --wash-a: #e7f2ee80;
   --wash-b: #f2f3f580;
 
   --text-status: #008026;
@@ -80,12 +88,13 @@
   --text-summary: #4e5969;
   --text-button: #1d2129;
   --heading-on-strong: #ffffff;
-  --caption-on-strong: #e8f3ff;
+  --caption-on-strong: #e6f2ef;
 
   /* Semantic tints. A warning or error panel must keep its meaning in both
-     themes, so these are roles rather than shared neutrals. */
+     themes, so these are roles rather than shared neutrals. The info tint takes
+     the brand hue's tint; warning and danger stay their own hues. */
   --border-danger: #fdcdc5;
-  --surface-info: #e8f3ff;
+  --surface-info: #e7f2ee;
   --surface-warning: #fff7e8;
   --surface-danger: #ffece8;
   --warning: #a64500;
@@ -94,13 +103,13 @@
      comment claimed ECharts resolved this value in JavaScript; src carries no
      ECharts code any more, and the consumers are the CSS rules in styles.css and
      pages.css. The name stays so those rules do not have to rename. */
-  --chart-bar: #165dff;
+  --chart-bar: #0f766e;
 
   /* Amber accent for the second tracking metric. */
   --accent-amber: #a64500;
 
   /* The focus ring, measured at >=3:1 against every surface in both themes. */
-  --focus-ring: #165dff;
+  --focus-ring: #0f766e;
 
   background: var(--page);
   color: var(--text);
@@ -135,7 +144,7 @@
   --warm-surface: #232324;
   --warm-line: #333335;
   --warm-ink: rgba(255, 255, 255, 0.9);
-  --brand: #689fff;
+  --brand: #7fd4c0;
   --warm-muted: rgba(255, 255, 255, 0.7);
 
   --page: #17171a;
@@ -146,19 +155,21 @@
   --surface-active: #313132;
   --surface-tint: #2a2a2b;
   --surface-control: #323233;
-  /* The filled CTA surface. Arco's own dark primary #3C7EFF holds white text at
-     3.73:1, under the gate's AA bar, so the light theme's #165DFF is carried over
-     (white on it is 5.19:1). If a side-by-side with arco.design reads "not Arco
-     enough", the gate wins. */
-  --surface-strong: #165dff;
-  --surface-strong-hover: #0e42d2;
+  /* The filled CTA surface. The dark-theme accent greens that read well as text
+     on this ground (#7FD4C0 and lighter) all measure under 3:1 under white text,
+     so the dark fill carries the light theme's #0F766E over - white on it is
+     5.47:1, same argument the blue palette made for keeping #165DFF. If a
+     side-by-side with a darker dark-mode CTA reads "not deep enough", the AA gate
+     wins. */
+  --surface-strong: #0f766e;
+  --surface-strong-hover: #0c5f59;
 
   --text: rgba(255, 255, 255, 0.9);
   --text-strong: rgba(255, 255, 255, 0.9);
   --text-muted: rgba(255, 255, 255, 0.7);
   --text-faint: rgba(255, 255, 255, 0.7);
   --text-on-strong: #ffffff;
-  --text-accent: #689fff;
+  --text-accent: #7fd4c0;
   --text-label: rgba(255, 255, 255, 0.9);
 
   --border: #333335;
@@ -196,15 +207,15 @@
   --caption-on-strong: #ffffff;
 
   --accent-amber: #ff9626;
-  --chart-bar: #3c7eff;
+  --chart-bar: #34a08c;
   --border-danger: #6d3c3b;
-  --surface-info: #28354f;
+  --surface-info: #1f3a35;
   --surface-warning: #4f3a25;
   --surface-danger: #4d3131;
   --warning: #ff9626;
 
   /* Lightened so it still clears 3:1 against dark surfaces. */
-  --focus-ring: #689fff;
+  --focus-ring: #7fd4c0;
 }
 
 /*
