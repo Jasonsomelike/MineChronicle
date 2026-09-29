@@ -514,10 +514,10 @@ main {
   font-family: var(--font-mono);
 }
 .tracking-state {
-  display: flex;
-  gap: 28px;
-  flex-wrap: wrap;
-  padding: 18px 0;
+  /* Geometry moved to Dashboard.css (flex column: scope fact + supporting
+     rows). This rule keeps the region's padding inside the overview panel; the
+     grid layout it used to declare is superseded by the component sheet. */
+  padding: var(--space-5) var(--space-6);
   font-size: var(--type-body);
 }
 .tracking-state b {
@@ -535,8 +535,7 @@ main {
   border-top: 1px solid var(--border);
   padding-top: 20px;
 }
-.ranking h3,
-.health-summary h3 {
+.ranking h3 {
   font-size: var(--type-lead);
   margin: 0 0 12px;
 }
@@ -590,29 +589,20 @@ main {
 .ranking li span {
   font-size: var(--type-caption);
 }
-.health-summary {
+/* The 数据状态 section. Its layout lives in Dashboard.css (`.dashboard-section`
+   head + body + trailing action); these rules keep the count tags' checklist
+   read and the paragraph scale. The `.health-summary` class is still on the
+   element, so the qa scripts and the dark-tint rules in warmth.css keep
+   hooking it. */
+.health-counts {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin-top: 20px;
-  background: var(--surface-sunken);
-  padding: 20px;
-  border-radius: var(--radius-sm);
-}
-.health-summary p {
-  font-size: var(--type-caption);
+  flex-wrap: wrap;
+  gap: var(--space-2);
   margin: 0;
 }
-/* Fine print under the counts, not a third fact beside them.
-   Every paragraph in this panel renders at the one caption size the block sets,
-   so hierarchy has to come from ink and measure instead: the caveat drops to the
-   muted colour and stops at a reading width, while the counts above it keep full
-   strength. `p.health-caveat` outranks `.health-summary p` for the margin. */
-.health-summary p.health-caveat {
-  margin: var(--space-1) 0 0;
-  color: var(--text-muted);
-  max-width: 72ch;
+.health-summary p {
+  font-size: var(--type-body);
+  margin: 0;
 }
 .folder-group {
   border-bottom: 1px solid var(--border);
@@ -648,18 +638,13 @@ main {
   .metric-grid {
     grid-template-columns: 1fr;
   }
-  .health-summary {
-    align-items: start;
-    flex-direction: column;
-  }
+  /* The section head already wraps; the old column flip is gone with the flex
+     band it adjusted. */
   .dashboard-heading select {
     width: 100%;
   }
   .foundation {
     padding: 20px;
-  }
-  .tracking-state {
-    gap: 16px;
   }
 }
 h1 {
@@ -1327,10 +1312,6 @@ footer {
    numbers but are secondary to the career total, so they use small labels and a
    hairline rule instead of card chrome. */
 .tracking-state {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4) var(--space-5);
-  align-content: center;
   padding: var(--space-5) var(--space-6);
 }
 .tracking-state article {
@@ -1362,13 +1343,6 @@ footer {
      narrow column; balance keeps the break between the two readings instead of
      leaving a single character ("家") alone on the second line. */
   text-wrap: balance;
-}
-.tracking-note {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--text-faint);
-  font-size: var(--type-caption);
-  line-height: 1.6;
 }
 .ranking-grid {
   padding-top: 24px;
@@ -1463,16 +1437,10 @@ footer {
   min-width: 0;
 }
 
-.health-summary {
-  background: transparent;
-  padding: 16px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-}
-.health-summary h3 {
-  margin-bottom: 6px;
-}
+/* The section head draws its own rule (`.dashboard-section-head`), so the old
+   border-top/bottom band on `.health-summary` is gone rather than stacked on
+   top of it. The h3 override is gone with the band: Dashboard.css sizes the
+   head label. */
 .empty-stats {
   background: var(--surface-sunken);
   border-left: 3px solid var(--border);
@@ -1541,10 +1509,6 @@ footer {
   .career-total strong {
     font-size: var(--type-display);
   }
-  .tracking-state {
-    gap: 18px;
-    grid-template-columns: 1fr;
-  }
   .tracking-state article {
     display: flex;
     flex-wrap: wrap;
@@ -1556,6 +1520,8 @@ footer {
     margin: 0;
     font-size: var(--type-lead);
   }
+  /* The region is one column of rows already; the supporting metrics stay a
+     list, so nothing is re-placed here. */
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -2235,31 +2201,8 @@ button.stat-icon:hover {
   max-width: 100%;
   font-weight: 400;
 }
-.statistics-context {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-  border-bottom: 1px solid var(--border-soft);
-}
-.statistics .statistics-context .health-tabs {
-  margin: 0;
-  border: 0;
-  gap: 4px;
-}
-.statistics .statistics-context .health-tabs button {
-  background: transparent;
-  border-radius: 0;
-  color: var(--text-muted);
-  padding: 9px 12px;
-  font-size: var(--type-caption);
-  border-bottom: 2px solid transparent;
-}
-.statistics .statistics-context .health-tabs button[aria-selected='true'] {
-  border-bottom-color: var(--border);
-  color: var(--text-accent);
-}
+/* The scope Segmented rides in `.statistics-scope-row` (tool band rules below);
+   the old underline-tab dressing on this wrapper is gone with the wrapper. */
 .stat-unavailable {
   font-size: var(--type-caption);
   color: var(--warning);
@@ -3352,10 +3295,11 @@ button.stat-icon:hover {
   margin: 0 0 var(--space-2);
 }
 
-/* Settings navigation and compact recovery states follow the existing warm palette. */
+/* Settings navigation and compact recovery states follow the existing warm palette.
+   `.filter-summary` is gone from the markup; the shared row rule keeps the three
+   survivors. */
 .settings-jump,
 .backup-controls,
-.filter-summary,
 .read-status {
   display: flex;
   flex-wrap: wrap;
@@ -3443,11 +3387,6 @@ button.stat-icon:hover {
 .read-status .scan-error {
   width: 100%;
 }
-.filter-summary {
-  font-size: var(--type-caption);
-  color: var(--text-caption);
-  justify-content: space-between;
-}
 
 /* --- The statistics page's tool band ---------------------------------------
    Everything that filters the table, in one block above it. The page used to stack
@@ -3459,50 +3398,98 @@ button.stat-icon:hover {
    Inside the band the rows are separated by the band's own gap, so the outer margins
    each control brought with it (written when each was its own band) are cancelled
    here rather than in seven rules further up the file. */
+/* The band is two named rows, then the categories: scope+count, pickers+search.
+   The rows are separated by the band's own gap, so the outer margins each
+   control brought with it (written when each was its own band) are cancelled
+   here rather than in seven rules further up the file. */
 .statistics-toolband {
   display: grid;
-  gap: var(--space-2);
+  /* `minmax(0, 1fr)`, not `auto`: an auto track sizes to its largest item's
+     MAX-content, and the pickers row's max-content (3 pickers + a 360px search)
+     is 1292px - wider than the band, so every row spilled 276px past the page
+     edge at 1280 and 690px at 620 (measured by probe). With the 0 floor the
+     track is the band's own width and the rows' flex-wrap does the wrapping. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
 .statistics-toolband .activity-filters,
 .statistics-toolband .statistics-toolbar,
-.statistics-toolband .statistics-categories,
-.statistics-toolband .filter-summary {
+.statistics-toolband .statistics-categories {
   margin: 0;
   padding-bottom: 0;
 }
-/* The pickers and the search answer the same question, so they are one row. */
-.statistics-filters {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-  gap: var(--space-4);
+/* One control line: content left, the count pinned right, wrapping as one unit
+   below 900px. */
+.statistics-rowline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+.statistics-scope-row .stat-results-count {
+  margin-left: auto;
+}
+/* Pickers and search answer the same question, so they are one line: the
+   pickers keep their 3-across grid down to ~900px, then stack; the search
+   holds a fixed band beside them. `min-width: 0` is load-bearing - the
+   pickers' grid floors at its own min-content, and without the shrink
+   permission the search is pushed out of the viewport at 620px (measured:
+   toolbar x=950 inside a 620px window). */
+.statistics-pickers-row {
   align-items: end;
 }
-.statistics-filters .statistics-toolbar {
+.statistics-pickers-row .activity-filters {
+  flex: 1 1 480px;
+  min-width: 0;
+  /* The three pickers drop to one column before the row is 900px wide: the
+     grid's own 3-across floor is what squeezed the search out. */
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.statistics-pickers-row .statistics-toolbar {
+  flex: 1 1 240px;
+  max-width: 360px;
   flex-wrap: nowrap;
+  justify-content: flex-end;
 }
-/* The reading-mode tabs drew a rule under themselves; as a row of one band that rule
-   reads as a section break between two halves of the same thing. With the rule gone,
-   the 12px the underline-tab style uses to clear it is orphaned padding.
-
-   The density pills sit in the same band and are not underlined tabs at all - they
-   carry `aria-pressed` rather than `aria-selected` - so the same 12px strip is not
-   theirs either. Removing the two is worth 25px of the first screen. */
-.statistics-toolband .statistics-context {
-  border-bottom: 0;
+/* The tablefoot: pagination left, maintenance controls right. The density
+   Segmented is a segmented control, so the pressed option takes the filled
+   treatment the rest of the app gives a chosen option. */
+.statistics-tablefoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0 var(--space-5);
+  min-width: 0;
 }
-.statistics-toolband .statistics-context .health-tabs,
-.statistics-toolband .filter-tools .health-tabs {
+.statistics-tablefoot .pagination {
+  margin: 0;
+  padding: 0;
+}
+.statistics-tablefoot .filter-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.statistics .filter-tools .health-tabs {
+  margin: 0;
+  border: 0;
   padding-bottom: 0;
+  gap: 4px;
 }
-/* The density pills are a segmented control, not underlined tabs (see above), so the
-   pressed one takes the filled treatment the rest of the app gives a chosen option.
-   The rule the handoff described for them never landed: a probe measured both pills
-   identical - same ink, same transparent background, no border - so the control said
-   nothing about which density was on. */
 .statistics .filter-tools .health-tabs button[aria-pressed='true'] {
   background: var(--surface-strong);
   color: var(--text-on-strong);
+}
+.stat-pagehint {
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 /* The maintenance disclosure, shaped like the overview above it so the two read as the
    same kind of thing: a summary line, closed until asked for. */

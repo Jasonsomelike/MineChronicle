@@ -467,15 +467,51 @@ export default function Statistics({
           所选玩家 {data ? data.sources : UNKNOWN_DURATION} 份有效统计
         </span>
       </div>
-      {/* One band of controls, and then the table. It used to be nine stacked bands
+      {/* Two scannable rows, and then the table. It used to be nine stacked bands
           between the heading and the first row of data: five of them were a single
           control each, so the reader scrolled a whole screen of chrome to reach the
-          numbers, and the two blocks that are maintenance rather than reading sat
-          above the table as well. The order is now the one the page is read in -
-          what is being counted, then the count, then the tools that keep the count
-          working. */}
+          numbers.
+
+          Row 1 answers "what am I counting": the scope Segmented, the result
+          count it produces, and the unreadable-sources hint. Row 2 answers
+          "narrow it": instance / world / player pickers and the search field,
+          one row at every width where the pickers fit. The category strip is
+          the third line and the maintenance controls (density, tech fields,
+          clear) sit BELOW the table with the read status, where the reader
+          meets them after the first page of rows - not between the filters and
+          the numbers. */}
       <div className="statistics-toolband">
-        <div className="statistics-filters">
+        <div className="statistics-rowline statistics-scope-row">
+          <div className="health-tabs" aria-label="统计口径">
+            {/* The scope pair became a Segmented (radio model); the pressed-state
+                buttons and their aria-selected tabs are retired with the rest of
+                the hand-rolled tablist. */}
+            <Segmented
+              value={mode}
+              onChange={(next) => {
+                setMode(next as string);
+                setOffset(0);
+              }}
+              options={[
+                { value: 'current', label: '最近存档读数' },
+                { value: 'initial', label: '首次导入历史' },
+              ]}
+            />
+          </div>
+          {data?.unavailable ? (
+            <span className="stat-unavailable">
+              {data.unavailable} 份来源暂不可读
+            </span>
+          ) : null}
+          <span className="stat-results-count" aria-live="polite">
+            {loading
+              ? '读取中…'
+              : data
+              ? `${data.total.toLocaleString('zh-CN')} 项`
+              : UNKNOWN_DURATION}
+          </span>
+        </div>
+        <div className="statistics-rowline statistics-pickers-row">
           <ActivityFilters
             report={report}
             scope={scope}
@@ -497,37 +533,7 @@ export default function Statistics({
               }}
               placeholder="钻石矿石、跳跃或模组 ID"
             />
-            <span className="stat-results-count" aria-live="polite">
-              {loading
-                ? '读取中…'
-                : data
-                ? `${data.total.toLocaleString('zh-CN')} 项`
-                : UNKNOWN_DURATION}
-            </span>
           </div>
-        </div>
-        <div className="statistics-context">
-          {/* The scope pair became a Segmented (radio model); the pressed-state
-              buttons and their aria-selected tabs are retired with the rest of
-              the hand-rolled tablist. */}
-          <div className="health-tabs" aria-label="统计口径">
-            <Segmented
-              value={mode}
-              onChange={(next) => {
-                setMode(next as string);
-                setOffset(0);
-              }}
-              options={[
-                { value: 'current', label: '最近存档读数' },
-                { value: 'initial', label: '首次导入历史' },
-              ]}
-            />
-          </div>
-          {data?.unavailable ? (
-            <span className="stat-unavailable">
-              {data.unavailable} 份来源暂不可读
-            </span>
-          ) : null}
         </div>
         {/* The category strip is antd Tabs: the icon and the count travel in each
             tab's label, and the library owns the roving tabindex, Home/End,
@@ -566,33 +572,6 @@ export default function Statistics({
               };
             })}
           />
-        </div>
-        <div className="filter-summary">
-          <span>玩家选择与其他页面同步；其他筛选仅影响本页。</span>
-          <div className="filter-tools">
-            <div className="health-tabs" aria-label="表格密度">
-              <Segmented
-                value={density}
-                onChange={(next) =>
-                  setDensity(next as 'compact' | 'comfortable')
-                }
-                options={[
-                  { value: 'compact', label: '紧凑' },
-                  { value: 'comfortable', label: '舒适' },
-                ]}
-              />
-            </div>
-            <label className="setting-switch">
-              {/* antd Switch carries the same role=switch semantics the ARIA
-                  checkbox had. */}
-              <Switch
-                checked={showTech}
-                onChange={(checked) => setShowTech(checked)}
-              />
-              显示技术字段
-            </label>
-            <TextButton onClick={clearFilters}>清除本页筛选</TextButton>
-          </div>
         </div>
       </div>
       <ReadStatus {...request} />
@@ -672,23 +651,60 @@ export default function Statistics({
           </p>
         </div>
       )}
-      {data && data.rows.length && data.total > data.page_size ? (
-        /* Same simple-mode Pagination as the timeline: the offset semantics stay
-           the one source of truth (current derives from offset, onChange writes
-           it back as `(page-1) * page_size`), 50/页 or whatever page_size the
-           backend sent, and the wrapping nav names the pager. */
-        <nav className="pagination" aria-label="统计页码">
-          <Pagination
-            simple
-            disabled={loading}
-            current={Math.floor(offset / data.page_size) + 1}
-            pageSize={data.page_size}
-            total={data.total}
-            showSizeChanger={false}
-            onChange={(page) => setOffset((page - 1) * data.page_size)}
-          />
-        </nav>
-      ) : null}
+      {/* Maintenance row: pagination on the left, the controls that shape the
+          table on the right. Sitting here they answer "reading it, now change
+          how" at the moment the reader has actually seen rows - instead of
+          standing between the filters and the first number. */}
+      <div className="statistics-tablefoot">
+        {data && data.rows.length && data.total > data.page_size ? (
+          /* Same simple-mode Pagination as the timeline: the offset semantics stay
+             the one source of truth (current derives from offset, onChange writes
+             it back as `(page-1) * page_size`), 50/页 or whatever page_size the
+             backend sent, and the wrapping nav names the pager. */
+          <nav className="pagination" aria-label="统计页码">
+            <Pagination
+              simple
+              disabled={loading}
+              current={Math.floor(offset / data.page_size) + 1}
+              pageSize={data.page_size}
+              total={data.total}
+              showSizeChanger={false}
+              onChange={(page) => setOffset((page - 1) * data.page_size)}
+            />
+          </nav>
+        ) : (
+          <span className="stat-pagehint">
+            {data
+              ? `第 1 / ${Math.max(
+                  1,
+                  Math.ceil(data.total / data.page_size),
+                )} 页`
+              : ''}
+          </span>
+        )}
+        <div className="filter-tools">
+          <div className="health-tabs" aria-label="表格密度">
+            <Segmented
+              value={density}
+              onChange={(next) => setDensity(next as 'compact' | 'comfortable')}
+              options={[
+                { value: 'compact', label: '紧凑' },
+                { value: 'comfortable', label: '舒适' },
+              ]}
+            />
+          </div>
+          <label className="setting-switch">
+            {/* antd Switch carries the same role=switch semantics the ARIA
+                checkbox had. */}
+            <Switch
+              checked={showTech}
+              onChange={(checked) => setShowTech(checked)}
+            />
+            显示技术字段
+          </label>
+          <TextButton onClick={clearFilters}>清除本页筛选</TextButton>
+        </div>
+      </div>
       {/* Everything below the table is read only on request. The overview answers
           "what do these rows add up to", which is a different question from the list
           and used to push the list off the first screen; the icon block is

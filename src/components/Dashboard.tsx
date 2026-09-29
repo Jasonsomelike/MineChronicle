@@ -318,9 +318,16 @@ export default function Dashboard({
         {/* The observation figures sit with the career total rather than in their
             own band below it. They are the same kind of number - a duration - so
             stacking them as a separate full-width row made the page read as two
-            unrelated summaries and pushed the ranking off the first screen. */}
+            unrelated summaries and pushed the ranking off the first screen.
+
+            统计范围 is the region's heading fact - it says what the hero is
+            counting - and keeps the label/figure pair the region had. The three
+            observation durations are the supporting rows: same figure type, one
+            step quieter, so the page does not say "here are four equal heroes".
+            The direction named exactly this: three identical 2 分 56 秒 figures
+            must not be emphasised like the primary reading. */}
         <div className="tracking-state">
-          <article>
+          <article className="tracking-scope">
             <span>
               <Globe2 size={16} aria-hidden="true" />
               统计范围
@@ -341,30 +348,29 @@ export default function Dashboard({
               {report.instances.length} 个实例 · {data.missing} 个缺失
             </small>
           </article>
-          <article>
-            <span>
-              <Sunrise size={16} aria-hidden="true" />
-              本周观察增量
-            </span>
-            <strong>{observed(tracked.week)}</strong>
-          </article>
-          <article>
-            <span>
-              <CalendarDays size={16} aria-hidden="true" />
-              本月观察增量
-            </span>
-            <strong>{observed(tracked.month)}</strong>
-          </article>
-          <article>
-            <span>
-              <Footprints size={16} aria-hidden="true" />
-              累计追踪时长
-            </span>
-            <strong>{observed(tracked.ticks)}</strong>
-          </article>
-          <p className="tracking-note">
-            只累计观察到的正向变化，回档不会扣减。周/月按本机日期的观察时间归档，不代表精确游戏会话时间。
-          </p>
+          <ul className="tracking-metrics">
+            <li>
+              <span>
+                <Sunrise size={14} aria-hidden="true" />
+                本周观察增量
+              </span>
+              <strong>{observed(tracked.week)}</strong>
+            </li>
+            <li>
+              <span>
+                <CalendarDays size={14} aria-hidden="true" />
+                本月观察增量
+              </span>
+              <strong>{observed(tracked.month)}</strong>
+            </li>
+            <li>
+              <span>
+                <Footprints size={14} aria-hidden="true" />
+                累计追踪时长
+              </span>
+              <strong>{observed(tracked.ticks)}</strong>
+            </li>
+          </ul>
         </div>
       </div>
       {/* Where the second ranking used to start. The full list of worlds is on the
@@ -376,50 +382,70 @@ export default function Dashboard({
           <span aria-hidden="true"> →</span>
         </TextButton>
       </p>
-      <p className="scan-note">
-        按最近有效读数排行；不含已缺失世界与不可读统计。共享根目录只计算一次，复制世界尚未去重。
-      </p>
-      <div className="health-summary">
-        <div>
+      {/* The three reading rules the page used to print as separate scattered
+          lines (ranking 口径, the observation note, the health caveat) are one
+          disclosure now: 首屏 keeps the hero and the way to the full list, and
+          every sentence that qualifies HOW the numbers are counted sits behind
+          a summary that names the act. The health caveat stays inside 数据状态
+          because it qualifies the 未归因 figure in place. */}
+      <details className="stats-method">
+        <summary>
+          <span>统计说明</span>
+          <small>排行口径 · 观察增量 · 去重与缺失</small>
+        </summary>
+        <ul>
+          <li>
+            按最近有效读数排行；不含已缺失世界与不可读统计。共享根目录只计算一次，复制世界尚未去重。
+          </li>
+          <li>
+            观察增量只累计观察到的正向变化，回档不会扣减。周/月按本机日期的观察时间归档，不代表精确游戏会话时间。
+          </li>
+          <li>
+            数据状态的未归因运行时长为全部实例历史累计，不随玩家筛选；可能包含服务器游玩、加载和菜单停留，不等同于玩家游戏时长。
+          </li>
+        </ul>
+      </details>
+      {/* A named section, not a hairline: 数据状态 is the page's second act - what
+          the archive thinks of its own data - and the heading line is what makes
+          the reader stop scrolling past it. */}
+      <div className="dashboard-section" role="group" aria-label="数据状态">
+        <div className="dashboard-section-head">
           <h3 className="metric-label">
             <ShieldCheck size={16} />
             数据状态
           </h3>
-          {/* The counts are the scan line: three same-ink figures in a sentence
-              read as prose; three tags read as a checklist. Neutral tags rather
-              than antd's warning/error presets: those blend with the warm page
-              tint and measured 4.46:1 here, under the gate's 4.5 floor. */}
-          <p className="health-counts">
-            <Tag>{health?.pending_count ?? issues.length} 项待处理</Tag>
-            <Tag>{tracking?.rollback_count ?? 0} 次回档记录</Tag>
-            <Tag>{data.unreadable} 条当前读数不可用</Tag>
-          </p>
-          {pseudo.seconds > 0n || pseudo.unknown || pseudo.baseline ? (
-            <>
-              <p>
-                未归因运行时长 {formatSeconds(pseudo.seconds.toString())}
-                {pseudo.instances ? ` · ${pseudo.instances} 个实例` : ''}
-                {pseudo.unknown
-                  ? ` · ${pseudo.unknown} 次会话未观测到结束`
-                  : ''}
-                {pseudo.baseline
-                  ? ` · ${pseudo.baseline} 次会话缺少本地基线，未计入`
-                  : ''}{' '}
-                <TextButton onClick={onObservation}>查看实例观测</TextButton>
-              </p>
-              {/* Fine print under the counts, not a third fact beside them: same
-                  caption size, so it separates by ink and measure instead. */}
-              <p className="health-caveat">
-                全部实例历史累计，不随玩家筛选；可能包含服务器游玩、加载和菜单停留，不等同于玩家游戏时长。
-              </p>
-            </>
-          ) : null}
-          {health?.confirmed_lineages ? (
-            <p>
-              已确认 {health.confirmed_lineages}{' '}
-              条世界关联；继承时长未知，尚未计算去重估值。
+          <div className="dashboard-section-body">
+            {/* The counts are the scan line: three same-ink figures in a sentence
+                read as prose; three tags read as a checklist. Neutral tags rather
+                than antd's warning/error presets: those blend with the warm page
+                tint and measured 4.46:1 here, under the gate's 4.5 floor. */}
+            <p className="health-counts">
+              <Tag>{health?.pending_count ?? issues.length} 项待处理</Tag>
+              <Tag>{tracking?.rollback_count ?? 0} 次回档记录</Tag>
+              <Tag>{data.unreadable} 条当前读数不可用</Tag>
             </p>
-          ) : null}
+            {pseudo.seconds > 0n || pseudo.unknown || pseudo.baseline ? (
+              <>
+                <p>
+                  未归因运行时长 {formatSeconds(pseudo.seconds.toString())}
+                  {pseudo.instances ? ` · ${pseudo.instances} 个实例` : ''}
+                  {pseudo.unknown
+                    ? ` · ${pseudo.unknown} 次会话未观测到结束`
+                    : ''}
+                  {pseudo.baseline
+                    ? ` · ${pseudo.baseline} 次会话缺少本地基线，未计入`
+                    : ''}{' '}
+                  <TextButton onClick={onObservation}>查看实例观测</TextButton>
+                </p>
+              </>
+            ) : null}
+            {health?.confirmed_lineages ? (
+              <p>
+                已确认 {health.confirmed_lineages}{' '}
+                条世界关联；继承时长未知，尚未计算去重估值。
+              </p>
+            ) : null}
+          </div>
         </div>
         <SecondaryButton onClick={onSettings}>查看数据健康</SecondaryButton>
       </div>
@@ -455,13 +481,16 @@ export default function Dashboard({
           ]}
         />
       ) : null}
-      <Timeline
-        report={report}
-        scope={timelineScope}
-        compact
-        onOpen={onOpen}
-        onAll={onTimeline}
-      />
+      {/* The timeline is the page's third act, named the same way as 数据状态. */}
+      <div className="dashboard-section" role="group" aria-label="最近时间线">
+        <Timeline
+          report={report}
+          scope={timelineScope}
+          compact
+          onOpen={onOpen}
+          onAll={onTimeline}
+        />
+      </div>
       <p className="scan-note">
         {report.last_scan
           ? `最近保存：${new Date(report.last_scan).toLocaleString()}`

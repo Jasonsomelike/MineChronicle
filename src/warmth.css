@@ -433,17 +433,14 @@ body {
   gap: 10px;
 }
 .dashboard .tracking-state {
-  gap: 16px 24px;
+  /* The region stacks: 统计范围 on top, the three observation rows under it.
+     The old 2x2 grid put three identical durations at the same weight as the
+     range figure - the direction asked for a primary and a supporting read. */
+  gap: var(--space-4);
 }
-.tracking-state article {
-  border-color: var(--border);
-}
-.tracking-state article:nth-child(2) {
-  border-color: var(--warning);
-}
-.tracking-state article:last-of-type {
-  border-color: var(--border);
-}
+/* Only the scope article remains in this region, so the nth-child border
+   colouring (amber on the second) has nothing to point at and is deleted with
+   its target: the observation rows are `.tracking-metrics` now. */
 .tracking-state article > span {
   display: flex;
   gap: 8px;
@@ -453,11 +450,6 @@ body {
 .tracking-state article > span svg {
   flex-shrink: 0;
   color: var(--brand);
-}
-.tracking-state article:nth-child(2) > span svg {
-  /* The amber accent, lightened for dark surfaces so it stays visible rather
-     than turning muddy. */
-  color: var(--accent-amber);
 }
 .tracking-state strong {
   color: var(--text-strong);
@@ -493,9 +485,6 @@ body {
 }
 .ranking li:hover {
   background: var(--surface-hover);
-}
-.health-summary {
-  border-color: var(--warm-line);
 }
 .scan-panel :is(.world-group, .world-result, .instance-group) > summary {
   border-radius: var(--radius-sm);

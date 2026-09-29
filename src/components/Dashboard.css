@@ -20,3 +20,155 @@
   padding: 6px 10px;
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+   The observation region's two weights.
+
+   统计范围 is the heading fact (label + figure, the old article pattern); the
+   three observation durations are supporting rows in a single column, at the
+   body step, separated by hairlines instead of the 2x2 equal grid. Three
+   identical figures no longer carry hero weight.
+   --------------------------------------------------------------------------- */
+.tracking-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-content: start;
+  justify-content: start;
+}
+.tracking-scope {
+  min-width: 0;
+}
+.tracking-metrics {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.tracking-metrics li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-soft);
+}
+.tracking-metrics li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.tracking-metrics li span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+  min-width: 0;
+}
+.tracking-metrics li span svg {
+  flex: none;
+}
+.tracking-metrics li strong {
+  flex: none;
+  color: var(--text-strong);
+  font-size: var(--type-body);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
+   统计说明: the reading rules behind one disclosure.
+   --------------------------------------------------------------------------- */
+.stats-method {
+  margin: var(--space-2) 0 var(--space-5);
+}
+.stats-method > summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: fit-content;
+  min-height: var(--control-sm);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+}
+.stats-method > summary::-webkit-details-marker {
+  display: none;
+}
+.stats-method > summary::before {
+  content: '▸';
+  font-size: var(--type-caption);
+  line-height: 1;
+}
+.stats-method[open] > summary::before {
+  content: '▾';
+}
+.stats-method > summary:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+.stats-method > summary small {
+  color: var(--text-faint);
+}
+.stats-method ul {
+  margin: var(--space-3) 0 0;
+  padding: 0 0 0 var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+  line-height: 1.7;
+  max-width: 88ch;
+}
+
+/* ---------------------------------------------------------------------------
+   Named sections: 数据状态 / 最近时间线.
+
+   A section head (icon + title) plus one rule under it is the boundary the
+   reader can find while scrolling; the page used to lay these as borders
+   between same-weight blocks, so nothing announced where one act ended.
+   --------------------------------------------------------------------------- */
+.dashboard-section {
+  margin-top: var(--space-8);
+}
+.dashboard-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.dashboard-section-head > .metric-label {
+  font-size: var(--type-body);
+  color: var(--text-strong);
+}
+.dashboard-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 320px;
+}
+.dashboard-section-body > p {
+  margin: 0;
+  font-size: var(--type-body);
+}
+/* The count tags keep their checklist read; the paragraph under them is body
+   text, not a third tag row. */
+.dashboard-section-body > .health-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+}
