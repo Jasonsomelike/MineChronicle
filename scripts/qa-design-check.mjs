@@ -465,7 +465,12 @@ for (const theme of ['light', 'dark']) {
           if (node instanceof HTMLElement) node.click();
         });
     });
-    await page.waitForTimeout(200);
+    // antd's collapse motion animates height AND opacity over ~300ms; the
+    // dashboard's rollback list and part list both sit inside one. Sampling at
+    // 200ms caught the panel at opacity ~0.82 mid-motion and reported the
+    // settled colours (6.68:1) as a 4.36:1 failure - a race, not a defect.
+    // One motion duration, plus a margin, after the last click.
+    await page.waitForTimeout(500);
 
     combinations += 1;
     const result = await page.evaluate(auditPage, {

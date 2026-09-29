@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { UserRound } from 'lucide-react';
 import { Button, Input } from 'antd';
 import { TextButton } from './ui';
 import type { ScanSummary } from '../lib/scan';
@@ -23,10 +22,7 @@ export default function SelfPlayerSettings({
   const value = draft ?? saved;
   const matches = resolveSelfPlayer(value, report ? playerOptions(report) : []);
   return (
-    <section className="settings-card self-player-settings">
-      <h2>
-        <UserRound size={18} aria-hidden="true" /> 自己
-      </h2>
+    <section className="settings-card settings-card--quiet self-player-settings">
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -48,10 +44,9 @@ export default function SelfPlayerSettings({
         }}
       >
         {/* The row pattern the rest of the settings page uses - what the field is
-            for on the left, the field itself on the right. Stacked, this card put a
-            360px field in the corner of a 1168px card and left the rest of the row
-            empty. The label moved into the row's heading. */}
-        <div className="setting-row">
+            for on the left, the field itself on the right. The section head
+            (身份) names the group, so this card carries no heading of its own. */}
+        <div className="setting-row setting-row--first">
           <div>
             <strong>玩家名称 / UUID</strong>
             <p>

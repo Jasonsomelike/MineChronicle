@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
-import { Power, MonitorCog } from 'lucide-react';
+import { Power } from 'lucide-react';
 import { Switch } from 'antd';
 import { displayPath } from '../lib/path';
 import ThemeSetting from './ThemeSetting';
@@ -45,13 +45,13 @@ export default function StartupSettings() {
   }
   return (
     <section
-      className="settings-card settings-preferences"
+      className="settings-card settings-card--quiet settings-preferences"
       aria-label="启动与界面"
     >
-      <h2>
-        <MonitorCog size={19} /> 启动与界面
-      </h2>
-      <div className="setting-row">
+      {/* The section head (启动与显示) carries the group's name; the rows that
+          follow are ordinary switches, so the card is the quiet surface rather
+          than a boxed sibling. */}
+      <div className="setting-row setting-row--first">
         <div>
           <strong>
             <Power size={16} /> 开机自启动

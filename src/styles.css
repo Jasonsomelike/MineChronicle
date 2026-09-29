@@ -175,6 +175,41 @@ main {
   margin: 0 0 var(--space-2);
   font-size: var(--type-heading);
 }
+/* The section head: icon + 20px title + one line of what the section owns.
+   The five settings sections are named here rather than inside each card, so
+   the page's grouping reads from the heads and the 48px gaps, not from five
+   same-weight boxes. */
+.settings-section-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.settings-section-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-strong);
+}
+.settings-section-head > span {
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+}
+/* Ordinary settings ride the page floor: same padding, no box. The two tool
+   sections (读取本地存档, 档案与备份) and the PCL state card keep the boxed
+   surface - elevation only where the content is a tool. */
+.settings-card--quiet {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0;
+}
+/* The first row inside a quiet card starts flush: no hairline above it, since
+   the card has no top edge to echo. */
+.setting-row--first {
+  border-top: 0;
+  padding-top: 0;
+}
 .setting-row {
   display: flex;
   align-items: center;

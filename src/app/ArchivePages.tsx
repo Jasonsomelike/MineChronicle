@@ -14,7 +14,7 @@ import ZoomControls from '../components/ZoomControls';
 import ReadStatus from '../components/ReadStatus';
 import { TextButton } from '../components/ui';
 import { Button, Input, Select, Switch } from 'antd';
-import { Globe2 } from 'lucide-react';
+import { Globe2, Link2, MonitorCog, UserRound } from 'lucide-react';
 import { formatTickTotal } from '../lib/duration';
 import { displayPath } from '../lib/path';
 import type { AppState } from './useAppState';
@@ -140,21 +140,38 @@ function SettingsBody({ state }: { state: AppState }) {
   const { report, pclStatus, setPclStatus, navigate } = state;
   return (
     <>
-      {/* One layout system: stacked full-width sections. Nav targets are the
-          SETTINGS_SECTIONS ids (P1.2/P1.3); archive keeps its id on the
+      {/* One layout system: stacked full-width sections, each with a named head
+          (icon + title + one line of what the section owns) and a compact-row
+          body for ordinary settings. Only the two sections that are tools
+          rather than switches (读取本地存档, 档案与备份) and the PCL link state
+          keep a boxed card; everything else is a row list on the page floor,
+          so the page stops reading as five same-weight boxes. Nav targets are
+          the SETTINGS_SECTIONS ids (P1.2/P1.3); archive keeps its id on the
           aria-busy card so qa-review-fixes can wait on readiness. */}
       <div className="settings-layout" hidden={state.view !== 'settings'}>
         <div id="settings-identity" className="settings-section">
+          <div className="settings-section-head">
+            <h2>
+              <UserRound size={18} aria-hidden="true" />
+              身份
+            </h2>
+            <span>哪个玩家是「自己」；档案只在本地保存</span>
+          </div>
           <SelfPlayerSettings report={report} />
         </div>
         <div id="settings-startup" className="settings-section">
+          <div className="settings-section-head">
+            <h2>
+              <MonitorCog size={18} aria-hidden="true" />
+              启动与显示
+            </h2>
+            <span>自启动、外观与窗口行为</span>
+          </div>
           <StartupSettings />
-          <section className="settings-card">
-            <h2>窗口与显示</h2>
-            {/* Two rows, the pattern the cards above use: what the setting is on the
-                left, the control on the right. Stacked, the whole card hugged the
-                left edge of a 1168px card. */}
-            <div className="setting-row">
+          <section className="settings-card settings-card--quiet">
+            {/* The section head (启动与显示) names the group; these two rows are
+                ordinary preferences, so this card is the quiet surface. */}
+            <div className="setting-row setting-row--first">
               <div>
                 <strong>后台追踪</strong>
                 <p>
@@ -181,6 +198,13 @@ function SettingsBody({ state }: { state: AppState }) {
           role="group"
           aria-label="联动与存档导入"
         >
+          <div className="settings-section-head">
+            <h2>
+              <Link2 size={18} aria-hidden="true" />
+              导入与联动
+            </h2>
+            <span>连接 PCL 或指定目录，把存档读进档案</span>
+          </div>
           <SessionPage active={state.view === 'settings'} label="PCL 联动">
             <PclConnection
               status={pclStatus}
