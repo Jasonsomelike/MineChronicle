@@ -15,10 +15,11 @@
  * Dark mode uses `theme.darkAlgorithm` and overrides Map Tokens only: the
  * official guidance is to never set `colorBgBase` directly, so every surface
  * below is a named Map Token carried over from the dark block in warmth.css.
- * The dark primary keeps the light theme's #0F766E on purpose - the accent
+ * The dark primary is the light pine one step deeper (#0D665F) - the accent
  * greens that read well as dark-theme text (#7FD4C0) all measure under 3:1
- * under white, so the fill follows the same AA argument the blue palette made;
- * the reasoning lives in the warmth.css dark block.
+ * under white, so the fill follows the same AA argument the blue palette made,
+ * and the deeper step also separates the CTA from the success green; the
+ * reasoning lives in the warmth.css dark block.
  */
 
 import { theme } from 'antd';
@@ -126,8 +127,8 @@ const DARK: ThemeConfig = {
     controlHeightLG: CONTROL_HEIGHT_LG,
     ...RADIUS_TOKENS,
     // See the module comment: AA keeps the light primary in dark mode.
-    colorPrimary: '#0f766e',
-    colorInfo: '#0f766e',
+    colorPrimary: '#0d665f',
+    colorInfo: '#0d665f',
     colorLink: '#7fd4c0',
     colorError: '#f98d86',
     colorSuccess: '#27c346',

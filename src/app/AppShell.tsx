@@ -4,7 +4,11 @@ import { HardDrive, Layers3, MonitorDown, Sprout } from 'lucide-react';
 import { checkRuntime } from '../lib/runtime';
 import { FRONTEND_VERSION } from '../lib/version';
 import { displayPath } from '../lib/path';
-import { RAIL_OPEN_MEDIA, createRailController } from '../lib/rail';
+import {
+  RAIL_LABELLED_MEDIA,
+  RAIL_OPEN_MEDIA,
+  createRailController,
+} from '../lib/rail';
 import {
   PAGE_GROUP_OF,
   PAGE_GROUPS,
@@ -237,8 +241,25 @@ export default function AppShell({
      width always draws the same resting rail. The timers live in src/lib/rail.ts;
      this component only wires DOM events to the controller. */
   const [railOpen, setRailOpen] = useState(false);
+  /* Whether the labelled tier shows the rail at rest (>= 1024px). Read once
+     into state and kept current by the media query's own change events, so
+     neither the render body nor the label logic ever has to probe `window`
+     mid-render - and a drag across the breakpoint re-renders the tooltips
+     instead of leaving them stale until the next unrelated render. */
+  const [labelledRail, setLabelledRail] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia(RAIL_LABELLED_MEDIA).matches,
+  );
   const railRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia(RAIL_LABELLED_MEDIA);
+    const onChange = () => setLabelledRail(media.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
 
   const controller = useMemo(
     () =>
@@ -394,10 +415,7 @@ export default function AppShell({
                          the rail's geometry uses, so the attribute cannot drift from
                          what is on screen. */
                       title={
-                        railOpen || window.matchMedia('(min-width: 1024px)')
-                          .matches
-                          ? undefined
-                          : PAGE_LABELS[id]
+                        railOpen || labelledRail ? undefined : PAGE_LABELS[id]
                       }
                       aria-current={view === id ? 'page' : undefined}
                       onClick={() => {

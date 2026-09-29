@@ -40,6 +40,12 @@ export const LEAVE_GRACE_MS = 150;
  *  opposite sides so the two agree at every width, fractional ones included. */
 export const RAIL_OPEN_MEDIA = '(min-width: 860px)';
 
+/** Where the rail's resting shape becomes the labelled column. Mirrors the
+ *  `@media (min-width: 1024px)` labelled-tier block in `styles/shell.css`; AppShell
+ *  subscribes to it so nav tooltips track the tier without probing `window` in the
+ *  render body. */
+export const RAIL_LABELLED_MEDIA = '(min-width: 1024px)';
+
 /** The storage key the retired three-state preference was written under. Kept here so
  *  the cleanup and the history it cleans up sit next to each other. */
 const LEGACY_STORAGE_KEY = 'minechronicle.rail';

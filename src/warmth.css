@@ -157,12 +157,13 @@
   --surface-control: #323233;
   /* The filled CTA surface. The dark-theme accent greens that read well as text
      on this ground (#7FD4C0 and lighter) all measure under 3:1 under white text,
-     so the dark fill carries the light theme's #0F766E over - white on it is
-     5.47:1, same argument the blue palette made for keeping #165DFF. If a
-     side-by-side with a darker dark-mode CTA reads "not deep enough", the AA gate
-     wins. */
-  --surface-strong: #0f766e;
-  --surface-strong-hover: #0c5f59;
+     so the dark fill stays in the light theme's pine family, one step deeper:
+     #0D665F holds white text at 6.81:1 and sits measurably further from the
+     success green #27C346 (side-by-side 2.91:1 vs the light fill's 2.34:1),
+     which is the one complaint the dark palette earned - a primary button and
+     a success state next to each other read as the same green at a glance. */
+  --surface-strong: #0d665f;
+  --surface-strong-hover: #0a5a53;
 
   --text: rgba(255, 255, 255, 0.9);
   --text-strong: rgba(255, 255, 255, 0.9);

@@ -1556,7 +1556,42 @@ footer {
     font-size: var(--type-lead);
   }
   /* The region is one column of rows already; the supporting metrics stay a
-     list, so nothing is re-placed here. */
+     list, so nothing is re-placed here. The stat card trims its own band at
+     this width — 20 -> 16 vertical padding, 16 -> 12 to the metric list —
+     measured 18px shorter at no cost to the hierarchy: the scope figure keeps
+     its lead step, the three rows keep their body figures and hairlines. */
+
+  /* Settings at this width: the sticky section nav is a full-width bar, and
+     content used to slide flush against its bottom edge (measured at y=522:
+     the identity row's input 36px under the bar with no clearance). A bottom
+     margin keeps the bar's painted band clear of the chips, and the section
+     scroll-margin rides the same figure so anchored jumps stay honest.
+     Vertical rhythm tightens ~15% to buy back the height the bar costs:
+     24 -> 20 card padding, 18 -> 14 row padding, 32 -> 28 card gap,
+     16 -> 12 head gap, all on the 4px grid. */
+  .settings-jump {
+    margin-bottom: var(--space-4);
+  }
+  [id^='settings-'],
+  .settings-section {
+    scroll-margin-top: calc(var(--control-sm) + var(--space-8));
+  }
+  .settings-section {
+    gap: var(--space-7);
+  }
+  .settings-section-head {
+    margin-bottom: var(--space-3);
+  }
+  .settings-card {
+    padding: var(--space-5);
+  }
+  .setting-row {
+    padding: var(--space-3) 0;
+  }
+  .tracking-state {
+    padding: var(--space-4) var(--space-5);
+    gap: var(--space-3);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -3800,12 +3835,24 @@ button.stat-icon:hover {
 }
 .dashboard .tracking-state {
   border-left: 1px solid var(--border);
-  /* Matches the career region's vertical padding so the two halves start level. */
+  /* Matches the career region's vertical padding so the two halves start level.
+     At <= 620px the media block above the fold trims this to one step less —
+     the region is full-width there and the two halves no longer share an
+     edge, so the level-padding contract does not apply. */
   padding: var(--space-5) var(--space-6);
 }
 @media (max-width: 900px) {
   .dashboard .tracking-state {
     border-left: 0;
     border-top: 1px solid var(--border);
+  }
+}
+@media (max-width: 620px) {
+  .dashboard .tracking-state {
+    /* 20 -> 16 vertical, 24 -> 20 inline, 16 -> 12 to the metric list: measured
+       18px shorter at no cost to the hierarchy (lead-scope figure, body rows,
+       hairlines all unchanged). */
+    padding: var(--space-4) var(--space-5);
+    gap: var(--space-3);
   }
 }
