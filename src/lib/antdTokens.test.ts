@@ -61,8 +61,10 @@ describe('antdTokens ↔ warmth.css palette sync', () => {
     key: keyof ReturnType<typeof tokenOf> & string,
     prop: string,
   ][] = [
-    // colorPrimary is the filled CTA surface (--surface-strong), not --brand:
-    // in dark mode --brand is the accent while the CTA keeps the light blue.
+    // colorPrimary is the filled CTA surface. In the light block
+    // --surface-strong aliases --brand (resolves to the same value); in the
+    // dark block it redefines to the deeper pine, because the accent greens
+    // that read as dark-theme text fail AA under white on a fill.
     ['colorPrimary', '--surface-strong'],
     ['colorLink', '--text-accent'],
     ['colorBgLayout', '--page'],
@@ -80,12 +82,21 @@ describe('antdTokens ↔ warmth.css palette sync', () => {
     ['colorWarning', '--warning'],
   ];
 
+  /** Resolve one level of `var(--x)` aliasing against the same block, so a
+   *  token that is defined as another token still compares by value. */
+  const resolve = (source: Record<string, string>, value: string): string => {
+    const match = /^var\((--[\w-]+)\)$/.exec(value);
+    return match ? source[match[1]] ?? value : value;
+  };
+
   for (const mode of ['light', 'dark'] as const) {
     it(`${mode} theme matches the ${mode} palette block`, () => {
       const values = tokenOf(mode) as Record<string, string | number>;
       const source = mode === 'dark' ? dark : light;
       for (const [key, prop] of PAIRS) {
-        expect(values[key], `${key} vs ${prop}`).toBe(source[prop]);
+        expect(values[key], `${key} vs ${prop}`).toBe(
+          resolve(source, source[prop]),
+        );
       }
     });
   }
@@ -113,7 +124,8 @@ describe('antdTokens ↔ tokens.css scales', () => {
 
   it('radius ladder is 2/4/8 like --radius-xs/sm/lg', () => {
     const light = tokenOf('light') as Record<string, number>;
-    expect(light.borderRadiusSM).toBe(2);
+    // antd's SM rung is the small-control tier: --radius-sm, not --radius-xs.
+    expect(light.borderRadiusSM).toBe(4);
     expect(light.borderRadius).toBe(4);
     expect(light.borderRadiusLG).toBe(8);
   });

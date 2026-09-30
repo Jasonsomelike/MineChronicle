@@ -137,7 +137,10 @@
 }
 
 .app-shell > footer {
-  grid-column: 1 / -1;
+  /* The footer lives in the content column only: the rail is sticky and its
+     divider runs the full viewport height, so a full-width footer would print
+     through the rail's bottom chrome whenever the page scrolls to the end. */
+  grid-column: 2;
   grid-row: 2;
 }
 
@@ -515,6 +518,13 @@
   .app-nav-group {
     display: contents;
   }
+  /* display:contents drops the group's own box, so its margin-top goes with it
+     and the two nav groups reflow as one unbroken row of chips. Re-state the
+     separation on the first destination of the following group - under
+     display:contents the buttons are the flex items, not the group. */
+  .app-nav-group + .app-nav-group > button:first-of-type {
+    margin-left: var(--space-4);
+  }
   .app-nav button {
     justify-content: center;
     padding: 0 var(--space-3);
@@ -529,6 +539,9 @@
     grid-row: 3;
   }
   .app-shell > footer {
+    /* The strip layout has one content column; the base placement in column 2
+       would land the footer in the auto rail-width column. */
+    grid-column: 1 / -1;
     grid-row: 4;
   }
   [id^='settings-'] {

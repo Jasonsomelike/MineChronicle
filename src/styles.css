@@ -212,7 +212,9 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 0;
+  /* On the 4px ladder (16): 18 sat between rungs, off the settings page's own
+     8/24/32/48 rhythm. */
+  padding: var(--space-4) 0;
   border-top: 1px solid var(--border);
 }
 .setting-row.setting-row--first {
@@ -641,7 +643,7 @@ main {
 }
 .folder-group {
   border-bottom: 1px solid var(--border);
-  padding: 18px 0;
+  padding: var(--space-4) 0;
 }
 .folder-group summary {
   cursor: pointer;
@@ -741,21 +743,6 @@ ul {
   padding: 0;
   margin: 24px 0;
 }
-li {
-  display: grid;
-  grid-template-columns: 150px 1fr;
-  gap: 16px;
-  border-top: 1px solid var(--border);
-  padding: 16px 0;
-  font-size: var(--type-body);
-  line-height: 1.7;
-}
-li strong {
-  font-weight: 600;
-}
-li span {
-  color: var(--text-muted);
-}
 .next-step {
   padding: 16px 18px;
   background: var(--surface-sunken);
@@ -815,14 +802,6 @@ button:where(:not([class*='ant-'])):hover:not(:disabled) {
   gap: 6px;
 }
 /* The primary nav's hover pair moved to warmth.css with the rest of its colours. */
-.health-tabs button:hover {
-  background: var(--surface-hover);
-  color: var(--text-strong);
-}
-.health-tabs button[aria-selected='true']:hover {
-  background: var(--surface-strong-hover);
-  color: var(--text-on-strong);
-}
 .pcl-link-strip:hover {
   background: var(--surface-hover);
   color: var(--text-strong);
@@ -1007,7 +986,6 @@ button:where(:not([class*='ant-'])):disabled {
   margin: 8px 0;
 }
 .world-result {
-  border-top: 1px solid var(--border);
   padding: var(--space-2) 0;
 }
 .world-result summary {
@@ -1138,6 +1116,7 @@ button:where(:not([class*='ant-'])):disabled {
 }
 .scan-issues {
   border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
   background: var(--surface-warning);
   padding: 12px 16px;
   margin-top: 20px;
@@ -1178,10 +1157,6 @@ footer {
   }
   .foundation {
     padding: 0;
-  }
-  li {
-    grid-template-columns: 1fr;
-    gap: 5px;
   }
   footer {
     flex-direction: column;
@@ -1297,7 +1272,6 @@ footer {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
-  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 .career-total {
@@ -1402,7 +1376,7 @@ footer {
   padding: 8px 10px;
 }
 .ranking li:hover {
-  background: var(--surface-info);
+  background: var(--surface-hover);
 }
 .rank-number {
   margin-right: 7px;
@@ -1487,7 +1461,7 @@ footer {
    head label. */
 .empty-stats {
   background: var(--surface-sunken);
-  border-left: 3px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 12px 16px;
   margin-top: 18px;
   font-size: var(--type-caption);
@@ -1524,7 +1498,9 @@ footer {
     grid-template-columns: 1fr;
   }
   .career-total {
-    padding: 20px 0;
+    /* The 700px block below never reaches 701-900: keep the panel's own side
+       padding so the hero figure does not sit 1px off the card edge. */
+    padding: var(--space-5) var(--space-6);
   }
   .metric-grid {
     border-left: 0;
@@ -1941,11 +1917,15 @@ button.player-trigger[aria-expanded='true'] {
   padding: 0;
   margin: 0;
   list-style: none;
+  /* Opens the frame the rows divide: count line, then a rule, then the row
+     rules, with the last row closed by what follows it. */
+  border-top: 1px solid var(--border-soft);
 }
 .timeline-events > li {
   display: grid;
   grid-template-columns: 132px minmax(0, 1fr);
   gap: 20px;
+  border-top: 0;
   border-bottom: 1px solid var(--border);
   padding: 16px 4px;
   font-size: var(--type-body);
@@ -2004,7 +1984,9 @@ button.player-trigger[aria-expanded='true'] {
   padding: 1px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
+  /* One step off the row's own hover fill (--surface-hover), so the tag stays
+     a distinct chip when the row under it lights up. */
+  background: var(--surface-active);
   color: var(--text-muted);
   font-size: var(--type-caption);
   font-weight: 400;
@@ -2252,6 +2234,8 @@ button.stat-icon:hover {
   /* Figures get the monospace family; see --font-mono. */
   font-family: var(--font-mono);
   line-height: 1.7;
+  /* A duration reading breaks as a unit, never mid-number. */
+  white-space: nowrap;
 }
 .stat-sort-heading {
   display: inline-flex;
@@ -2576,13 +2560,11 @@ button.stat-icon:hover {
   background: var(--surface-hover);
 }
 .statistics .stat-label {
-  /* Body step, not the lead step it had: at 15px/650 the field name outweighed the
-     13px reading it explains. The hierarchy this page wants is the reading at
-     `--type-lead` (see `.stat-value`) over its label at `--type-body`, with weight and
-     colour carrying the rest. */
+  /* The label supports the reading, so it stays under the page's h2 weight
+     (600): at 650 it outranked every heading and the reading it explains. */
   font-size: var(--type-body);
   line-height: 1.4;
-  font-weight: 650;
+  font-weight: 500;
   color: var(--text);
   margin: 3px 0;
 }
@@ -2601,14 +2583,10 @@ button.stat-icon:hover {
   overflow: auto;
   padding: 0;
   margin: auto;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text);
   box-shadow: var(--shadow-modal);
-}
-.stat-image-dialog::backdrop {
-  background: var(--wash-a);
 }
 .stat-image-content {
   padding: 18px;
@@ -2886,12 +2864,6 @@ button.stat-icon:hover {
 .pagination button:not([class*='ant-']):hover:not(:disabled) {
   background: var(--surface-active);
 }
-.health-tabs {
-  display: flex;
-  gap: 6px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
-}
 .health-tabs button {
   background: transparent;
   color: var(--text-muted);
@@ -2970,6 +2942,7 @@ button.stat-icon:hover {
 .lineage-note {
   font-size: var(--type-caption);
   background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
   padding: 12px;
 }
 .health-actions {
@@ -3003,7 +2976,7 @@ button.stat-icon:hover {
   padding: 12px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface-tint);
+  background: var(--surface);
 }
 .observed-sessions summary {
   cursor: pointer;
@@ -3044,10 +3017,10 @@ button.stat-icon:hover {
   gap: var(--space-2) var(--space-6);
   margin: var(--space-4) 0;
   padding: var(--space-4) var(--space-5);
-  /* `--surface-tint` is the role this panel was meant to use; `--surface-hover` is a
-     hover state, and as a resting fill it made the summary look disabled. The border
-     gives it an edge so it reads as a defined panel rather than a wash. */
-  background: var(--surface-tint);
+  /* Page-level panels speak the app-wide white-card language: the tint that
+     used to fill this matched the page floor, leaving the border as the panel's
+     only edge. `--surface-tint` stays for blocks embedded inside a card. */
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
@@ -3402,7 +3375,9 @@ button.stat-icon:hover {
   position: sticky;
   top: var(--space-2);
   z-index: 20;
-  box-shadow: var(--shadow-hairline);
+  /* The only chrome that sits over content long-term gets the floating-layer
+     shadow, not a hairline. */
+  box-shadow: var(--shadow-pop);
 }
 /* A segmented control: one chip per section, the current one filled. */
 .settings-jump button {
@@ -3632,14 +3607,10 @@ button.stat-icon:hover {
   overflow: auto;
   padding: 0;
   margin: auto;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text);
   box-shadow: var(--shadow-modal);
-}
-.session-end-dialog::backdrop {
-  background: var(--wash-a);
 }
 .session-end-body {
   padding: 18px;
@@ -3816,11 +3787,6 @@ button.stat-icon:hover {
 }
 .health-disclosure > summary:hover {
   background: var(--surface-hover);
-}
-.health-disclosure > summary h2 {
-  /* Inline so the heading and the count stay on the disclosure's row. */
-  display: inline;
-  margin: 0;
 }
 .health-disclosure[open] > summary {
   margin-bottom: var(--space-4);

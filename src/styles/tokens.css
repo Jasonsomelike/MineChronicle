@@ -58,27 +58,25 @@
   --radius-pill: 999px;
 
   /* Neutral shadows: the base colour is #1D2129 (Arco's text-1 / color-mask-bg
-     family), replacing the green-cast #405237… set. --shadow-pop is Arco's own
-     popup shadow, measured off arco.css. */
+     family), replacing the green-cast #405237… set. Floating layers use the
+     paired recipe - a 1px contact ring, a tight contact layer, and one soft
+     ambient layer, blur <= 16px for popovers. */
   --shadow-hairline: 0 1px 2px rgba(29, 33, 41, 0.06);
   --shadow-card: 0 1px 2px rgba(29, 33, 41, 0.05),
     0 8px 28px -8px rgba(29, 33, 41, 0.08);
-  --shadow-pop: 0 4px 10px rgba(0, 0, 0, 0.1);
-  --shadow-modal: 0 20px 80px rgba(29, 33, 41, 0.2);
-  --shadow-nav: 0 3px 8px rgba(29, 33, 41, 0.06),
-    inset 0 1px rgba(255, 255, 255, 0.12);
-  --shadow-field: 0 1px 3px rgba(29, 33, 41, 0.04),
-    inset 0 0 0 1px var(--border);
+  --shadow-pop: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(30, 22, 10, 0.12),
+    0 6px 16px rgba(30, 22, 10, 0.1);
+  --shadow-modal: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(30, 22, 10, 0.1),
+    0 20px 80px rgba(29, 33, 41, 0.2);
   /* The active watch-dot's glow, tinted with the brand hue. The literal used to
-     carry the old blue's channels; the hue follows warmth.css's --brand. */
-  --shadow-focus-glow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+     carry the old blue's channels; the hue follows warmth.css's --brand
+     (#0D6E63). */
+  --shadow-focus-glow: 0 0 0 4px rgba(13, 110, 99, 0.14);
 
   /* Not elevation: a ring that punches a gap through to the surface behind, used
      where a small badge overlaps a bar. Structural, so it stays in dark mode while
      the four elevation tokens go to `none`. */
   --shadow-cutout: 0 0 0 2px var(--surface);
-
-  --motion-reveal: 650ms;
 
   /* Sidebar rail, two widths and one column. The rail's resting shape depends on the
      tier: at comfortable desktop widths (>= 1024px) the LABELLED width is the resting

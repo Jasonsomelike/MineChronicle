@@ -41,6 +41,7 @@ export default [
       'scripts/oneoff/probe-collapse-reduced-motion.mjs',
       'scripts/oneoff/probe-visual-review-fixes.mjs',
       'scripts/qa-visual-snapshot.mjs',
+      'scripts/qa-snapshot-800.mjs',
     ],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },

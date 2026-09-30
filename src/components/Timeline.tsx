@@ -301,7 +301,10 @@ export default function Timeline({
                     // column's shape identical to a merged row's.
                     <span className="event-range">
                       <time dateTime={e.observed_at}>
-                        {new Date(e.observed_at).toLocaleTimeString()}
+                        {new Date(e.observed_at).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </time>
                     </span>
                   )}

@@ -57,16 +57,35 @@ const TYPE_TOKENS = {
   lineHeight: LINE_HEIGHT,
 } as const;
 
-/** Arco's radius ladder, matching tokens.css --radius-xs/sm/md/lg = 2/4/8/8. */
+/** The app's radius ladder, matching tokens.css --radius-xs/sm/md/lg = 2/4/8/8:
+ *  antd's SM rung is the small-control tier, so it takes --radius-sm (4). */
 const RADIUS_TOKENS = {
   borderRadiusXS: 2,
-  borderRadiusSM: 2,
+  borderRadiusSM: 4,
   borderRadius: 4,
   borderRadiusLG: 8,
 } as const;
 
 const LIGHT: ThemeConfig = {
   cssVar: {}, // v6 does not enable CSS variables by default; the object form is its only shape.
+  components: {
+    Modal: {
+      /* The backdrop is the brand-tinted wash the native dialogs used
+         (--wash-a, flattened); antd's own 45%-black mask read much heavier
+         next to the warm paper ground. */
+      colorBgMask: 'rgba(231, 242, 238, 0.5)',
+    },
+    Button: {
+      /* One hover language for the whole app: a neutral surface step and the
+         near-ink text tone. antd's own default re-hues hover toward the
+         primary, which put a second green dialect on every outlined button
+         and date picker the hand-written controls sit beside. */
+      defaultHoverColor: '#1d2129', // --text
+      defaultHoverBorderColor: '#e6e2da', // --border
+      defaultHoverBg: '#efece6', // --surface-hover
+      textHoverBg: '#efece6', // --surface-hover
+    },
+  },
   token: {
     fontFamily: FONT_FAMILY,
     ...TYPE_TOKENS,
@@ -74,29 +93,33 @@ const LIGHT: ThemeConfig = {
     controlHeightSM: CONTROL_HEIGHT_SM,
     controlHeightLG: CONTROL_HEIGHT_LG,
     ...RADIUS_TOKENS,
-    colorPrimary: '#0f766e',
-    colorInfo: '#0f766e',
-    colorLink: '#0f766e',
+    colorPrimary: '#0d6e63',
+    colorInfo: '#0d6e63',
+    colorLink: '#0d6e63',
     colorError: '#cb272d',
     colorSuccess: '#008026',
     colorWarning: '#a64500',
-    colorBgLayout: '#f7f8fa',
+    colorBgLayout: '#f5f3ef',
     colorBgContainer: '#ffffff',
     colorBgElevated: '#ffffff',
-    colorBorder: '#e5e6eb',
-    colorBorderSecondary: '#f2f3f5',
+    colorBorder: '#e6e2da',
+    colorBorderSecondary: '#efece6',
     colorText: '#1d2129',
-    colorTextSecondary: '#4e5969',
-    colorTextTertiary: '#4e5969',
+    colorTextSecondary: '#57544c',
+    colorTextTertiary: '#57544c',
     /* The placeholder tone is --text-muted: the hand-written fields measured
        7.10:1 with it, and antd's 25%-alpha placeholder fails AA (1.83:1,
        caught by scripts/qa-design-check.mjs on the settings page). */
-    colorTextPlaceholder: '#4e5969',
+    colorTextPlaceholder: '#57544c',
     /* The app's measured disabled pair (styles.css `button:disabled`): the
        control stops being filled, the label stays readable (6.12:1 on the
        fill). antd's own defaults fade the text below the gate's 4.5:1 bar. */
-    colorTextDisabled: '#4e5969',
-    colorBgContainerDisabled: '#f2f3f5',
+    colorTextDisabled: '#57544c',
+    colorBgContainerDisabled: '#efece6',
+    /* One focus geometry with the hand-written controls: a solid ring in the
+       --focus-ring value, as wide as warmth.css's --focus-ring-width. */
+    controlOutline: '#0d6e63',
+    controlOutlineWidth: 3,
   },
 };
 
@@ -114,9 +137,21 @@ const DARK: ThemeConfig = {
      white measures 5.47:1. */
   components: {
     Tabs: {
-      itemSelectedColor: '#7fd4c0', // --text-accent, dark block
-      itemHoverColor: '#a3e4d4', // one step lighter than the accent
-      itemActiveColor: '#b8ecdf', // pressed step
+      itemSelectedColor: '#6fc9b4', // --text-accent, dark block
+      itemHoverColor: '#94dcc9', // one step lighter than the accent
+      itemActiveColor: '#abe6d6', // pressed step
+    },
+    Modal: {
+      /* Same role as the light mask: a faint light wash on the dark floor. */
+      colorBgMask: 'rgba(255, 255, 255, 0.04)',
+    },
+    Button: {
+      /* Neutral hover, same recipe as light: the dark --text, --border and
+         --surface-hover values. */
+      defaultHoverColor: 'rgba(255, 255, 255, 0.9)', // --text
+      defaultHoverBorderColor: '#3a3935', // --border
+      defaultHoverBg: '#302e28', // --surface-hover
+      textHoverBg: '#302e28', // --surface-hover
     },
   },
   token: {
@@ -129,21 +164,25 @@ const DARK: ThemeConfig = {
     // See the module comment: AA keeps the light primary in dark mode.
     colorPrimary: '#0d665f',
     colorInfo: '#0d665f',
-    colorLink: '#7fd4c0',
+    colorLink: '#6fc9b4',
     colorError: '#f98d86',
     colorSuccess: '#27c346',
     colorWarning: '#ff9626',
-    colorBgLayout: '#17171a',
-    colorBgContainer: '#232324',
-    colorBgElevated: '#2a2a2b',
-    colorBorder: '#333335',
-    colorBorderSecondary: '#2a2a2b',
+    colorBgLayout: '#191816',
+    colorBgContainer: '#24231f',
+    colorBgElevated: '#2c2b26',
+    colorBorder: '#3a3935',
+    colorBorderSecondary: '#2c2b26',
     colorText: 'rgba(255, 255, 255, 0.9)',
     colorTextSecondary: 'rgba(255, 255, 255, 0.7)',
     colorTextTertiary: 'rgba(255, 255, 255, 0.7)',
     colorTextPlaceholder: 'rgba(255, 255, 255, 0.7)',
     colorTextDisabled: 'rgba(255, 255, 255, 0.7)',
-    colorBgContainerDisabled: '#2e2e30',
+    colorBgContainerDisabled: '#302e28',
+    /* Dark --focus-ring: the light-theme pine is too dark to read as a ring on
+       the dark ground. */
+    controlOutline: '#7fd4c0',
+    controlOutlineWidth: 3,
   },
 };
 

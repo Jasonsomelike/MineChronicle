@@ -335,21 +335,7 @@ export default function Statistics({
                       (row.category.split(':').pop() ??
                         'other') as keyof typeof groupIcons
                     ] ?? groupIcons.other;
-                  const letter = (row.label ?? resource?.english ?? row.key)
-                    .replace(/^minecraft:/, '')
-                    .slice(0, 1)
-                    .toUpperCase();
-                  return (
-                    <>
-                      <CatIcon size={18} aria-hidden="true" />
-                      <span
-                        className="stat-placeholder-letter"
-                        aria-hidden="true"
-                      >
-                        {letter}
-                      </span>
-                    </>
-                  );
+                  return <CatIcon size={18} aria-hidden="true" />;
                 })()}
               </span>
             )}

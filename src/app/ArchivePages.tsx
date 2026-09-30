@@ -298,6 +298,40 @@ function SettingsBody({ state }: { state: AppState }) {
           <p className="scan-note">
             首次导入历史保持不变，最近读数随扫描更新。自动追踪正向增量，回档单独记录；跨世界复制去重将在后续阶段提供。
           </p>
+          {/* The archive's own status line belongs to this summary, not to the
+              数据健康 section it used to sit directly above - with nothing
+              between them, the two read as one block and the health queue
+              inherited a subtitle it never declared. Kept adjacent to the scan
+              controls it reports on. `state.*` because this block renders
+              above ArchivePages' own destructuring. */}
+          <p
+            role="status"
+            className="runtime-status"
+            hidden={
+              state.view !== 'settings' &&
+              !state.busy &&
+              !state.report?.cancelled
+            }
+          >
+            {state.busy
+              ? state.progress
+                ? `已检查 ${state.progress.roots_done}/${state.progress.roots_total} 个目录、${state.progress.worlds_scanned} 个世界条目、${state.progress.player_files_scanned} 个统计文件`
+                : '正在准备扫描…'
+              : state.report
+              ? `${
+                  state.report.cancelled
+                    ? '已取消，以下为部分结果'
+                    : '已保存的生涯档案'
+                } · ${
+                  state.report.roots.length
+                } 个独立根目录 · ${state.report.roots.reduce(
+                  (sum, root) => sum + root.worlds.length,
+                  0,
+                )} 个世界`
+              : state.loading
+              ? '正在读取本地档案…'
+              : '选择目录后开始首次导入。'}
+          </p>
         </div>
       ) : null}
       {report ? (
@@ -339,7 +373,6 @@ export default function ArchivePages({ state }: { state: AppState }) {
     busy,
     loading,
     worldCount,
-    progress,
     error,
     clearError,
     notice,
@@ -445,23 +478,6 @@ export default function ArchivePages({ state }: { state: AppState }) {
           </div>
         </section>
       ) : null}
-      <p
-        role="status"
-        className="runtime-status"
-        hidden={view !== 'settings' && !busy && !report?.cancelled}
-      >
-        {busy
-          ? progress
-            ? `已检查 ${progress.roots_done}/${progress.roots_total} 个目录、${progress.worlds_scanned} 个世界条目、${progress.player_files_scanned} 个统计文件`
-            : '正在准备扫描…'
-          : report
-          ? `${
-              report.cancelled ? '已取消，以下为部分结果' : '已保存的生涯档案'
-            } · ${report.roots.length} 个独立根目录 · ${worldCount} 个世界`
-          : loading
-          ? '正在读取本地档案…'
-          : '选择目录后开始首次导入。'}
-      </p>
       {error ? (
         /* Gated to the page that owns the action, like the status line above it: the
            message is about a scan the user started in 导入与设置, and it used to follow

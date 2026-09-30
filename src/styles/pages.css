@@ -132,6 +132,12 @@
   border-bottom: 1px solid var(--border-soft);
 }
 
+.world-result:last-child {
+  /* The list-meta bar below opens with its own rule; the last row's underline
+     would double it. */
+  border-bottom: 0;
+}
+
 .world-result summary {
   min-height: 36px;
   padding: var(--space-1) 0;
@@ -170,6 +176,10 @@
   margin-left: var(--space-3);
   border-radius: var(--radius-xs);
   background: var(--surface-sunken);
+  /* The track's own edge: without it the bar was a bare colour band on the
+     page floor, half the weight of the dashboard ruler beside it. */
+  outline: 1px solid var(--text-faint);
+  outline-offset: -1px;
   vertical-align: middle;
   overflow: hidden;
 }
@@ -177,7 +187,9 @@
 .world-mini-bar > i {
   display: block;
   height: 100%;
-  background: var(--chart-bar);
+  /* Fill steps back from full saturation so the track reads as an instrument
+     half-drawn, not a solid band. */
+  background: color-mix(in srgb, var(--chart-bar) 70%, var(--surface-sunken));
 }
 
 /* The 55% row opacity that used to sit here is gone. It faded the summary's own
@@ -195,14 +207,16 @@
    beside it. */
 .observation-facts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* The first column carries the long duration readings; let it take its own
+     width so "5 小时 49 分 42 秒" stays on one line. */
+  grid-template-columns: minmax(max-content, 1.3fr) repeat(3, minmax(0, 1fr));
   flex: 1 1 520px;
   gap: var(--space-3) var(--space-4);
 }
 
 @media (max-width: 900px) {
   .observation-facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(max-content, 1.3fr) minmax(0, 1fr);
     flex-basis: 100%;
   }
 }
@@ -222,6 +236,7 @@
   margin: 2px 0 0;
   font-family: var(--font-mono);
   font-size: var(--type-lead);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
@@ -286,22 +301,6 @@
   background: color-mix(in srgb, var(--chart-bar) 28%, var(--surface-sunken));
   max-width: 42%;
   opacity: 0.85;
-}
-
-.stat-placeholder-letter {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 2px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-strong);
-  color: var(--text-on-strong);
-  font-family: var(--font-mono);
-  font-size: var(--type-caption);
-  line-height: 14px;
-  text-align: center;
 }
 
 .event-uuid-row {
@@ -445,21 +444,6 @@
   width: 22px;
   height: 22px;
 }
-.stat-placeholder-letter {
-  right: -3px;
-  bottom: -3px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-strong);
-  color: var(--text-on-strong);
-  font-family: var(--font-mono);
-  font-size: var(--type-caption);
-  line-height: 16px;
-  text-align: center;
-  box-shadow: var(--shadow-cutout);
-}
 .stat-value {
   /* The reading gets a step of its own, above the label it belongs to: a column of
      figures is what this page is for, and it had no size of its own at all - it
@@ -469,6 +453,9 @@
   font-size: var(--type-lead);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  /* The reading leads on both axes now: one size step up from its label, and a
+     half-step of weight over the label's 500. */
+  font-weight: 550;
 }
 .stat-unit {
   margin-left: 3px;

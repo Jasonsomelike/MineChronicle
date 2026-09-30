@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Check, Clock3, GitFork, X, Undo2, ArrowUpRight } from 'lucide-react';
+import {
+  Check,
+  Clock3,
+  GitFork,
+  ShieldCheck,
+  X,
+  Undo2,
+  ArrowUpRight,
+} from 'lucide-react';
 import { Button, Collapse, Select } from 'antd';
 import { decideClone, reviewHealth, issueNames } from '../lib/health';
 import type { HealthSummary, CloneCandidate } from '../lib/health';
@@ -233,15 +241,22 @@ export default function DataHealth({
           actionable is hidden - the summary states whether there is anything to open
           it for. The <section> wrapper stays so the landmark survives. */}
       <details className="health-disclosure">
-        <summary className="library-heading">
-          <h2>数据健康</h2>
+        <summary className="settings-section-head">
+          <h2>
+            <ShieldCheck size={18} aria-hidden="true" />
+            数据健康
+          </h2>
           {/* Flagged rather than merely counted when there is work: a collapsed queue
               that looks the same whether or not it needs attention is how a
               disclosure turns into a hiding place. */}
-          <span className={health.pending_count ? 'health-pending' : undefined}>
-            {health.pending_count
-              ? `${health.pending_count} 项待处理`
-              : '无待处理'}{' '}
+          <span>
+            <span
+              className={health.pending_count ? 'health-pending' : undefined}
+            >
+              {health.pending_count
+                ? `${health.pending_count} 项待处理`
+                : '无待处理'}
+            </span>{' '}
             · {health.confirmed_lineages} 条确认关联
           </span>
         </summary>

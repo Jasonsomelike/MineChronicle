@@ -419,7 +419,13 @@ export default function Dashboard({
         <Collapse
           ghost
           className="rollback-list"
-          expandIcon={() => null}
+          /* The header kept no affordance at all, so the list read as a label
+             rather than a disclosure. The default arrow sits far right of the
+             text and fought the row's baseline; a leading ▸/▾ is the same cue
+             the 统计说明 disclosure uses. */
+          expandIcon={({ isActive }) => (
+            <span aria-hidden="true">{isActive ? '▾' : '▸'}</span>
+          )}
           items={[
             {
               key: 'rollbacks',
