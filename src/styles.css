@@ -184,7 +184,7 @@ main {
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-4);
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
 }
 .settings-section-head h2 {
   display: flex;
@@ -203,13 +203,10 @@ main {
   border-color: transparent;
   background: transparent;
   padding-inline: 0;
+  padding-block: 0;
 }
 /* The first row inside a quiet card starts flush: no hairline above it, since
    the card has no top edge to echo. */
-.setting-row--first {
-  border-top: 0;
-  padding-top: 0;
-}
 .setting-row {
   display: flex;
   align-items: center;
@@ -217,6 +214,10 @@ main {
   gap: 16px;
   padding: 18px 0;
   border-top: 1px solid var(--border);
+}
+.setting-row.setting-row--first {
+  border-top: 0;
+  padding-top: 0;
 }
 .setting-row strong {
   display: flex;
@@ -412,12 +413,8 @@ main {
 }
 .ruler-grid {
   display: grid;
-  /* Name / track / value. The track is the measurement, so it takes the slack.
-     The name column was `minmax(96px, 1.1fr)`, a fraction of the grid - which handed
-     it 152px on the dashboard for names that are 52 to 85px wide, wasting 245px across
-     three rows. Sized to its content instead, and floored so a very long world name
-     cannot squeeze the track below a usable width. */
-  grid-template-columns: minmax(0, auto) minmax(120px, 1fr) auto;
+  /* Bounded names leave the remaining width to the shared measurement track. */
+  grid-template-columns: minmax(90px, 130px) minmax(0, 1fr) minmax(85px, auto);
   align-items: center;
   gap: var(--space-3) var(--space-3);
 }
@@ -431,6 +428,9 @@ main {
   font-size: var(--type-caption);
   font-variant-numeric: tabular-nums;
   line-height: 1;
+}
+.ruler-scale span {
+  white-space: nowrap;
 }
 /* Five graduations need about 355px of track at the caption step, and the Chinese units
    are what pushed them over it: measured, the five labels wrapped onto two lines inside
@@ -1288,26 +1288,35 @@ footer {
 }
 .overview-grid {
   display: grid;
-  /* Two cards side by side: the career total as the hero, the observation figures as
-     a compact sidebar. Both are cards, matching the ranking panel below, rather than
-     one being a card inside a bordered band.
-
-     Alignment is decided in warmth.css by `.dashboard .overview-grid`, which wins on
-     specificity. It is deliberately `start`: see the note there. Do not set it here. */
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  /* Total and scope share a row; metrics and ranking span the whole panel. */
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
   /* No gap: the two readouts are regions of one panel, divided by a hairline, not
      two cards that sit apart. */
   gap: 0;
-  /* Paired with `.ranking-switch`'s margin-top; see the note there. */
   margin-bottom: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 .career-total {
   color: var(--text);
   margin: 0;
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-6) var(--space-7);
+}
+.overview-ranking {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: var(--space-4) var(--space-6) var(--space-3);
+  border-top: 1px solid var(--border);
+}
+.overview-ranking .playtime-ruler {
+  margin-top: var(--space-3);
+}
+.overview-ranking .ranking-link {
+  justify-content: flex-end;
+  margin: var(--space-2) 0 0;
 }
 .career-total strong {
   line-height: 1.4;
@@ -1543,6 +1552,13 @@ footer {
   }
   .career-total strong {
     font-size: var(--type-display);
+  }
+  .overview-ranking {
+    padding: var(--space-4) var(--space-5) var(--space-3);
+  }
+  .ruler-grid {
+    grid-template-columns: minmax(72px, 100px) minmax(0, 1fr) minmax(65px, auto);
+    column-gap: var(--space-2);
   }
   .tracking-state article {
     display: flex;
@@ -3333,12 +3349,7 @@ button.stat-icon:hover {
 .ranking-switch {
   display: flex;
   gap: 8px;
-  /* In the card it changes. The switch stands between the hero's caption and the ruler
-     it redraws, so the space above it belongs to the caption and the space below it is
-     the ruler's own `margin-top`. It used to sit under the whole card, where its two
-     margins had to be balanced against `.overview-grid`'s 20px instead - that balance
-     is gone with the position. */
-  margin: var(--space-3) 0 0;
+  margin: 0;
 }
 .ranking-switch button {
   /* Pills, so the label needs more room than a plain button's padding gives. */

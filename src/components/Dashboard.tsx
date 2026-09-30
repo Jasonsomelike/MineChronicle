@@ -274,69 +274,17 @@ export default function Dashboard({
                   选择玩家
                 </SecondaryButton>
               </div>
-            ) : (
-              <>
-                {/* The switch sits in the card it changes, directly above the ruler it
-                    redraws. It used to sit below the card, where it changed a surface
-                    the reader had already passed: the two were 33px apart and it
-                    still read as changing the list under it instead. */}
-                {/* The two pressed-state buttons became an antd Segmented: the
-                    control's semantics moved from role=group + aria-pressed to the
-                    library's radio model (role=radiogroup with aria-checked
-                    options). The one mapping below still drives both this control
-                    and the ruler it redraws, so the selection cannot disagree with
-                    the plotted rows. */}
-                <div
-                  className="ranking-switch"
-                  role="group"
-                  aria-label="排行维度"
-                >
-                  <Segmented
-                    value={ranking}
-                    onChange={(next) => setRanking(next as RankingDimension)}
-                    options={panels.map((panel) => ({
-                      value: panel.dimension,
-                      label: RANKING_TABS[panel.dimension],
-                    }))}
-                  />
-                </div>
-                {/* The ruler replaces an illustration and a caption. The headline
-                    figure above stays; what changes is that the card now shows how the
-                    total is made up, which is the thing the number alone cannot say.
-                    It is also the page's only ranking: the full one lives on
-                    世界与玩家, and the link below says so. */}
-                <PlaytimeRuler
-                  rows={
-                    panels.find((panel) => panel.active)?.rows ?? data.worlds
-                  }
-                  onOpen={onOpen}
-                />
-              </>
-            )}
+            ) : null}
           </div>
         </div>
-        {/* The observation figures sit with the career total rather than in their
-            own band below it. They are the same kind of number - a duration - so
-            stacking them as a separate full-width row made the page read as two
-            unrelated summaries and pushed the ranking off the first screen.
-
-            统计范围 is the region's heading fact - it says what the hero is
-            counting - and keeps the label/figure pair the region had. The three
-            observation durations are the supporting rows: same figure type, one
-            step quieter, so the page does not say "here are four equal heroes".
-            The direction named exactly this: three identical 2 分 56 秒 figures
-            must not be emphasised like the primary reading. */}
+        {/* Keep scope beside the total; observation durations occupy a separate,
+            lower-weight strip so neither column sets the other's height. */}
         <div className="tracking-state">
           <article className="tracking-scope">
             <span>
               <Globe2 size={16} aria-hidden="true" />
               统计范围
             </span>
-            {/* Two readings, not a fraction. "3 / 2" over "世界 / 玩家" read like a
-                ratio and left the reader to work out that it was two independent
-                counts; each count now carries its own noun. The separator is bound
-                to the first count with a no-break space so the narrow column wraps
-                after "·" instead of starting a line with it. */}
             <strong>
               {`${data.worlds.length} 个世界\u00A0· ${
                 playersNone
@@ -348,40 +296,55 @@ export default function Dashboard({
               {report.instances.length} 个实例 · {data.missing} 个缺失
             </small>
           </article>
-          <ul className="tracking-metrics">
-            <li>
-              <span>
-                <Sunrise size={14} aria-hidden="true" />
-                本周观察增量
-              </span>
-              <strong>{observed(tracked.week)}</strong>
-            </li>
-            <li>
-              <span>
-                <CalendarDays size={14} aria-hidden="true" />
-                本月观察增量
-              </span>
-              <strong>{observed(tracked.month)}</strong>
-            </li>
-            <li>
-              <span>
-                <Footprints size={14} aria-hidden="true" />
-                累计追踪时长
-              </span>
-              <strong>{observed(tracked.ticks)}</strong>
-            </li>
-          </ul>
         </div>
+        <ul className="tracking-metrics">
+          <li>
+            <span>
+              <Sunrise size={14} aria-hidden="true" />
+              本周观察增量
+            </span>
+            <strong>{observed(tracked.week)}</strong>
+          </li>
+          <li>
+            <span>
+              <CalendarDays size={14} aria-hidden="true" />
+              本月观察增量
+            </span>
+            <strong>{observed(tracked.month)}</strong>
+          </li>
+          <li>
+            <span>
+              <Footprints size={14} aria-hidden="true" />
+              累计追踪时长
+            </span>
+            <strong>{observed(tracked.ticks)}</strong>
+          </li>
+        </ul>
+        {!playersNone && (
+          <div className="overview-ranking">
+            <div className="ranking-switch" role="group" aria-label="排行维度">
+              <Segmented
+                value={ranking}
+                onChange={(next) => setRanking(next as RankingDimension)}
+                options={panels.map((panel) => ({
+                  value: panel.dimension,
+                  label: RANKING_TABS[panel.dimension],
+                }))}
+              />
+            </div>
+            <PlaytimeRuler
+              rows={panels.find((panel) => panel.active)?.rows ?? data.worlds}
+              onOpen={onOpen}
+            />
+            <p className="ranking-link">
+              <TextButton onClick={onWorlds}>
+                在世界与玩家查看全部
+                <span aria-hidden="true"> →</span>
+              </TextButton>
+            </p>
+          </div>
+        )}
       </div>
-      {/* Where the second ranking used to start. The full list of worlds is on the
-          page that owns it, so the only thing this position keeps is the way there -
-          a link rather than a copy of the answer. */}
-      <p className="ranking-link">
-        <TextButton onClick={onWorlds}>
-          在世界与玩家查看全部
-          <span aria-hidden="true"> →</span>
-        </TextButton>
-      </p>
       {/* The three reading rules the page used to print as separate scattered
           lines (ranking 口径, the observation note, the health caveat) are one
           disclosure now: 首屏 keeps the hero and the way to the full list, and
@@ -446,8 +409,8 @@ export default function Dashboard({
               </p>
             ) : null}
           </div>
+          <SecondaryButton onClick={onSettings}>查看数据健康</SecondaryButton>
         </div>
-        <SecondaryButton onClick={onSettings}>查看数据健康</SecondaryButton>
       </div>
       {rollbacks.length ? (
         /* The hand-written <details> is a ghost Collapse; the `.rollback-list`

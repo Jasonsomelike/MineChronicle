@@ -21,14 +21,7 @@
   white-space: nowrap;
 }
 
-/* ---------------------------------------------------------------------------
-   The observation region's two weights.
-
-   统计范围 is the heading fact (label + figure, the old article pattern); the
-   three observation durations are supporting rows in a single column, at the
-   body step, separated by hairlines instead of the 2x2 equal grid. Three
-   identical figures no longer carry hero weight.
-   --------------------------------------------------------------------------- */
+/* Scope is the supporting top-row fact; observation durations form a quiet strip. */
 .tracking-state {
   display: flex;
   flex-direction: column;
@@ -40,11 +33,14 @@
   min-width: 0;
 }
 .tracking-metrics {
+  grid-column: 1 / -1;
   margin: 0;
-  padding: 0;
+  padding: var(--space-2) var(--space-6);
   list-style: none;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+  border-top: 1px solid var(--border);
 }
 .tracking-metrics li {
   display: flex;
@@ -52,12 +48,9 @@
   justify-content: space-between;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-2) 0;
-  border-top: 1px solid var(--border-soft);
-}
-.tracking-metrics li:first-child {
+  padding: var(--space-1) 0;
+  flex-wrap: wrap;
   border-top: 0;
-  padding-top: 0;
 }
 .tracking-metrics li span {
   display: inline-flex;
@@ -78,12 +71,31 @@
   font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
+.scan-panel .ranking-switch label.ant-segmented-item {
+  display: block;
+  margin: 0;
+  gap: 0;
+}
+.ranking-switch .ant-segmented-item-label {
+  min-height: var(--control-sm);
+  line-height: var(--control-sm);
+}
+@media (max-width: 900px) {
+  .tracking-metrics {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: var(--space-2) var(--space-5);
+  }
+  .tracking-metrics li + li {
+    border-top: 1px solid var(--border-soft);
+  }
+}
 
 /* ---------------------------------------------------------------------------
    统计说明: the reading rules behind one disclosure.
    --------------------------------------------------------------------------- */
 .stats-method {
-  margin: var(--space-2) 0 var(--space-5);
+  margin: var(--space-2) 0 var(--space-4);
 }
 .stats-method > summary {
   display: flex;
@@ -137,7 +149,7 @@
    between same-weight blocks, so nothing announced where one act ended.
    --------------------------------------------------------------------------- */
 .dashboard-section {
-  margin-top: var(--space-8);
+  margin-top: var(--space-5);
 }
 .dashboard-section-head {
   display: flex;
@@ -159,6 +171,9 @@
   gap: var(--space-2);
   min-width: 0;
   flex: 1 1 320px;
+}
+.dashboard-section-head > .secondary-button {
+  flex: none;
 }
 .dashboard-section-body > p {
   margin: 0;

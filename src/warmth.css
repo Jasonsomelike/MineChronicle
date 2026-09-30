@@ -25,48 +25,48 @@
 :root {
   color-scheme: light;
 
-  --warm-paper: #f7f8fa;
+  --warm-paper: #f5f3ef;
   --warm-surface: #ffffff;
-  --warm-line: #e5e6eb;
+  --warm-line: #e6e2da;
   --warm-ink: #1d2129;
-  --brand: #0f766e;
-  --warm-muted: #4e5969;
+  --brand: #0d6e63;
+  --warm-muted: #57544c;
 
   /* Surfaces, from the page floor upward. */
-  --page: #f7f8fa;
+  --page: #f5f3ef;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-sunken: #f2f3f5;
-  --surface-hover: #f2f3f5;
-  --surface-active: #e5e6eb;
+  --surface-sunken: #ece9e2;
+  --surface-hover: #efece6;
+  --surface-active: #e6e2da;
   /* Tinted card used by the observation and health summaries. */
-  --surface-tint: #f7f8fa;
+  --surface-tint: #f5f3ef;
   /* A quiet control's resting surface: the secondary button inside the scan panel, and in
      dark mode the sort heading and the settings jump as well. It used to be written out in
      the rules that paint it, which is how the light half of the pair ended up as a literal
      in a component rule while its dark half lived here. */
-  --surface-control: #f2f3f5;
+  --surface-control: #ece9e2;
   /* The filled CTA surface, and the surface its hover steps to. #0C5F59 is one
      step darker on the same hue; the previous hover (#4080FF's replacement
      logic) put white text under 4.5:1, so the hover goes darker instead of
      lighter. */
-  --surface-strong: #0f766e;
-  --surface-strong-hover: #0c5f59;
+  --surface-strong: #0d6e63;
+  --surface-strong-hover: #0a5a51;
 
   /* Text, from strongest to faintest. */
   --text: #1d2129;
   --text-strong: #1d2129;
-  --text-muted: #4e5969;
-  --text-faint: #4e5969;
+  --text-muted: #57544c;
+  --text-faint: #57544c;
   --text-on-strong: #ffffff;
-  --text-accent: #0f766e;
+  --text-accent: #0d6e63;
   --text-label: #272e3b;
 
   /* Borders. */
-  --border: #e5e6eb;
-  --border-soft: #f2f3f5;
-  --border-strong: #c9cdd4;
-  --border-input: #c9cdd4;
+  --border: #e6e2da;
+  --border-soft: #efece6;
+  --border-strong: #ccc6ba;
+  --border-input: #ccc6ba;
 
   /* Feedback. */
   --danger: #cb272d;
@@ -140,21 +140,21 @@
   --shadow-pop: none;
   --shadow-modal: none;
 
-  --warm-paper: #17171a;
-  --warm-surface: #232324;
-  --warm-line: #333335;
+  --warm-paper: #191816;
+  --warm-surface: #24231f;
+  --warm-line: #35322c;
   --warm-ink: rgba(255, 255, 255, 0.9);
-  --brand: #7fd4c0;
-  --warm-muted: rgba(255, 255, 255, 0.7);
+  --brand: #6fc9b4;
+  --warm-muted: rgba(255, 255, 255, 0.68);
 
-  --page: #17171a;
-  --surface: #232324;
-  --surface-raised: #2a2a2b;
-  --surface-sunken: #17171a;
-  --surface-hover: #2e2e30;
-  --surface-active: #313132;
-  --surface-tint: #2a2a2b;
-  --surface-control: #323233;
+  --page: #191816;
+  --surface: #24231f;
+  --surface-raised: #2c2b26;
+  --surface-sunken: #191816;
+  --surface-hover: #302e28;
+  --surface-active: #35322c;
+  --surface-tint: #2c2b26;
+  --surface-control: #34322b;
   /* The filled CTA surface. The dark-theme accent greens that read well as text
      on this ground (#7FD4C0 and lighter) all measure under 3:1 under white text,
      so the dark fill stays in the light theme's pine family, one step deeper:
@@ -170,13 +170,13 @@
   --text-muted: rgba(255, 255, 255, 0.7);
   --text-faint: rgba(255, 255, 255, 0.7);
   --text-on-strong: #ffffff;
-  --text-accent: #7fd4c0;
+  --text-accent: #6fc9b4;
   --text-label: rgba(255, 255, 255, 0.9);
 
-  --border: #333335;
-  --border-soft: #2a2a2b;
-  --border-strong: #484849;
-  --border-input: #484849;
+  --border: #35322c;
+  --border-soft: #2c2b26;
+  --border-strong: #4a463d;
+  --border-input: #4a463d;
 
   /* Feedback. The tinted surfaces below are pre-composited solids - Arco's 20%
      colour alphas flattened onto --surface (#232324) - because the design check's
@@ -274,9 +274,9 @@ body {
   place-items: center;
   width: 36px;
   height: 36px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, var(--border));
   border-radius: var(--radius-md);
-  background: var(--surface-sunken);
+  background: color-mix(in srgb, var(--brand) 7%, var(--surface));
 }
 .wordmark .brand-mark svg {
   color: var(--brand);
@@ -287,6 +287,7 @@ body {
      boxes. The current page is the only filled chip in it. */
   background: transparent;
   color: var(--text-muted);
+  transition: background-color var(--motion-base) ease, color var(--motion-base) ease;
 }
 /* The rail's current page is a tint, not the fill.
 
@@ -421,6 +422,7 @@ body {
 .career-copy > strong {
   font-variant-numeric: tabular-nums;
   color: var(--text-strong);
+  letter-spacing: -0.015em;
 }
 .career-copy > p {
   font-size: var(--type-caption);
@@ -450,7 +452,7 @@ body {
 }
 .tracking-state article > span svg {
   flex-shrink: 0;
-  color: var(--brand);
+  color: var(--text-faint);
 }
 .tracking-state strong {
   color: var(--text-strong);
@@ -463,10 +465,9 @@ body {
 .ranking-switch {
   width: fit-content;
   max-width: 100%;
-  border: 1px solid var(--warm-line);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-md);
-  padding: 4px;
+  border: 0;
+  background: none;
+  padding: 0;
   gap: 4px;
 }
 .ranking-switch button {
@@ -744,7 +745,7 @@ footer {
     margin-left: 17px;
   }
   .dashboard .overview-grid {
-    gap: 12px;
+    gap: 0;
   }
 }
 

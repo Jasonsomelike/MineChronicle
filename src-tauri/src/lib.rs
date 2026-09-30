@@ -15,6 +15,122 @@ pub mod tracker;
 #[cfg(windows)]
 mod wide;
 
+mod app_paths {
+    //! Windows 上把 Tauri 的 `%APPDATA%/<identifier>` 固定到 D 盘数据目录，其它平台
+    //! 维持系统默认。首次切换时把旧 Roaming 数据整体迁移到新目录，并把原位置
+    //! 链接过去，保证历史档案、备份与配置不丢失。
+
+    #[cfg(windows)]
+    const DATA_DIR: &str = r"D:\MineChronicleApp\data";
+
+    #[cfg(windows)]
+    pub fn redirect_app_data() {
+        use std::path::{Path, PathBuf};
+
+        let Some(roaming) = std::env::var_os("APPDATA").map(PathBuf::from) else {
+            return;
+        };
+        let legacy = roaming.join("dev.minechronicle.desktop");
+        let target = Path::new(DATA_DIR);
+
+        if let Err(error) = std::fs::create_dir_all(target) {
+            eprintln!("MineChronicle could not create data directory {DATA_DIR}: {error}");
+            return;
+        }
+
+        // Tauri resolves app_data_dir() from APPDATA + identifier. 把旧目录迁移到
+        // D 盘后在原位置留一个 junction，这样旧路径仍然可用，且历史文件只有一份。
+        if legacy.exists()
+            && !legacy.join("storage.json").exists()
+            && legacy.read_dir().is_ok_and(|mut d| d.next().is_none())
+        {
+            let _ = std::fs::remove_dir(&legacy);
+        }
+        if legacy.exists() && !is_link(&legacy) && !target.join("minechronicle.sqlite3").exists() {
+            if let Err(error) = move_tree(&legacy, target) {
+                eprintln!("MineChronicle could not migrate app data to {DATA_DIR}: {error}");
+            }
+        }
+        if !legacy.exists() {
+            if let Err(error) = symlink_dir(target, &legacy) {
+                eprintln!(
+                    "MineChronicle could not link app data directory; keeping {}: {error}",
+                    legacy.display()
+                );
+                return;
+            }
+        }
+        std::env::set_var("APPDATA", roaming);
+    }
+
+    #[cfg(windows)]
+    fn is_link(path: &std::path::Path) -> bool {
+        std::fs::symlink_metadata(path)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(false)
+    }
+
+    #[cfg(windows)]
+    fn move_tree(source: &std::path::Path, target: &std::path::Path) -> std::io::Result<()> {
+        for entry in std::fs::read_dir(source)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let from = entry.path();
+            let to = target.join(&name);
+            if to.exists() {
+                continue;
+            }
+            if entry.file_type()?.is_dir() {
+                copy_dir(&from, &to)?;
+                std::fs::remove_dir_all(&from)?;
+            } else {
+                std::fs::rename(&from, &to).or_else(|_| {
+                    std::fs::copy(&from, &to).and_then(|_| std::fs::remove_file(&from))
+                })?;
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    fn copy_dir(source: &std::path::Path, target: &std::path::Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(target)?;
+        for entry in std::fs::read_dir(source)? {
+            let entry = entry?;
+            let from = entry.path();
+            let to = target.join(entry.file_name());
+            if entry.file_type()?.is_dir() {
+                copy_dir(&from, &to)?;
+            } else {
+                std::fs::copy(&from, &to)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    fn symlink_dir(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
+        // Prefer a junction (no admin needed); fall back to a directory symlink.
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let status = std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .creation_flags(CREATE_NO_WINDOW)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()?;
+        if status.success() {
+            return Ok(());
+        }
+        std::os::windows::fs::symlink_dir(target, link)
+    }
+
+    #[cfg(not(windows))]
+    pub fn redirect_app_data() {}
+}
+
 pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
         .manage(commands::ScanControl::default())
@@ -67,6 +183,7 @@ pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
 
 pub fn run() -> tauri::Result<()> {
     use tauri::Manager;
+    app_paths::redirect_app_data();
     #[cfg(windows)]
     let (_instance, outcome) = desktop::single_instance()?;
     #[cfg(windows)]

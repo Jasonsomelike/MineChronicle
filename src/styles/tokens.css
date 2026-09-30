@@ -60,8 +60,9 @@
   /* Neutral shadows: the base colour is #1D2129 (Arco's text-1 / color-mask-bg
      family), replacing the green-cast #405237… set. --shadow-pop is Arco's own
      popup shadow, measured off arco.css. */
-  --shadow-hairline: 0 2px 5px rgba(29, 33, 41, 0.05);
-  --shadow-card: 0 4px 18px rgba(29, 33, 41, 0.04);
+  --shadow-hairline: 0 1px 2px rgba(29, 33, 41, 0.06);
+  --shadow-card: 0 1px 2px rgba(29, 33, 41, 0.05),
+    0 8px 28px -8px rgba(29, 33, 41, 0.08);
   --shadow-pop: 0 4px 10px rgba(0, 0, 0, 0.1);
   --shadow-modal: 0 20px 80px rgba(29, 33, 41, 0.2);
   --shadow-nav: 0 3px 8px rgba(29, 33, 41, 0.06),
