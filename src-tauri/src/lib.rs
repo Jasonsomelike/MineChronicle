@@ -16,30 +16,39 @@ pub mod tracker;
 mod wide;
 
 mod app_paths {
-    //! Windows 上把 Tauri 的 `%APPDATA%/<identifier>` 固定到 D 盘数据目录，其它平台
-    //! 维持系统默认。首次切换时把旧 Roaming 数据整体迁移到新目录，并把原位置
-    //! 链接过去，保证历史档案、备份与配置不丢失。
+    //! Windows 上可通过 `MINECHRONICLE_DATA_DIR` 把 Tauri 的 `%APPDATA%/<identifier>`
+    //! 固定到指定数据目录（例如放到别的盘）；未设置该环境变量时维持系统默认。
+    //! 设置后首次启动会把旧 Roaming 数据整体迁移到新目录，并把原位置链接过去，
+    //! 保证历史档案、备份与配置不丢失。
 
     #[cfg(windows)]
-    const DATA_DIR: &str = r"D:\MineChronicleApp\data";
+    const DATA_DIR_ENV: &str = "MINECHRONICLE_DATA_DIR";
 
     #[cfg(windows)]
     pub fn redirect_app_data() {
-        use std::path::{Path, PathBuf};
+        use std::path::PathBuf;
 
+        let Some(target) = std::env::var_os(DATA_DIR_ENV)
+            .map(PathBuf::from)
+            .filter(|target| !target.as_os_str().is_empty())
+        else {
+            return;
+        };
         let Some(roaming) = std::env::var_os("APPDATA").map(PathBuf::from) else {
             return;
         };
         let legacy = roaming.join("dev.minechronicle.desktop");
-        let target = Path::new(DATA_DIR);
 
-        if let Err(error) = std::fs::create_dir_all(target) {
-            eprintln!("MineChronicle could not create data directory {DATA_DIR}: {error}");
+        if let Err(error) = std::fs::create_dir_all(&target) {
+            eprintln!(
+                "MineChronicle could not create data directory {}: {error}",
+                target.display()
+            );
             return;
         }
 
-        // Tauri resolves app_data_dir() from APPDATA + identifier. 把旧目录迁移到
-        // D 盘后在原位置留一个 junction，这样旧路径仍然可用，且历史文件只有一份。
+        // Tauri resolves app_data_dir() from APPDATA + identifier. 把数据迁到目标目录
+        // 后在原位置留一个 junction，这样旧路径仍然可用，且历史文件只有一份。
         if legacy.exists()
             && !legacy.join("storage.json").exists()
             && legacy.read_dir().is_ok_and(|mut d| d.next().is_none())
@@ -47,12 +56,15 @@ mod app_paths {
             let _ = std::fs::remove_dir(&legacy);
         }
         if legacy.exists() && !is_link(&legacy) && !target.join("minechronicle.sqlite3").exists() {
-            if let Err(error) = move_tree(&legacy, target) {
-                eprintln!("MineChronicle could not migrate app data to {DATA_DIR}: {error}");
+            if let Err(error) = move_tree(&legacy, &target) {
+                eprintln!(
+                    "MineChronicle could not migrate app data to {}: {error}",
+                    target.display()
+                );
             }
         }
         if !legacy.exists() {
-            if let Err(error) = symlink_dir(target, &legacy) {
+            if let Err(error) = symlink_dir(&target, &legacy) {
                 eprintln!(
                     "MineChronicle could not link app data directory; keeping {}: {error}",
                     legacy.display()
