@@ -297,6 +297,21 @@ impl Repository {
     }
 
     pub fn observe_instances(&mut self, active: &[ActiveInstance]) -> DbResult<()> {
+        // The process probe reports whatever form the launcher's command line
+        // carried, which on Windows can be an 8.3 short path (C:\PROGRA~1\...).
+        // The scanner stores canonical long paths, so sessions must be recorded
+        // in the same form or the pseudo-time attribution cannot join the two
+        // sides. Fall back to the raw form if the directory has already
+        // disappeared between the probe and here.
+        let active: Vec<ActiveInstance> = active
+            .iter()
+            .map(|instance| ActiveInstance {
+                game_root: std::fs::canonicalize(&instance.game_root)
+                    .unwrap_or_else(|_| instance.game_root.clone()),
+                name: instance.name.clone(),
+                pids: instance.pids.clone(),
+            })
+            .collect();
         let tx = self.connection.transaction()?;
         let now: String = tx.query_row("SELECT strftime('%Y-%m-%dT%H:%M:%SZ','now')", [], |r| {
             r.get(0)

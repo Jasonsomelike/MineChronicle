@@ -48,36 +48,6 @@ fn new_local_world_is_unknown_not_an_hour_of_server_time() -> TestResult {
         "UPDATE observed_sessions SET started_at='2026-01-01T00:00:00Z', ended_at='2026-01-01T01:00:00Z'",
         [],
     )?;
-    // TEMP DIAGNOSTICS for the runner-only failure; remove once explained.
-    for (label, sql) in [
-        (
-            "sessions",
-            "SELECT id, game_root, started_at, ended_at, status FROM observed_sessions",
-        ),
-        ("game_roots", "SELECT id, path FROM game_roots"),
-        (
-            "snapshots",
-            "SELECT kind, observed_at, world_id, player_uuid FROM stat_snapshots",
-        ),
-        (
-            "first_observations",
-            "SELECT g.path, strftime('%s', min(s.observed_at)) FROM stat_snapshots s \
-             JOIN worlds w ON w.id=s.world_id JOIN game_roots g ON g.id=w.game_root_id \
-             WHERE s.kind='observation' GROUP BY s.world_id, s.player_uuid",
-        ),
-    ] {
-        let mut query = conn.prepare(sql)?;
-        let columns = query.column_count();
-        let rows = query.query_map([], |row| {
-            (0..columns)
-                .map(|column| row.get::<_, rusqlite::types::Value>(column))
-                .collect::<std::result::Result<Vec<_>, _>>()
-        })?;
-        for row in rows {
-            eprintln!("DIAG {label}: {:?}", row?);
-        }
-    }
-    eprintln!("DIAG root arg = {root:?}");
     let page = repo
         .observed_sessions_page(1)
         .map_err(|error| error as Box<dyn std::error::Error>)?;
