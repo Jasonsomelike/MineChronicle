@@ -22,7 +22,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   # Keep Cargo's memory peak down on Windows runners; matches the README.
-  CARGO_BUILD_JOBS: '1'
+  CARGO_BUILD_JOBS: '4'
 
 jobs:
   verify:
