@@ -2,6 +2,9 @@
 
 [![verify](https://github.com/Jasonsomelike/MineChronicle/actions/workflows/verify.yml/badge.svg)](https://github.com/Jasonsomelike/MineChronicle/actions/workflows/verify.yml)
 
+> [!NOTE]
+> 此项目完全由 AI 生成，制作粗糙，仅作兴趣所用。
+
 面向 Minecraft Java Edition 多实例玩家的**本地生涯统计桌面软件**。导入你的游戏根目录（含 PCL2 启动器实例）后，MineChronicle 汇总多个启动器、多个实例、多个玩家目录下的存档读数，给出生涯概览、时间线、世界排行与更多统计——全部数据留在本机，不上传任何服务器。
 
 | 生涯概览                                    | 更多统计                                     | 世界库                                 |
