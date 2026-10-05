@@ -475,11 +475,15 @@ fn timeline_date_bounds_include_both_named_days() -> TestResult {
     let world = root.join("saves/world");
     level(&world, "Dates")?;
     stats(&world, "stats", PLAYER, 1200)?;
-    let mut repo = db(Repository::open(&temp.path().join("db")))?;
+    let archive = temp.path().join("db");
+    let mut repo = db(Repository::open(&archive))?;
     import(&mut repo, &root)?;
 
     // The import stamps events with "now", so read the actual day back rather
-    // than assuming it.
+    // than assuming it. The bounds below are local calendar days (activity.rs
+    // converts them to UTC with 'utc'), so the day must come from the same
+    // localtime rule via SQLite - splitting the UTC stamp would disagree with
+    // the filter whenever the machine's offset straddles midnight.
     let all = db(repo.timeline(&ActivityFilter::default()))?;
     let observed = all
         .events
@@ -487,11 +491,13 @@ fn timeline_date_bounds_include_both_named_days() -> TestResult {
         .ok_or("expected at least one event")?
         .observed_at
         .clone();
-    let day = observed
-        .split('T')
-        .next()
-        .ok_or("observed_at is not a timestamp")?
-        .to_owned();
+    let day: String = rusqlite::Connection::open(&archive)?
+        .query_row(
+            "SELECT strftime('%Y-%m-%d', ?1, 'localtime')",
+            [observed],
+            |row| row.get(0),
+        )
+        .map_err(Box::<dyn std::error::Error>::from)?;
 
     let with_bounds = |from: &str, to: &str| -> Result<usize, Box<dyn std::error::Error>> {
         let page = db(repo.timeline(&ActivityFilter {

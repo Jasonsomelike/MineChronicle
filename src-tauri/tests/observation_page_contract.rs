@@ -34,6 +34,20 @@ fn new_local_world_is_unknown_not_an_hour_of_server_time() -> TestResult {
         .into();
     repo.import(&report, std::slice::from_ref(&root))
         .map_err(|error| error as Box<dyn std::error::Error>)?;
+    // The import stamps the wall clock, and a runner whose clock steps mid-run
+    // (GitHub runners resync NTP aggressively) can push that first observation
+    // past the 900-second grace, which turns the session into a full hour of
+    // pseudo server time. Pin every stamp to fixed times: an observation five
+    // seconds after the session's end still sits inside the grace, so the
+    // baseline rule the test exercises survives without depending on the clock.
+    conn.execute(
+        "UPDATE stat_snapshots SET observed_at='2026-01-01T01:00:05.000Z'",
+        [],
+    )?;
+    conn.execute(
+        "UPDATE observed_sessions SET started_at='2026-01-01T00:00:00Z', ended_at='2026-01-01T01:00:00Z'",
+        [],
+    )?;
     let page = repo
         .observed_sessions_page(1)
         .map_err(|error| error as Box<dyn std::error::Error>)?;
