@@ -56,18 +56,19 @@ fn events_select_only_the_most_specific_root_without_prefix_collisions() -> Test
     let report: ScanSummary = GameRootScanner::default()
         .scan(&[root.clone(), nested.clone()], |_| true)
         .into();
+    // The watcher watches canonical library roots, so notify reports canonical
+    // paths and `affected_roots` is only ever called with that form. Building
+    // the simulated events from raw temp paths disagrees with the canonical
+    // report roots wherever the machine's TEMP carries 8.3 components
+    // (GitHub runners do: C:\Users\RUNNER~1\...).
+    let nested = fs::canonicalize(nested)?;
+    let root = fs::canonicalize(root)?;
     let events = HashSet::from([nested.join("saves/World/stats/new.json")]);
-    assert_eq!(
-        affected_roots(&report, &events),
-        [fs::canonicalize(&nested)?]
-    );
+    assert_eq!(affected_roots(&report, &events), [nested]);
     let unrelated = HashSet::from([temp.path().join("GameRoot-other/saves/world")]);
     assert!(affected_roots(&report, &unrelated).is_empty());
     let parent_event = HashSet::from([root.join("saves/new")]);
-    assert_eq!(
-        affected_roots(&report, &parent_event),
-        [fs::canonicalize(root)?]
-    );
+    assert_eq!(affected_roots(&report, &parent_event), [root]);
     Ok(())
 }
 

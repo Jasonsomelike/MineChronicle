@@ -369,6 +369,17 @@ fn run(database: PathBuf, control: ScanControl, state: Arc<State>, probe: Activi
             last_probe = Instant::now();
             match probe() {
                 Ok(active) => {
+                    // Same 8.3 caveat as observe_instances: the probe echoes the
+                    // launcher's command line, which can carry short paths
+                    // (C:\PROGRA~1\...), while every stored root is canonical.
+                    // Normalise once here so the in-memory sets agree with the
+                    // archive on every machine; keep the raw form when the
+                    // directory has already disappeared.
+                    let mut active = active;
+                    for instance in &mut active {
+                        instance.game_root = std::fs::canonicalize(&instance.game_root)
+                            .unwrap_or_else(|_| instance.game_root.clone());
+                    }
                     // Persist boundaries on process changes, not on every poll or save.
                     let sessions = (|| -> crate::database::DbResult<()> {
                         if !sessions_ready || active != observed_active {
