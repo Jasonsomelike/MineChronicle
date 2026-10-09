@@ -1,0 +1,409 @@
+:root {
+  --minecraft-forest: #0b3d2e;
+  --minecraft-forest-hover: #15624a;
+  --minecraft-grass: #88a957;
+  --minecraft-soil: #795638;
+}
+
+:root[data-theme='dark'] {
+  --minecraft-forest: #0d665f;
+  --minecraft-forest-hover: #0a5a53;
+  --minecraft-grass: #9bb96d;
+  --minecraft-soil: #75583c;
+}
+
+.brand-mark {
+  overflow: hidden;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--minecraft-grass) 13%, var(--surface));
+}
+
+.brand-block {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--minecraft-soil) 50%, transparent);
+  border-radius: 2px;
+  background-color: var(--minecraft-soil);
+  background-image: repeating-linear-gradient(
+      0deg,
+      transparent 0 5px,
+      rgba(48, 34, 24, 0.16) 5px 6px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 6px,
+      rgba(48, 34, 24, 0.14) 6px 7px
+    );
+}
+
+.brand-block-grass {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 6px;
+  border-bottom: 1px solid rgba(36, 62, 28, 0.26);
+  background: repeating-linear-gradient(90deg, #769548 0 5px, #9ab963 5px 10px);
+}
+
+.brand-block::after {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 4px;
+  height: 3px;
+  background: #a47b4b;
+  content: '';
+}
+
+.app-nav button[aria-current='page'] {
+  background: var(--minecraft-forest);
+  color: #fff;
+  box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--minecraft-forest) 25%, transparent);
+}
+
+.app-nav button[aria-current='page']::before {
+  width: 3px;
+  background: var(--minecraft-grass);
+}
+
+.app-nav button[aria-current='page']:hover {
+  background: var(--minecraft-forest-hover);
+  color: #fff;
+}
+
+.empty-onboarding {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(250px, 0.85fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 64px);
+  min-height: 330px;
+  margin: 24px 0;
+  padding: 36px clamp(24px, 4.5vw, 56px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: radial-gradient(
+      ellipse 360px 250px at 82% 44%,
+      color-mix(in srgb, var(--minecraft-grass) 15%, transparent),
+      transparent 74%
+    ),
+    linear-gradient(
+      120deg,
+      var(--surface-raised) 40%,
+      color-mix(in srgb, var(--minecraft-soil) 5%, var(--surface-raised))
+    );
+}
+
+.onboarding-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 600px;
+}
+
+.onboarding-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 14px;
+  color: var(--text-accent);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.onboarding-kicker > span:last-child {
+  color: var(--text-muted);
+}
+
+.onboarding-kicker-mark {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--minecraft-soil);
+  border-top: 5px solid var(--minecraft-grass);
+  border-radius: 2px;
+}
+
+.onboarding-copy h2 {
+  margin: 0 0 10px;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+}
+
+.onboarding-copy > p {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-lead);
+  line-height: 1.7;
+}
+
+.onboarding-copy .scan-actions {
+  margin-top: 22px;
+}
+
+.onboarding-art {
+  position: relative;
+  display: grid;
+  min-height: 250px;
+  place-items: center;
+  isolation: isolate;
+}
+
+.onboarding-art::before {
+  position: absolute;
+  z-index: -1;
+  width: 210px;
+  height: 210px;
+  border: 1px solid color-mix(in srgb, var(--minecraft-grass) 25%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface-raised) 42%, transparent);
+  box-shadow: 0 0 0 18px
+      color-mix(in srgb, var(--minecraft-grass) 5%, transparent),
+    0 0 0 38px color-mix(in srgb, var(--minecraft-grass) 3%, transparent);
+  content: '';
+}
+
+.onboarding-art-label,
+.onboarding-art-caption {
+  position: absolute;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.onboarding-art-label {
+  top: 12px;
+  right: 8px;
+}
+
+.onboarding-art-caption {
+  right: 8px;
+  bottom: 8px;
+  color: var(--text-faint);
+}
+
+.onboarding-cloud {
+  position: absolute;
+  width: 44px;
+  height: 16px;
+  opacity: 0.75;
+  background: color-mix(in srgb, var(--surface-raised) 80%, #fff);
+  clip-path: polygon(
+    0 35%,
+    25% 35%,
+    25% 0,
+    68% 0,
+    68% 30%,
+    100% 30%,
+    100% 78%,
+    78% 78%,
+    78% 100%,
+    20% 100%,
+    20% 78%,
+    0 78%
+  );
+}
+
+.cloud-one {
+  top: 42px;
+  left: 17%;
+}
+
+.cloud-two {
+  top: 72px;
+  right: 10%;
+  transform: scale(0.65);
+}
+
+.onboarding-pixel {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--minecraft-grass);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--minecraft-grass) 14%, transparent);
+}
+
+.pixel-one {
+  top: 56px;
+  right: 25%;
+  width: 5px;
+  height: 5px;
+}
+
+.pixel-two {
+  top: 106px;
+  left: 11%;
+}
+
+.pixel-three {
+  right: 17%;
+  bottom: 56px;
+  width: 6px;
+  height: 6px;
+  background: #c58a4e;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #c58a4e 15%, transparent);
+}
+
+.onboarding-cube {
+  position: relative;
+  width: 190px;
+  height: 190px;
+  transform: translateY(9px);
+  filter: drop-shadow(8px 14px 9px rgba(30, 36, 24, 0.2));
+}
+
+.onboarding-cube-face {
+  position: absolute;
+  inset: 0;
+}
+
+.cube-top {
+  clip-path: polygon(50% 0, 100% 25%, 50% 50%, 0 25%);
+  background-color: #87a954;
+  background-image: linear-gradient(
+      135deg,
+      transparent 0 30%,
+      rgba(183, 205, 118, 0.72) 30% 38%,
+      transparent 38% 100%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 11px,
+      rgba(51, 77, 36, 0.12) 11px 12px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 11px,
+      rgba(51, 77, 36, 0.12) 11px 12px
+    );
+}
+
+.cube-left {
+  clip-path: polygon(0 25%, 50% 50%, 50% 100%, 0 75%);
+  background-color: #795638;
+  background-image: linear-gradient(
+      27deg,
+      transparent 0 37%,
+      #87a954 37% 42%,
+      transparent 42% 100%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 13px,
+      rgba(46, 32, 23, 0.2) 13px 14px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 13px,
+      rgba(46, 32, 23, 0.13) 13px 14px
+    );
+}
+
+.cube-right {
+  clip-path: polygon(50% 50%, 100% 25%, 100% 75%, 50% 100%);
+  background-color: #67482f;
+  background-image: linear-gradient(
+      -27deg,
+      transparent 0 37%,
+      #769548 37% 42%,
+      transparent 42% 100%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 13px,
+      rgba(37, 27, 19, 0.22) 13px 14px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 13px,
+      rgba(37, 27, 19, 0.13) 13px 14px
+    );
+}
+
+.onboarding-ground {
+  position: absolute;
+  right: 15%;
+  bottom: 29px;
+  left: 15%;
+  z-index: -1;
+  height: 15px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--minecraft-soil) 18%, transparent);
+  filter: blur(8px);
+}
+
+.dashboard-heading h2 {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 30px);
+  letter-spacing: -0.025em;
+}
+
+.career-copy > strong {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.4vw, 44px);
+}
+
+.dashboard .overview-grid {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  background: radial-gradient(
+      ellipse 420px 220px at 15% 0%,
+      color-mix(in srgb, var(--minecraft-grass) 7%, transparent),
+      transparent 75%
+    ),
+    var(--surface-raised);
+}
+
+.dashboard :is(.metric-grid article, .ranking) {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 760px) {
+  .empty-onboarding {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 26px 24px 18px;
+  }
+
+  .onboarding-art {
+    min-height: 185px;
+  }
+
+  .onboarding-art::before {
+    width: 150px;
+    height: 150px;
+  }
+
+  .onboarding-cube {
+    transform: translateY(12px) scale(0.78);
+  }
+
+  .onboarding-art-label {
+    top: 4px;
+  }
+
+  .onboarding-art-caption {
+    bottom: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .empty-onboarding {
+    padding-inline: 18px;
+  }
+
+  .onboarding-copy .scan-actions {
+    align-items: stretch;
+  }
+}

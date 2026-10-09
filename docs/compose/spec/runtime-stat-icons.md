@@ -10,7 +10,7 @@ commits: b9d8a4c..HEAD
 
 ## Report
 
-**What was built** — 运行时图标补齐：动画首帧、block 兜底、实体优选、blake3 磁盘缓存与 `store_stat_icon`。打开统计页只自动应用 **cache-only** 结果；完整本机扫描仅由「检查本页游戏图标」触发。手动检查后展示汇总摘要与可折叠明细（缓存/材质/已渲染/未找到/错误 + 来源/原因）。GSAP 负责新图标入场。
+**What was built** — 运行时图标补齐：动画首帧、block 兜底、实体优选、blake3 磁盘缓存与 `store_stat_icon`。打开统计页只自动应用 **cache-only** 结果；本机扫描由用户手动触发，可检查当前页或当前筛选结果的全部分页。扫描显示进度，可取消并重试错误项；结果保留汇总摘要与可折叠明细（缓存/材质/已渲染/未找到/错误 + 来源/原因）。GSAP 负责新图标入场。
 
 **Verification** — cargo lib runtime/cache_only 测试与 clippy 通过；npm typecheck/lint/test（77）通过；独立审查无 critical；已修 rendered 分类、签名 memo、冗余遍历、明细 chips。
 
@@ -31,7 +31,7 @@ MineChronicle「更多统计」的图标目录是按开发档案预生成的。�
 ### 目标行为
 
 1. **磁盘缓存自动**：打开统计页对缺图行做 cache-only 查询，命中则显示，不打开 mods/jar。
-2. **本机扫描必须手动**：仅用户点击「检查本页游戏图标」才完整解析。
+2. **本机扫描必须手动**：用户点击「检查本页游戏图标」或「检查当前筛选结果」后才完整解析。
 3. **操作明细**：手动检查后页内可折叠明细 + 汇总 chips。
 4. 不执行 Java 代码，不改 Minecraft/PCL 文件。
 

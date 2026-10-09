@@ -4,6 +4,16 @@ The [0.10.7 audit](stat-icons-audit-0.10.7.md) records the full archive coverage
 model corrections, verification and remaining unsupported resources. That work
 used static analysis and headless rendering without Computer Use.
 
+## Build Packaging
+
+The source catalog keeps its original PNG files and JSON. `npm run build` checks
+each statistic icon's decoded pixels after lossless WebP conversion. Exact
+matches use WebP; any image that does not match stays PNG. The mixed set is used
+in `dist/` only when it is smaller than the source set; otherwise all PNGs are
+copied unchanged. Development preview continues to use PNG. The Rust build embeds a gzip-compressed copy of
+`stat-resources.json`; extraction scripts and resource-contract checks continue
+to use the readable source JSON.
+
 The statistics view resolves names against the PCL instances that actually supplied
 the selected player/world records. The generated catalog covers the 18,882 distinct
 category/key pairs in the development archive. All have a display name; 417 pairs

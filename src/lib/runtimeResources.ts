@@ -1,5 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { StatisticsPage } from './activity';
+declare const __STAT_ICON_EXTENSION__: string | undefined;
+declare const __STAT_ICON_PNG_FILES__: string[] | undefined;
 export interface Resolution {
   image: string | null;
   source: string;
@@ -25,6 +27,8 @@ export interface DiscoverDetail {
 export interface DiscoverResult {
   icons: Record<string, Resolution>;
   details: DiscoverDetail[];
+  processedRows: number;
+  cancelled: boolean;
   summary: {
     cached: number;
     resolved: number;
@@ -49,6 +53,8 @@ export interface DiscoverOptions {
   cacheOnly?: boolean;
   /** Requests per backend call; smaller chunks keep a big page responsive. */
   chunkSize?: number;
+  /** Stops after the active backend call or render finishes. */
+  signal?: AbortSignal;
 }
 let renderQueue = Promise.resolve();
 function classify(
@@ -65,6 +71,7 @@ function classify(
     else if (renderedIds.has(id)) status = 'rendered';
     else status = 'resolved';
   } else if (
+    entry.reason === '检查已取消' ||
     entry.reason.includes('失败') ||
     entry.reason.includes('错误') ||
     entry.reason.includes('渲染')
@@ -153,6 +160,8 @@ export async function discoverIcons(
   const empty: DiscoverResult = {
     icons: {},
     details: [],
+    processedRows: 0,
+    cancelled: false,
     summary: {
       cached: 0,
       resolved: 0,
@@ -169,7 +178,7 @@ export async function discoverIcons(
       r.key !== 'minecraft:air' &&
       (refreshKnown || !r.resources.some((resource) => resource.icon)),
   );
-  if (!pending.length) return empty;
+  if (!pending.length) return { ...empty, processedRows: rows.length };
   const noRootRows = pending.filter(
     (r) => !(r.resource_roots ?? []).length,
   ).length;
@@ -179,11 +188,13 @@ export async function discoverIcons(
   // failing outright, and lets each chunk's Java bytecode budget reset.
   const result: Record<string, Resolution> = {};
   const chunkSize = options.chunkSize ?? 40;
+  let processedRows = rows.length - pending.length;
   for (let start = 0; start < pending.length; start += chunkSize) {
+    if (options.signal?.aborted) break;
     const chunk = pending.slice(start, start + chunkSize);
-    const part = await invoke<Record<string, Resolution>>(
-      'resolve_stat_icons',
-      {
+    let part: Record<string, Resolution>;
+    try {
+      part = await invoke<Record<string, Resolution>>('resolve_stat_icons', {
         args: {
           requests: chunk.map((r) => ({
             key: r.key,
@@ -192,9 +203,23 @@ export async function discoverIcons(
           })),
           cacheOnly,
         },
-      },
-    );
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message.slice(0, 240) : '未知错误';
+      part = Object.fromEntries(
+        chunk.map((row) => [
+          `${row.category}:${row.key}`,
+          {
+            image: null,
+            source: '',
+            reason: `本地资源请求失败：${reason}`,
+          },
+        ]),
+      );
+    }
     Object.assign(result, part);
+    processedRows += chunk.length;
   }
   if (noRootRows) {
     for (const entry of Object.values(result)) {
@@ -211,6 +236,11 @@ export async function discoverIcons(
     const work = renderQueue.then(async () => {
       for (const [id, entry] of Object.entries(result))
         if (entry.job) {
+          if (options.signal?.aborted) {
+            entry.reason = '检查已取消';
+            delete entry.job;
+            continue;
+          }
           const job = entry.job as RenderJob;
           try {
             if (job.kind === 'frame' && job.layers?.[0] && job.frameHeight) {
@@ -250,11 +280,23 @@ export async function discoverIcons(
   return {
     icons: result,
     details,
+    processedRows: Math.min(rows.length, processedRows),
+    cancelled: options.signal?.aborted ?? false,
     summary: summarize(details),
   };
 }
 export function iconUrl(image: string) {
   return image.startsWith('data:image/png;base64,')
     ? image
-    : `/stat-icons/${image}`;
+    : `/stat-icons/${image.replace(
+        /\.png$/i,
+        `.${
+          typeof __STAT_ICON_PNG_FILES__ !== 'undefined' &&
+          __STAT_ICON_PNG_FILES__.includes(image)
+            ? 'png'
+            : typeof __STAT_ICON_EXTENSION__ === 'string'
+            ? __STAT_ICON_EXTENSION__
+            : 'png'
+        }`,
+      )}`;
 }

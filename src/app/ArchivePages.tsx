@@ -14,7 +14,7 @@ import ZoomControls from '../components/ZoomControls';
 import ReadStatus from '../components/ReadStatus';
 import { TextButton } from '../components/ui';
 import { Button, Input, Select, Switch } from 'antd';
-import { Globe2, Link2, MonitorCog, UserRound } from 'lucide-react';
+import { Link2, MonitorCog, UserRound } from 'lucide-react';
 import { formatTickTotal } from '../lib/duration';
 import { displayPath } from '../lib/path';
 import type { AppState } from './useAppState';
@@ -452,29 +452,49 @@ export default function ArchivePages({ state }: { state: AppState }) {
       </SessionPage>
       {!loading && !busy && !worldCount && view !== 'settings' ? (
         <section className="empty-onboarding">
-          <Globe2 size={36} />
-          <h2>从你的第一个世界开始</h2>
-          <p>导入 Minecraft 文件夹，即可查看玩家、世界和游玩统计。</p>
-          <div className="scan-actions">
-            <Button
-              type="primary"
-              onClick={() => {
-                navigate('settings');
-                requestAnimationFrame(() =>
-                  document.getElementById('game-roots')?.focus(),
-                );
-              }}
-            >
-              选择游戏目录
-            </Button>
-            <Button
-              onClick={() => {
-                navigate('settings');
-                void connectPcl();
-              }}
-            >
-              从 PCL 读取目录
-            </Button>
+          <div className="onboarding-copy">
+            <span className="onboarding-kicker">
+              <span className="onboarding-kicker-mark" aria-hidden="true" />
+              WORLD ARCHIVE <span>· 01</span>
+            </span>
+            <h2>从你的第一个世界开始</h2>
+            <p>导入 Minecraft 文件夹，即可查看玩家、世界和游玩统计。</p>
+            <div className="scan-actions">
+              <Button
+                type="primary"
+                onClick={() => {
+                  navigate('settings');
+                  requestAnimationFrame(() =>
+                    document.getElementById('game-roots')?.focus(),
+                  );
+                }}
+              >
+                选择游戏目录
+              </Button>
+              <Button
+                onClick={() => {
+                  navigate('settings');
+                  void connectPcl();
+                }}
+              >
+                从 PCL 读取目录
+              </Button>
+            </div>
+          </div>
+          <div className="onboarding-art" aria-hidden="true">
+            <span className="onboarding-art-label">OVERWORLD / 01</span>
+            <span className="onboarding-cloud cloud-one" />
+            <span className="onboarding-cloud cloud-two" />
+            <span className="onboarding-pixel pixel-one" />
+            <span className="onboarding-pixel pixel-two" />
+            <span className="onboarding-pixel pixel-three" />
+            <div className="onboarding-cube">
+              <span className="onboarding-cube-face cube-top" />
+              <span className="onboarding-cube-face cube-left" />
+              <span className="onboarding-cube-face cube-right" />
+            </div>
+            <span className="onboarding-ground" />
+            <span className="onboarding-art-caption">A WORLD TO REMEMBER</span>
           </div>
         </section>
       ) : null}

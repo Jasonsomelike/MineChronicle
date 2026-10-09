@@ -43,7 +43,11 @@ import StatIconPreview from './StatIconPreview';
 import type { IconSelection } from './StatIconPreview';
 import { TextButton } from './ui';
 import { discoverIcons, iconUrl } from '../lib/runtimeResources';
-import type { Resolution, DiscoverDetail } from '../lib/runtimeResources';
+import type {
+  DiscoverDetail,
+  DiscoverResult,
+  Resolution,
+} from '../lib/runtimeResources';
 import {
   animateDiscoveredStatIcons,
   newlyDiscoveredIds,
@@ -73,6 +77,21 @@ const metrics = [
   ['sprint_cm', '疾跑距离'],
   ['fly_cm', '飞行距离'],
 ];
+const iconScanBatchSize = 40;
+type StatisticRow = StatisticsPage['rows'][number];
+type IconScanTotals = DiscoverResult['summary'];
+
+function emptyIconScanTotals(): IconScanTotals {
+  return { cached: 0, resolved: 0, rendered: 0, missing: 0, error: 0 };
+}
+
+function addIconScanTotals(target: IconScanTotals, part: IconScanTotals) {
+  target.cached += part.cached;
+  target.resolved += part.resolved;
+  target.rendered += part.rendered;
+  target.missing += part.missing;
+  target.error += part.error;
+}
 export default function Statistics({
   report,
   scope,
@@ -98,6 +117,9 @@ export default function Statistics({
   const [discovered, setDiscovered] = useState<Record<string, Resolution>>({});
   const discoveredIdsRef = useRef<string[]>([]);
   const [resourceDetails, setResourceDetails] = useState<DiscoverDetail[]>([]);
+  const [resourceDetailsScope, setResourceDetailsScope] = useState<
+    'page' | 'batch'
+  >('page');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
   const [showTech, setShowTech] = useState(false);
@@ -105,6 +127,7 @@ export default function Statistics({
     setDiscovered({});
     discoveredIdsRef.current = [];
     setResourceDetails([]);
+    setResourceDetailsScope('page');
     setDetailsOpen(false);
   }, [scope]);
   useEffect(() => {
@@ -119,6 +142,172 @@ export default function Statistics({
   }, [discovered]);
   const [resourceStatus, setResourceStatus] = useState('');
   const [checkingResources, setCheckingResources] = useState(false);
+  const [filteredScanActive, setFilteredScanActive] = useState(false);
+  const [filteredScanProgress, setFilteredScanProgress] = useState({
+    completed: 0,
+    total: 0,
+    label: '',
+  });
+  const [filteredScanStatus, setFilteredScanStatus] = useState('');
+  const [failedRetryCount, setFailedRetryCount] = useState(0);
+  const filteredScanController = useRef<AbortController | null>(null);
+  const failedRows = useRef(new Map<string, StatisticRow>());
+  const filterSignature = JSON.stringify({
+    scope,
+    mode,
+    query,
+    sort,
+    group,
+    scan: report.last_scan,
+  });
+  useEffect(() => {
+    filteredScanController.current?.abort();
+    filteredScanController.current = null;
+    failedRows.current.clear();
+    setFilteredScanActive(false);
+    setFilteredScanProgress({ completed: 0, total: 0, label: '' });
+    setFilteredScanStatus('');
+    setFailedRetryCount(0);
+  }, [filterSignature]);
+
+  async function scanFilteredResources(retryOnly = false) {
+    if (!data || filteredScanActive || checkingResources) return;
+    const retryRows = retryOnly ? [...failedRows.current.values()] : [];
+    if (retryOnly && !retryRows.length) return;
+    const controller = new AbortController();
+    filteredScanController.current = controller;
+    const visibleOffset = offset;
+    const filter = { ...scope, mode, query, sort, group };
+    if (!retryOnly) {
+      failedRows.current.clear();
+      setFailedRetryCount(0);
+    }
+    setFilteredScanActive(true);
+    setFilteredScanProgress({
+      completed: 0,
+      total: retryOnly ? retryRows.length : data.total,
+      label: retryOnly ? '正在重试失败项' : '正在扫描当前筛选结果',
+    });
+    setFilteredScanStatus('');
+    setDetailsOpen(true);
+    setDetailsMode('full');
+
+    const totals = emptyIconScanTotals();
+    let completed = 0;
+    let total = retryOnly ? retryRows.length : data.total;
+
+    const scanRows = async (rows: StatisticRow[], pageOffset?: number) => {
+      for (let start = 0; start < rows.length; start += iconScanBatchSize) {
+        if (controller.signal.aborted) return false;
+        const batch = rows.slice(start, start + iconScanBatchSize);
+        const result = await discoverIcons(batch, {
+          refreshKnown: true,
+          signal: controller.signal,
+        });
+        if (filteredScanController.current !== controller) return false;
+        addIconScanTotals(totals, result.summary);
+        const rowsById = new Map(
+          batch.map((row) => [`${row.category}:${row.key}`, row]),
+        );
+        for (const detail of result.details) {
+          const row = rowsById.get(detail.id);
+          if (detail.status === 'error' && row)
+            failedRows.current.set(detail.id, row);
+          else failedRows.current.delete(detail.id);
+        }
+        setFailedRetryCount(failedRows.current.size);
+        setResourceDetails(result.details);
+        setResourceDetailsScope('batch');
+        const visibleIds = new Set(
+          (dataRef.current?.rows ?? []).map(
+            (row) => `${row.category}:${row.key}`,
+          ),
+        );
+        if (result.icons && (retryOnly || pageOffset === visibleOffset)) {
+          const visibleIcons = Object.fromEntries(
+            Object.entries(result.icons).filter(
+              ([id, icon]) =>
+                visibleIds.has(id) &&
+                Boolean(icon.image) &&
+                icon.reason !== '检查已取消',
+            ),
+          );
+          if (Object.keys(visibleIcons).length)
+            setDiscovered((old) => ({ ...old, ...visibleIcons }));
+        }
+        completed += result.processedRows;
+        setFilteredScanProgress((current) => ({
+          ...current,
+          completed: Math.min(completed, total),
+          total,
+        }));
+        if (result.cancelled || controller.signal.aborted) return false;
+      }
+      return true;
+    };
+
+    try {
+      if (retryOnly) {
+        await scanRows(retryRows);
+      } else {
+        const firstPage = await loadStatistics({ ...filter, offset: 0 });
+        if (filteredScanController.current !== controller) return;
+        if (!controller.signal.aborted) {
+          total = firstPage.total;
+          setFilteredScanProgress((current) => ({ ...current, total }));
+          const pageSize = Math.max(1, firstPage.page_size);
+          for (let pageOffset = 0; pageOffset < total; pageOffset += pageSize) {
+            if (controller.signal.aborted) break;
+            const page =
+              pageOffset === 0
+                ? firstPage
+                : await loadStatistics({ ...filter, offset: pageOffset });
+            if (filteredScanController.current !== controller) return;
+            if (controller.signal.aborted) break;
+            const finished = await scanRows(page.rows, pageOffset);
+            if (!finished) break;
+            completed = Math.min(pageOffset + page.rows.length, total);
+            setFilteredScanProgress((current) => ({
+              ...current,
+              completed,
+              total,
+            }));
+            if (!page.rows.length) break;
+          }
+        }
+      }
+      if (filteredScanController.current !== controller) return;
+      const cancelled = controller.signal.aborted;
+      const ok = totals.cached + totals.resolved + totals.rendered;
+      setFilteredScanStatus(
+        `${
+          cancelled
+            ? '已取消'
+            : retryOnly
+            ? '失败项重试完成'
+            : '筛选结果检查完成'
+        }：已处理 ${completed}/${total} 项 · 可用图标 ${ok} · 未找到 ${
+          totals.missing
+        } · 错误 ${totals.error}`,
+      );
+    } catch (scanError) {
+      if (filteredScanController.current !== controller) return;
+      setFilteredScanStatus(
+        controller.signal.aborted
+          ? '已取消图标扫描'
+          : `图标扫描中断：${
+              scanError instanceof Error ? scanError.message : '未知错误'
+            }`,
+      );
+    } finally {
+      if (filteredScanController.current === controller) {
+        filteredScanController.current = null;
+        setFilteredScanActive(false);
+        setFailedRetryCount(failedRows.current.size);
+      }
+    }
+  }
+
   const [detailsMode, setDetailsMode] = useState<'none' | 'cache' | 'full'>(
     'none',
   );
@@ -128,13 +317,14 @@ export default function Statistics({
   const dataRef = useRef(data);
   dataRef.current = data;
   async function checkResources() {
-    if (!data || checkingResources) return;
+    if (!data || checkingResources || filteredScanActive) return;
     const snapshot = data;
     const id = ++requestId.current;
     setCheckingResources(true);
     setResourceStatus('正在扫描本机实例并解析图标…');
     setDetailsOpen(true);
     setDetailsMode('full');
+    setResourceDetailsScope('page');
     // Re-check every non-air row so a correct runtime icon can replace a
     // wrong bundled catalog icon (e.g. spider that still looks like slabs).
     const targetRows = snapshot.rows.filter(
@@ -172,9 +362,10 @@ export default function Statistics({
     setResourceStatus('');
     setDetailsMode('none');
     setResourceDetails([]);
+    setResourceDetailsScope('page');
   }, [data]);
   useEffect(() => {
-    if (!pageActive || !data) return;
+    if (!pageActive || !data || filteredScanActive) return;
     // Include rows that already have a bundled catalog icon so a cached
     // runtime icon can replace a wrong/ugly bundled one on reopen.
     const missing = data.rows.filter((row) => row.key !== 'minecraft:air');
@@ -197,17 +388,18 @@ export default function Statistics({
         }
         if (detailsModeRef.current === 'full') return;
         setResourceDetails(result.details);
+        setResourceDetailsScope('page');
         setDetailsMode('cache');
         setResourceStatus(
           hits
-            ? `已应用 ${hits} 项本机缓存图标；其余需点「检查本页游戏图标」`
-            : '本机缓存无命中；点「检查本页游戏图标」扫描 mods',
+            ? `已应用 ${hits} 项本机缓存图标；其余可检查本页或当前筛选结果`
+            : '本机缓存无命中；可检查本页或当前筛选结果',
         );
       })
       .catch(() => {
         /* cache-only is silent on failure */
       });
-  }, [data, pageActive]);
+  }, [data, filteredScanActive, pageActive]);
   useEffect(() => {
     if (!pageActive) setPreview(null);
   }, [pageActive]);
@@ -745,20 +937,49 @@ export default function Statistics({
           <span>图标与资源</span>
           <span className="stat-overview-caption">
             <span role="status" className="stat-icon-status">
-              {checkingResources
+              {filteredScanActive
+                ? `${filteredScanProgress.label} ${filteredScanProgress.completed}/${filteredScanProgress.total}`
+                : checkingResources
                 ? '正在检查游戏图标…'
-                : resourceStatus || '打开页面自动用缓存'}
+                : filteredScanStatus || resourceStatus || '打开页面自动用缓存'}
             </span>
           </span>
         </summary>
         <div className="stat-icon-toolbar">
           <TextButton
             title="从本机已安装实例查找模型并补齐本页图标；不会写入游戏文件。打开页面只自动应用已有缓存。"
-            disabled={loading || !data || checkingResources}
+            disabled={
+              loading || !data || checkingResources || filteredScanActive
+            }
             onClick={() => void checkResources()}
           >
             检查本页游戏图标
           </TextButton>
+          <TextButton
+            title="按当前搜索、分类、统计口径和实例筛选，逐页检查全部结果；扫描只读取本机资源并写入应用图标缓存。"
+            disabled={
+              loading ||
+              !data ||
+              !data.total ||
+              checkingResources ||
+              filteredScanActive
+            }
+            onClick={() => void scanFilteredResources()}
+          >
+            检查当前筛选结果
+          </TextButton>
+          {filteredScanActive ? (
+            <TextButton onClick={() => filteredScanController.current?.abort()}>
+              取消扫描
+            </TextButton>
+          ) : failedRetryCount ? (
+            <TextButton
+              title="只重试上次检查中发生错误的项目；未找到资源的项目不重复扫描。"
+              onClick={() => void scanFilteredResources(true)}
+            >
+              重试失败项（{failedRetryCount}）
+            </TextButton>
+          ) : null}
           <TextButton
             disabled={resourceDetails.length === 0}
             aria-expanded={detailsOpen}
@@ -767,10 +988,24 @@ export default function Statistics({
             {detailsOpen
               ? '收起明细'
               : resourceDetails.length
-              ? `查看明细（${resourceDetails.length}）`
+              ? resourceDetailsScope === 'batch'
+                ? `查看最近一批明细（${resourceDetails.length}）`
+                : `查看明细（${resourceDetails.length}）`
               : '查看明细'}
           </TextButton>
         </div>
+        {filteredScanActive ? (
+          <div className="stat-icon-scan-progress">
+            <progress
+              value={filteredScanProgress.completed}
+              max={Math.max(1, filteredScanProgress.total)}
+              aria-label={filteredScanProgress.label}
+            />
+            <span>
+              {filteredScanProgress.completed} / {filteredScanProgress.total}
+            </span>
+          </div>
+        ) : null}
         {detailsOpen && resourceDetails.length > 0 ? (
           <div
             className="stat-icon-details"
@@ -780,8 +1015,7 @@ export default function Statistics({
             {detailsMode === 'cache' ? (
               <p className="stat-detail-banner">
                 下列结果来自<strong>缓存查询</strong>
-                （未扫描
-                mods）。若仍缺图，请点击「检查本页游戏图标」做完整检查。
+                （未扫描 mods）。若仍缺图，可检查本页或当前筛选结果。
               </p>
             ) : null}
             <div className="stat-detail-chips" aria-label="结果汇总">

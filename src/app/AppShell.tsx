@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { HardDrive, Layers3, MonitorDown, Sprout } from 'lucide-react';
+import { HardDrive, Layers3, MonitorDown } from 'lucide-react';
 import { checkRuntime } from '../lib/runtime';
 import { FRONTEND_VERSION } from '../lib/version';
 import { displayPath } from '../lib/path';
@@ -375,8 +375,10 @@ export default function AppShell({
         }}
       >
         <span className="wordmark">
-          <span className="brand-mark">
-            <Sprout size={23} aria-hidden="true" />
+          <span className="brand-mark" aria-hidden="true">
+            <span className="brand-block">
+              <span className="brand-block-grass" />
+            </span>
           </span>
           <span className="wordmark-label">MineChronicle</span>
         </span>

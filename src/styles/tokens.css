@@ -47,14 +47,15 @@
     sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono',
     Consolas, monospace;
+  --font-display: Georgia, 'Times New Roman', 'Noto Serif CJK SC', 'Songti SC',
+    'SimSun', serif;
 
-  /* Arco's ladder is three steps - 2/4/8 for border-radius-small/medium/large -
-     so md and lg collapse onto the same 8px. The card corner moving 16 -> 8 is
-     the most visible part of the surface language change. */
+  /* Keep controls crisp while giving the larger panels the softer corners used by
+     the reference dashboard. */
   --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 8px;
-  --radius-lg: 8px;
+  --radius-lg: 14px;
   --radius-pill: 999px;
 
   /* Neutral shadows: the base colour is #1D2129 (Arco's text-1 / color-mask-bg

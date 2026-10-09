@@ -1,3 +1,4 @@
+use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::OnceLock};
 
@@ -26,8 +27,8 @@ pub struct StatResource {
 fn resources() -> &'static HashMap<String, Vec<StatResource>> {
     static RESOURCES: OnceLock<HashMap<String, Vec<StatResource>>> = OnceLock::new();
     RESOURCES.get_or_init(|| {
-        serde_json::from_str(include_str!("../../resources/stat-resources.json"))
-            .unwrap_or_default()
+        let compressed = include_bytes!(concat!(env!("OUT_DIR"), "/stat-resources.json.gz"));
+        serde_json::from_reader(GzDecoder::new(compressed.as_slice())).unwrap_or_default()
     })
 }
 

@@ -15,6 +15,7 @@ import './styles.css';
 import './styles/shell.css';
 import './styles/pages.css';
 import './motion.css';
+import './styles/chronicle.css';
 
 // antd's DatePicker reads its month names and first-day-of-week from dayjs's
 // own locale; ConfigProvider's `locale` covers only the component strings.

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "npm run typecheck && vite build",
+    "build": "npm run typecheck && node scripts/prepare-stat-icon-build.mjs && vite build && node scripts/copy-stat-icon-build.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "tauri": "tauri",
     "desktop:build": "tauri build --debug --no-bundle --features custom-protocol",
